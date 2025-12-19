@@ -1,0 +1,7 @@
+{
+  "name": "BibiChat - Cute AI Widget",
+  "description": "A comprehensive SaaS platform that allows businesses to embed a smart AI chat widget on their websites. It features a knowledge base system where users can upload documents to train the AI to answer customer queries automatically.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
