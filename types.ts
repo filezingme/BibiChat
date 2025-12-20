@@ -7,7 +7,8 @@ export enum View {
   INTEGRATION = 'integration',
   DEPLOYMENT_GUIDE = 'deployment_guide',
   CUSTOMER_MANAGEMENT = 'customer_management',
-  CHAT_HISTORY = 'chat_history'
+  CHAT_HISTORY = 'chat_history',
+  NOTIFICATION_MANAGER = 'notification_manager'
 }
 
 export type UserRole = 'master' | 'user';
@@ -61,4 +62,18 @@ export interface AnalyticsData {
   label: string;
   queries: number;
   solved: number;
+}
+
+export interface Notification {
+  id: string;
+  userId: string; // 'all' hoặc userId cụ thể
+  title: string;
+  desc: string;
+  time: number; // Thời gian tạo/hiển thị thực tế
+  scheduledAt: number; // Thời gian hẹn giờ
+  readBy: string[]; // Danh sách ID người dùng đã đọc
+  isRead?: boolean; // Computed field cho frontend (không lưu trong DB nếu dùng readBy)
+  icon: string;
+  color: string;
+  bg: string;
 }

@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { User, Document, WidgetSettings, ChatLog, UserRole } from "../types";
+import { User, Document, WidgetSettings, ChatLog, UserRole, Notification } from "../types";
 
 const API_URL = 'http://localhost:3001/api';
 const DB_KEY = 'omnichat_db_v1';
@@ -30,7 +30,8 @@ const getLocalDB = () => {
     db = { 
       users: [MASTER_USER], 
       documents: [],
-      chatLogs: []
+      chatLogs: [],
+      notifications: []
     };
     localStorage.setItem(DB_KEY, JSON.stringify(db));
   } else {
@@ -39,6 +40,8 @@ const getLocalDB = () => {
       db.users.unshift(MASTER_USER);
       localStorage.setItem(DB_KEY, JSON.stringify(db));
     }
+    // Ensure notifications array exists
+    if (!db.notifications) db.notifications = [];
   }
   return db;
 };
@@ -312,6 +315,142 @@ export const apiService = {
       logs = logs.filter(l => l.userId === userId);
     }
     return logs.sort((a, b) => b.timestamp - a.timestamp);
+  },
+
+  // --- NOTIFICATIONS ---
+  getNotifications: async (userId: string): Promise<Notification[]> => {
+    try {
+      const res = await fetch(`${API_URL}/notifications/${userId}`);
+      if (!res.ok) throw new Error("Server error");
+      return await res.json();
+    } catch (e) {
+      // Offline fallback logic: Filter and map readBy -> isRead
+      const db = getLocalDB();
+      const now = Date.now();
+      return (db.notifications || [])
+        .filter((n: any) => {
+          const isTargetUser = (n.userId === 'all' || n.userId === userId);
+          if (!isTargetUser) return false;
+          // Nếu admin, xem hết. Nếu không, chỉ xem quá khứ.
+          if (userId === 'admin') return true;
+          return n.scheduledAt ? n.scheduledAt <= now : n.time <= now;
+        })
+        .map((n: any) => ({
+            ...n,
+            isRead: Array.isArray(n.readBy) ? n.readBy.includes(userId) : (n.isRead || false)
+        }))
+        .sort((a: any, b: any) => (b.scheduledAt || b.time) - (a.scheduledAt || a.time));
+    }
+  },
+
+  getAdminNotifications: async (): Promise<Notification[]> => {
+    try {
+      const res = await fetch(`${API_URL}/admin/notifications`);
+      if (!res.ok) throw new Error("Server error");
+      return await res.json();
+    } catch (e) {
+      const db = getLocalDB();
+      return (db.notifications || []).sort((a: any, b: any) => (b.scheduledAt || b.time) - (a.scheduledAt || a.time));
+    }
+  },
+
+  markNotificationRead: async (id: string, userId: string): Promise<void> => {
+    try {
+      await fetch(`${API_URL}/notifications/${id}/read`, { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+    } catch (e) {
+      const db = getLocalDB();
+      const n = db.notifications?.find((x: any) => x.id === id);
+      if (n) {
+        if (!n.readBy) n.readBy = [];
+        if (!n.readBy.includes(userId)) {
+            n.readBy.push(userId);
+        }
+        // No longer set boolean isRead globally
+        saveLocalDB(db);
+      }
+    }
+  },
+
+  markAllNotificationsRead: async (userId: string): Promise<void> => {
+    try {
+        await fetch(`${API_URL}/notifications/read-all`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId })
+        });
+    } catch (e) {
+        const db = getLocalDB();
+        const now = Date.now();
+        db.notifications?.forEach((n: any) => {
+            const isTargetUser = (n.userId === 'all' || n.userId === userId);
+            const isVisible = userId === 'admin' ? true : (n.scheduledAt ? n.scheduledAt <= now : n.time <= now);
+            
+            if (isTargetUser && isVisible) {
+                if (!n.readBy) n.readBy = [];
+                if (!n.readBy.includes(userId)) {
+                    n.readBy.push(userId);
+                }
+            }
+        });
+        saveLocalDB(db);
+    }
+  },
+
+  // Tạo thông báo (Admin)
+  createSystemNotification: async (data: Partial<Notification>) => {
+    try {
+      await fetch(`${API_URL}/notifications/create`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+      });
+    } catch (e) {
+      // Offline fallback
+      const db = getLocalDB();
+      if (!db.notifications) db.notifications = [];
+      const now = Date.now();
+      db.notifications.push({
+        id: Math.random().toString(36).substr(2, 9),
+        userId: data.userId || 'all',
+        title: data.title || '',
+        desc: data.desc || '',
+        time: data.scheduledAt || now, 
+        scheduledAt: data.scheduledAt || now,
+        readBy: [],
+        icon: data.icon || 'fa-bell',
+        color: data.color || 'text-blue-500',
+        bg: data.bg || 'bg-blue-100'
+      });
+      saveLocalDB(db);
+    }
+  },
+
+  // Tính năng AI: Gợi ý icon cho thông báo
+  suggestIcon: async (text: string): Promise<string> => {
+    if (!process.env.API_KEY) return 'fa-bullhorn'; // Fallback nếu không có key
+
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // Prompt được tinh chỉnh để trả về class FontAwesome 6 chuẩn
+    const prompt = `Based on the following notification text, suggest the single most appropriate FontAwesome 6 icon class name (e.g., 'fa-bell', 'fa-triangle-exclamation', 'fa-gift', 'fa-champagne-glasses'). ONLY return the class name string, no markdown, no other text.
+    
+    Text: "${text}"`;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt
+      });
+      const iconClass = response.text?.trim() || 'fa-bullhorn';
+      // Đảm bảo trả về chuỗi sạch (đôi khi AI thêm dấu ngoặc kép hoặc chấm câu)
+      return iconClass.replace(/['".]/g, '');
+    } catch (error) {
+      console.error("AI Icon suggestion failed:", error);
+      return 'fa-bullhorn';
+    }
   },
 
   chat: async (userId: string, message: string, botName: string): Promise<string> => {

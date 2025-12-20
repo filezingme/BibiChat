@@ -1,16 +1,18 @@
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Document } from '../types';
 
 interface Props {
   userId: string;
   documents: Document[];
-  onAddDocument: (name: string, content: string, type: 'text' | 'file') => void;
-  onDeleteDocument: (id: string) => void;
+  onAddDocument: (name: string, content: string, type: 'text' | 'file') => Promise<void>; // Ensure promise
+  onDeleteDocument: (id: string) => Promise<void>; // Ensure promise
 }
 
 const KnowledgeBase: React.FC<Props> = ({ userId, documents, onAddDocument, onDeleteDocument }) => {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null); // State for deleting specific item
   const [newDocText, setNewDocText] = useState('');
   const [newDocName, setNewDocName] = useState('');
   
@@ -20,6 +22,7 @@ const KnowledgeBase: React.FC<Props> = ({ userId, documents, onAddDocument, onDe
   const handleManualAdd = async () => {
     if (!newDocName || !newDocText) return;
     setIsProcessing(true);
+    await new Promise(r => setTimeout(r, 1000)); // Cute delay
     await onAddDocument(newDocName, newDocText, 'text');
     setNewDocName('');
     setNewDocText('');
@@ -34,13 +37,22 @@ const KnowledgeBase: React.FC<Props> = ({ userId, documents, onAddDocument, onDe
     const reader = new FileReader();
     reader.onload = async (event) => {
       const content = event.target?.result as string;
+      await new Promise(r => setTimeout(r, 1000)); // Cute delay
       await onAddDocument(file.name, content, 'file');
       setIsProcessing(false);
     };
     reader.readAsText(file);
   };
 
+  const handleDelete = async (id: string) => {
+      setDeletingId(id);
+      await new Promise(r => setTimeout(r, 800)); // Cute delay
+      await onDeleteDocument(id);
+      setDeletingId(null);
+  };
+
   return (
+    <>
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-3 duration-500 pb-12 relative">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-white dark:bg-slate-800 p-8 rounded-[2rem] border-2 border-slate-100 dark:border-slate-700 shadow-xl shadow-indigo-100/50 dark:shadow-none">
         <div>
@@ -53,10 +65,10 @@ const KnowledgeBase: React.FC<Props> = ({ userId, documents, onAddDocument, onDe
           <p className="text-base text-slate-600 dark:text-slate-400 font-bold mt-2 ml-1">Nạp dữ liệu để AI thông minh hơn nè.</p>
         </div>
         <div className="w-full md:w-auto">
-           <label className="cursor-pointer bg-slate-800 dark:bg-violet-600 hover:bg-slate-900 dark:hover:bg-violet-700 text-white px-8 py-4 rounded-full font-bold transition-all flex items-center justify-center shadow-lg shadow-slate-300 dark:shadow-violet-900/40 active:scale-95 transform hover:-translate-y-1 text-base">
-            <i className="fa-solid fa-cloud-arrow-up mr-2 text-xl"></i>
-            Tải tài liệu lên
-            <input type="file" className="hidden" onChange={handleFileUpload} accept=".txt,.md,.json" />
+           <label className={`cursor-pointer bg-slate-800 dark:bg-violet-600 hover:bg-slate-900 dark:hover:bg-violet-700 text-white px-8 py-4 rounded-full font-bold transition-all flex items-center justify-center shadow-lg shadow-slate-300 dark:shadow-violet-900/40 active:scale-95 transform hover:-translate-y-1 text-base ${isProcessing ? 'opacity-70 pointer-events-none' : ''}`}>
+            {isProcessing ? <i className="fa-solid fa-circle-notch animate-spin mr-2 text-xl"></i> : <i className="fa-solid fa-cloud-arrow-up mr-2 text-xl"></i>}
+            {isProcessing ? 'Đang xử lý...' : 'Tải tài liệu lên'}
+            <input type="file" className="hidden" onChange={handleFileUpload} accept=".txt,.md,.json" disabled={isProcessing} />
           </label>
         </div>
       </div>
@@ -113,11 +125,12 @@ const KnowledgeBase: React.FC<Props> = ({ userId, documents, onAddDocument, onDe
                       </td>
                       <td className="px-6 py-5 text-right rounded-r-2xl pr-8">
                         <button 
-                          onClick={() => onDeleteDocument(doc.id)} 
-                          className="w-10 h-10 rounded-full bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-900/30 text-slate-400 dark:text-slate-500 hover:text-rose-500 dark:hover:text-rose-400 transition-all flex items-center justify-center border border-slate-200 dark:border-slate-600 hover:border-rose-200 dark:hover:border-rose-800 shadow-sm hover:scale-110 ml-auto"
+                          onClick={() => handleDelete(doc.id)} 
+                          disabled={deletingId === doc.id}
+                          className="w-10 h-10 rounded-full bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-900/30 text-slate-400 dark:text-slate-500 hover:text-rose-500 dark:hover:text-rose-400 transition-all flex items-center justify-center border border-slate-200 dark:border-slate-600 hover:border-rose-200 dark:hover:border-rose-800 shadow-sm hover:scale-110 ml-auto disabled:opacity-50"
                           title="Xóa tài liệu"
                         >
-                          <i className="fa-solid fa-trash-can text-base"></i>
+                          {deletingId === doc.id ? <i className="fa-solid fa-circle-notch animate-spin text-rose-500"></i> : <i className="fa-solid fa-trash-can text-base"></i>}
                         </button>
                       </td>
                     </tr>
@@ -173,7 +186,7 @@ const KnowledgeBase: React.FC<Props> = ({ userId, documents, onAddDocument, onDe
                 disabled={!newDocName || !newDocText || isProcessing} 
                 className="w-full bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-600 dark:hover:bg-indigo-700 text-white py-4 rounded-2xl font-bold transition-all disabled:opacity-50 shadow-xl shadow-indigo-200 dark:shadow-indigo-900/30 active:scale-95 flex items-center justify-center gap-3 text-base"
               >
-                {isProcessing ? <i className="fa-solid fa-circle-notch animate-spin"></i> : <><i className="fa-solid fa-floppy-disk text-lg"></i> Lưu dữ liệu</>}
+                {isProcessing ? <><i className="fa-solid fa-circle-notch animate-spin"></i> Đang lưu...</> : <><i className="fa-solid fa-floppy-disk text-lg"></i> Lưu dữ liệu</>}
               </button>
             </div>
           </div>
@@ -200,10 +213,11 @@ const KnowledgeBase: React.FC<Props> = ({ userId, documents, onAddDocument, onDe
           </div>
         </div>
       </div>
+    </div>
 
-      {/* CUTE TIP MODAL */}
-      {showTipModal && (
-        <div className="fixed inset-0 bg-slate-900/50 dark:bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4" onClick={() => setShowTipModal(false)}>
+      {/* CUTE TIP MODAL - RENDERED VIA PORTAL TO ESCAPE STACKING CONTEXT */}
+      {showTipModal && createPortal(
+        <div className="fixed inset-0 bg-slate-900/50 dark:bg-black/60 backdrop-blur-md z-[9999] flex items-center justify-center p-4" onClick={() => setShowTipModal(false)}>
            <div 
              className="bg-white dark:bg-slate-800 w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 relative animate-in fade-in zoom-in duration-300 border-[6px] border-slate-100 dark:border-slate-700"
              onClick={e => e.stopPropagation()}
@@ -258,9 +272,10 @@ const KnowledgeBase: React.FC<Props> = ({ userId, documents, onAddDocument, onDe
                 Đã hiểu rồi nha!
               </button>
            </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 };
 

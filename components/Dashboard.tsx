@@ -44,6 +44,7 @@ const Dashboard: React.FC<Props> = ({ user, initialSelectedUser = 'all' }) => {
   const loadStats = async () => {
     setIsLoading(true);
     const targetId = isMaster ? selectedUser : user.id;
+    await new Promise(r => setTimeout(r, 800)); // Cute delay
     const data = await apiService.getStats(targetId as any, period);
     setStats(data);
     setIsLoading(false);
@@ -191,8 +192,10 @@ const Dashboard: React.FC<Props> = ({ user, initialSelectedUser = 'all' }) => {
         <div className="h-[450px] w-full relative z-10">
           {isLoading ? (
             <div className="h-full w-full flex flex-col items-center justify-center">
-              <i className="fa-solid fa-circle-notch animate-spin text-indigo-500 text-4xl mb-4"></i>
-              <p className="text-base font-bold text-slate-500 dark:text-slate-400">Đang tải dữ liệu...</p>
+              <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/30 rounded-full flex items-center justify-center animate-bounce mb-4">
+                 <i className="fa-solid fa-robot text-indigo-500 text-3xl"></i>
+              </div>
+              <p className="text-base font-bold text-slate-500 dark:text-slate-400 animate-pulse">Đang phân tích dữ liệu...</p>
             </div>
           ) : stats.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">

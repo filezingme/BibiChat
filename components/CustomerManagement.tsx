@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { apiService } from '../services/apiService';
 import { User } from '../types';
 
@@ -17,6 +18,9 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats }) => {
   const [newResetPassword, setNewResetPassword] = useState('');
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean, userId: string | null, email: string }>({ isOpen: false, userId: null, email: '' });
   const [actionMsg, setActionMsg] = useState<{ type: string, text: string }>({ type: '', text: '' });
+  
+  // Loading state for modal actions
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     loadCustomers();
@@ -25,6 +29,7 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats }) => {
   const loadCustomers = async () => {
     setIsLoading(true);
     try {
+      await new Promise(r => setTimeout(r, 800)); // Cute delay
       const data = await apiService.getAllUsers();
       const filtered = data.filter(u => u.role !== 'master');
       setCustomers(filtered);
@@ -37,7 +42,9 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats }) => {
 
   const handleResetPassword = async () => {
     if (!resetModal.userId || !newResetPassword) return;
+    setIsProcessing(true);
     try {
+      await new Promise(r => setTimeout(r, 1000));
       const result = await apiService.resetUserPassword(resetModal.userId, newResetPassword);
       if (result.success) {
         setActionMsg({ type: 'success', text: `Đã đổi pass cho ${resetModal.email}` });
@@ -49,12 +56,15 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats }) => {
     } catch (e) {
       setActionMsg({ type: 'error', text: 'Lỗi hệ thống' });
     }
+    setIsProcessing(false);
     setTimeout(() => setActionMsg({ type: '', text: '' }), 3000);
   };
 
   const handleDeleteUser = async () => {
     if (!deleteModal.userId) return;
+    setIsProcessing(true);
     try {
+      await new Promise(r => setTimeout(r, 1000));
       const result = await apiService.deleteUser(deleteModal.userId);
       if (result.success) {
         setActionMsg({ type: 'success', text: `Đã xóa bé ${deleteModal.email}` });
@@ -66,6 +76,7 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats }) => {
     } catch (e) {
       setActionMsg({ type: 'error', text: 'Lỗi hệ thống' });
     }
+    setIsProcessing(false);
     setTimeout(() => setActionMsg({ type: '', text: '' }), 3000);
   };
 
@@ -75,15 +86,8 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats }) => {
   );
 
   return (
+    <>
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
-      {/* Toast Notification */}
-      {actionMsg.text && (
-        <div className={`fixed top-6 right-6 z-[100] px-6 py-4 rounded-3xl shadow-xl border flex items-center animate-in slide-in-from-right duration-300 ${actionMsg.type === 'success' ? 'bg-white dark:bg-slate-800 border-emerald-100 dark:border-emerald-900 text-emerald-600 dark:text-emerald-400' : 'bg-white dark:bg-slate-800 border-rose-100 dark:border-rose-900 text-rose-600 dark:text-rose-400'}`}>
-          <i className={`fa-solid ${actionMsg.type === 'success' ? 'fa-check-circle' : 'fa-heart-crack'} text-xl mr-3`}></i>
-          <span className="font-bold text-sm">{actionMsg.text}</span>
-        </div>
-      )}
-
       {/* Header & Search */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-800 p-6 rounded-[2rem] border border-white dark:border-slate-700 shadow-lg shadow-indigo-50/50 dark:shadow-none">
         <div className="flex items-center gap-4">
@@ -143,9 +147,13 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats }) => {
             <tbody className="space-y-2">
               {isLoading ? (
                 <tr>
-                  <td colSpan={4} className="px-8 py-24 text-center">
-                    <i className="fa-solid fa-circle-notch animate-spin text-indigo-400 text-3xl"></i>
-                    <p className="text-sm font-bold text-slate-400 mt-4">Đang tìm kiếm...</p>
+                  <td colSpan={4} className="px-8 py-32 text-center">
+                    <div className="flex flex-col items-center">
+                       <div className="w-16 h-16 bg-pink-100 dark:bg-pink-900/30 rounded-full flex items-center justify-center animate-bounce mb-4">
+                          <i className="fa-solid fa-binoculars text-pink-500 text-2xl"></i>
+                       </div>
+                       <p className="text-sm font-bold text-slate-400 dark:text-slate-500">Đang tìm kiếm khách hàng...</p>
+                    </div>
                   </td>
                 </tr>
               ) : filteredCustomers.length > 0 ? (
@@ -224,10 +232,20 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats }) => {
           </table>
         </div>
       </div>
+    </div>
+
+      {/* Toast Notification */}
+      {actionMsg.text && createPortal(
+        <div className={`fixed top-6 right-6 z-[9999] px-6 py-4 rounded-3xl shadow-xl border flex items-center animate-in slide-in-from-right duration-300 ${actionMsg.type === 'success' ? 'bg-white dark:bg-slate-800 border-emerald-100 dark:border-emerald-900 text-emerald-600 dark:text-emerald-400' : 'bg-white dark:bg-slate-800 border-rose-100 dark:border-rose-900 text-rose-600 dark:text-rose-400'}`}>
+          <i className={`fa-solid ${actionMsg.type === 'success' ? 'fa-check-circle' : 'fa-heart-crack'} text-xl mr-3`}></i>
+          <span className="font-bold text-sm">{actionMsg.text}</span>
+        </div>,
+        document.body
+      )}
 
       {/* Reset Password Modal */}
-      {resetModal.isOpen && (
-        <div className="fixed inset-0 bg-slate-900/20 dark:bg-black/50 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+      {resetModal.isOpen && createPortal(
+        <div className="fixed inset-0 bg-slate-900/20 dark:bg-black/50 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-300 border border-white dark:border-slate-700">
              <div className="p-8 text-center">
                <div className="w-20 h-20 bg-amber-100 dark:bg-amber-900/30 text-amber-500 dark:text-amber-400 rounded-3xl flex items-center justify-center mx-auto mb-5 text-3xl shadow-lg shadow-amber-200 dark:shadow-none transform rotate-12">
@@ -243,19 +261,23 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats }) => {
                  className="w-full mt-6 px-6 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-transparent rounded-2xl text-sm font-bold text-center focus:outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-amber-300 dark:focus:border-amber-600 transition-all text-slate-800 dark:text-white"
                  value={newResetPassword}
                  onChange={e => setNewResetPassword(e.target.value)}
+                 disabled={isProcessing}
                />
                <div className="grid grid-cols-2 gap-3 mt-8">
-                 <button onClick={() => setResetModal({ isOpen: false, userId: null, email: '' })} className="py-3.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl font-bold hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Hủy nha</button>
-                 <button onClick={handleResetPassword} className="py-3.5 bg-amber-500 text-white rounded-2xl font-bold hover:bg-amber-600 transition-colors shadow-lg shadow-amber-200 dark:shadow-none">Xác nhận</button>
+                 <button onClick={() => setResetModal({ isOpen: false, userId: null, email: '' })} disabled={isProcessing} className="py-3.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl font-bold hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors disabled:opacity-50">Hủy nha</button>
+                 <button onClick={handleResetPassword} disabled={isProcessing} className="py-3.5 bg-amber-500 text-white rounded-2xl font-bold hover:bg-amber-600 transition-colors shadow-lg shadow-amber-200 dark:shadow-none flex justify-center items-center gap-2 disabled:opacity-70">
+                    {isProcessing ? <i className="fa-solid fa-circle-notch animate-spin"></i> : 'Xác nhận'}
+                 </button>
                </div>
              </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Delete Confirmation Modal */}
-      {deleteModal.isOpen && (
-        <div className="fixed inset-0 bg-slate-900/20 dark:bg-black/50 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+      {deleteModal.isOpen && createPortal(
+        <div className="fixed inset-0 bg-slate-900/20 dark:bg-black/50 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-300 border border-white dark:border-slate-700">
              <div className="p-8 text-center">
                <div className="w-20 h-20 bg-rose-100 dark:bg-rose-900/30 text-rose-500 dark:text-rose-400 rounded-3xl flex items-center justify-center mx-auto mb-5 text-3xl shadow-lg shadow-rose-200 dark:shadow-none transform -rotate-12">
@@ -266,14 +288,17 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats }) => {
                  Tài khoản <span className="font-bold text-slate-900 dark:text-slate-200">{deleteModal.email}</span> sẽ bị xóa vĩnh viễn cùng toàn bộ dữ liệu đó nha.
                </p>
                <div className="grid grid-cols-2 gap-3 mt-8">
-                 <button onClick={() => setDeleteModal({ isOpen: false, userId: null, email: '' })} className="py-3.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl font-bold hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Giữ lại</button>
-                 <button onClick={handleDeleteUser} className="py-3.5 bg-rose-500 text-white rounded-2xl font-bold hover:bg-rose-600 transition-colors shadow-lg shadow-rose-200 dark:shadow-none">Xóa luôn</button>
+                 <button onClick={() => setDeleteModal({ isOpen: false, userId: null, email: '' })} disabled={isProcessing} className="py-3.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl font-bold hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors disabled:opacity-50">Giữ lại</button>
+                 <button onClick={handleDeleteUser} disabled={isProcessing} className="py-3.5 bg-rose-500 text-white rounded-2xl font-bold hover:bg-rose-600 transition-colors shadow-lg shadow-rose-200 dark:shadow-none flex justify-center items-center gap-2 disabled:opacity-70">
+                    {isProcessing ? <i className="fa-solid fa-circle-notch animate-spin"></i> : 'Xóa luôn'}
+                 </button>
                </div>
              </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 };
 

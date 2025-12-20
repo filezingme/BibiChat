@@ -35,6 +35,7 @@ const ChatHistory: React.FC<Props> = ({ user }) => {
   const loadData = async () => {
     setIsLoading(true);
     try {
+      await new Promise(r => setTimeout(r, 800)); // Cute delay
       if (isMaster) {
         const allUsers = await apiService.getAllUsers();
         setCustomers(allUsers);
@@ -119,7 +120,12 @@ const ChatHistory: React.FC<Props> = ({ user }) => {
           </div>
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
             {isLoading ? (
-               <div className="flex justify-center p-10"><i className="fa-solid fa-circle-notch animate-spin text-blue-500 text-2xl"></i></div>
+               <div className="flex flex-col items-center justify-center h-full p-4">
+                  <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 rounded-full flex items-center justify-center animate-bounce mb-3">
+                     <i className="fa-regular fa-comment-dots text-blue-500 text-2xl"></i>
+                  </div>
+                  <p className="text-xs font-bold text-slate-400 animate-pulse">Đang tải tin nhắn...</p>
+               </div>
             ) : filteredLogs.length > 0 ? (
               filteredLogs.map(log => (
                 <div 

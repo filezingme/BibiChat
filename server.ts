@@ -38,7 +38,11 @@ const initDB = () => {
         { id: 'admin', email: 'admin@bibichat.io', password: '123456', role: 'master', botSettings: { botName: 'BibiBot', primaryColor: '#ec4899', welcomeMessage: 'Xin chào! Mình là BibiBot đây.' } }
       ], 
       documents: [],
-      chatLogs: []
+      chatLogs: [],
+      notifications: [
+        { id: '1', userId: 'all', title: 'Bé AI đã học xong', desc: 'Dữ liệu "Chính sách đổi trả" đã được nạp thành công vào bộ nhớ.', time: Date.now() - 7200000, scheduledAt: Date.now() - 7200000, readBy: [], icon: 'fa-graduation-cap', color: 'text-pink-500', bg: 'bg-pink-100 dark:bg-pink-900/30' },
+        { id: '2', userId: 'all', title: 'Hệ thống an toàn', desc: 'Dữ liệu của bạn được bảo vệ tuyệt đối an toàn với mã hóa 2 lớp.', time: Date.now() - 18000000, scheduledAt: Date.now() - 18000000, readBy: [], icon: 'fa-shield-heart', color: 'text-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-900/30' }
+      ]
     }));
   }
 };
@@ -46,6 +50,129 @@ initDB();
 
 const getDB = () => JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
 const saveDB = (data: any) => fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+
+// --- NOTIFICATION APIs ---
+app.get('/api/notifications/:userId', (req, res) => {
+  const { userId } = req.params;
+  const db = getDB();
+  const now = Date.now();
+  
+  // Logic:
+  // 1. Phải thuộc về user đó HOẶC là 'all'
+  // 2. NẾU là admin: Xem được hết (kể cả tương lai)
+  // 3. NẾU KHÔNG phải admin: Chỉ xem được cái đã đến giờ (scheduledAt <= now)
+  
+  let notifs = (db.notifications || []).filter((n: any) => {
+    const isTargetUser = (n.userId === 'all' || n.userId === userId);
+    
+    if (!isTargetUser) return false;
+
+    if (userId === 'admin') {
+        return true; // Admin thấy hết
+    } else {
+        return n.scheduledAt ? n.scheduledAt <= now : n.time <= now; // User thường chỉ thấy quá khứ
+    }
+  });
+
+  // Map thêm trường isRead cho frontend dựa trên readBy array
+  notifs = notifs.map((n: any) => ({
+      ...n,
+      isRead: Array.isArray(n.readBy) ? n.readBy.includes(userId) : (n.isRead || false)
+  }));
+
+  // Sắp xếp mới nhất lên đầu (dựa vào scheduledAt hoặc time)
+  notifs.sort((a: any, b: any) => (b.scheduledAt || b.time) - (a.scheduledAt || a.time));
+  res.json(notifs);
+});
+
+// API lấy lịch sử thông báo đã tạo (Cho Admin) - Không lọc theo thời gian để Admin thấy cả thông báo tương lai
+app.get('/api/admin/notifications', (req, res) => {
+  const db = getDB();
+  const notifs = (db.notifications || []);
+  // Admin thì không cần tính isRead cá nhân, hoặc mặc định là false
+  notifs.sort((a: any, b: any) => (b.scheduledAt || b.time) - (a.scheduledAt || a.time));
+  res.json(notifs);
+});
+
+// API Đánh dấu 1 thông báo là đã đọc
+app.post('/api/notifications/:id/read', (req, res) => {
+  const { id } = req.params;
+  const { userId } = req.body; // Cần userId để biết ai đọc
+  
+  if (!userId) return res.status(400).json({ success: false, message: 'Missing userId' });
+
+  const db = getDB();
+  const index = (db.notifications || []).findIndex((n: any) => n.id === id);
+  
+  if (index !== -1) {
+    const notif = db.notifications[index];
+    if (!notif.readBy) notif.readBy = [];
+    
+    // Nếu chưa có userId trong mảng readBy thì push vào
+    if (!notif.readBy.includes(userId)) {
+        notif.readBy.push(userId);
+    }
+    
+    // Backward compatibility: vẫn giữ isRead cũ nếu cần, nhưng logic chính là readBy
+    // notif.isRead = true; // Xóa dòng này để không ảnh hưởng user khác
+    
+    saveDB(db);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ success: false });
+  }
+});
+
+// API Đánh dấu tất cả là đã đọc
+app.post('/api/notifications/read-all', (req, res) => {
+  const { userId } = req.body;
+  if (!userId) return res.status(400).json({ success: false, message: 'Missing userId' });
+
+  const db = getDB();
+  const now = Date.now();
+  
+  if (db.notifications) {
+    db.notifications.forEach((n: any) => {
+        // Chỉ đánh dấu những thông báo thuộc về user này và ĐÃ được hiển thị
+        const isTargetUser = (n.userId === 'all' || n.userId === userId);
+        const isVisible = userId === 'admin' ? true : (n.scheduledAt ? n.scheduledAt <= now : n.time <= now);
+
+        if (isTargetUser && isVisible) {
+            if (!n.readBy) n.readBy = [];
+            if (!n.readBy.includes(userId)) {
+                n.readBy.push(userId);
+            }
+        }
+    });
+    saveDB(db);
+  }
+  res.json({ success: true });
+});
+
+// API tạo thông báo mới (Có hỗ trợ hẹn giờ)
+app.post('/api/notifications/create', (req, res) => {
+  const db = getDB();
+  const scheduledTime = req.body.scheduledAt || Date.now();
+  
+  const newNotif = {
+    id: Math.random().toString(36).substr(2, 9),
+    userId: req.body.userId || 'all',
+    title: req.body.title,
+    desc: req.body.desc,
+    time: scheduledTime, // Time dùng để hiển thị created time
+    scheduledAt: scheduledTime, // Time dùng để filter hiển thị
+    readBy: [], // Khởi tạo mảng rỗng
+    icon: req.body.icon || 'fa-bell',
+    color: req.body.color || 'text-blue-500',
+    bg: req.body.bg || 'bg-blue-100 dark:bg-blue-900/30'
+  };
+  
+  if (!db.notifications) db.notifications = [];
+  db.notifications.push(newNotif);
+  saveDB(db);
+  res.json(newNotif);
+});
+
 
 // API: Lấy danh sách Users (Cho Master)
 app.get('/api/users', (req, res) => {
@@ -245,7 +372,7 @@ app.post('/api/chat', async (req, res) => {
     .map((d: any) => `[Tài liệu: ${d.name}]\n${d.content}`)
     .join('\n\n');
 
-  const systemInstruction = `Bạn là trợ lý AI tên "${botName || 'BibiBot'}". Hãy dùng kiến thức sau để hỗ trợ khách hàng: ${context}`;
+  const systemInstruction = `Bạn là trợ lý AI tên "${botName || 'BibiBot'}". Hãy sử dụng kiến thức sau để hỗ trợ khách hàng: ${context}`;
 
   try {
     const response = await ai.models.generateContent({
@@ -278,6 +405,7 @@ app.post('/api/chat', async (req, res) => {
 
 // --- SERVE WIDGET.JS (VANILLA JS IMPLEMENTATION) ---
 app.get('/widget.js', (req, res) => {
+  // ... (No changes to widget.js)
   const script = `
     (function() {
       // 1. Get Config
