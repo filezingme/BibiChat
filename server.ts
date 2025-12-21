@@ -1,3 +1,4 @@
+
 import express, { RequestHandler } from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
@@ -278,17 +279,30 @@ app.get('/api/notifications/:userId', async (req, res) => {
     const { userId } = req.params;
     const now = Date.now();
     
-    let query: any = {
+    // Corrected Logic: Always include notifications for 'all' OR specific user
+    const baseQuery = {
         $or: [{ userId: 'all' }, { userId: userId }]
     };
     
+    let finalQuery: any = baseQuery;
+
+    // For non-admin users, we must also check the schedule time
     if (userId !== 'admin') {
-        query.$or.forEach((cond: any) => {
-            cond.$or = [{ scheduledAt: { $lte: now + 60000 } }, { time: { $lte: now + 60000 } }];
-        });
+        finalQuery = {
+            $and: [
+                baseQuery,
+                { 
+                    $or: [
+                        { scheduledAt: { $lte: now + 60000 } }, // +60s buffer
+                        { time: { $lte: now + 60000 } },
+                        { scheduledAt: { $exists: false } } // Handle legacy docs
+                    ] 
+                }
+            ]
+        };
     }
 
-    const notifs = await Notification.find(query).sort({ scheduledAt: -1, time: -1 });
+    const notifs = await Notification.find(finalQuery).sort({ scheduledAt: -1, time: -1 });
     
     const mapped = notifs.map(n => ({
         ...n.toObject(),
@@ -360,6 +374,8 @@ app.get('/api/chat-sessions/:userId', async (req, res) => {
     const filterUserId = req.query.filterUserId as string || 'all';
 
     let matchStage: any = {};
+    
+    // Only apply filter if it's NOT 'all'
     if (userId !== 'all') {
         matchStage.userId = userId;
     } else if (filterUserId !== 'all') {
@@ -384,6 +400,15 @@ app.get('/api/chat-sessions/:userId', async (req, res) => {
         { $limit: limit }
     ]);
 
+    // Count total distinct sessions for pagination
+    // Note: This can be heavy on huge datasets, but okay for MVP
+    const countResult = await ChatLog.aggregate([
+        { $match: matchStage },
+        { $group: { _id: { userId: "$userId", sessionId: "$customerSessionId" } } },
+        { $count: "total" }
+    ]);
+    const total = countResult[0]?.total || 0;
+
     const mappedSessions = sessions.map(s => ({
         uniqueKey: `${s.userId}_${s.sessionId}`,
         ...s
@@ -391,7 +416,7 @@ app.get('/api/chat-sessions/:userId', async (req, res) => {
 
     res.json({
         data: mappedSessions,
-        pagination: { total: 100, page, limit, totalPages: 10 }
+        pagination: { total, page, limit, totalPages: Math.ceil(total / limit) }
     });
 });
 
@@ -508,7 +533,7 @@ app.post('/api/chat', async (req, res) => {
     
     const docs = await Document.find({ userId });
     const context = docs.map(d => `[Tài liệu: ${d.name}]\n${d.content}`).join('\n\n');
-    const systemInstruction = `Bạn là trợ lý AI tên "${botName || 'BibiBot'}". Dữ liệu: ${context}`;
+    const systemInstruction = `Bạn là trợ lý AI tên "${botName || 'BibiBot'}". Hãy sử dụng kiến thức sau để hỗ trợ khách hàng: ${context}`;
     
     try {
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });

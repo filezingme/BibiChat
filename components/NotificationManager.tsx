@@ -404,11 +404,11 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
                    </h4>
                    <ul className="space-y-3 text-xs font-bold text-slate-600 dark:text-slate-300 relative z-10">
                       <li className="flex items-start gap-2">
-                         <span className="w-1.5 h-1.5 bg-amber-400 rounded-full mt-1.5"></span>
-                         Thêm Emoji <span className="inline-block animate-bounce">✨</span> giúp tăng 20% tỷ lệ click đó nha!
+                         <span className="w-1.5 h-1.5 bg-amber-400 rounded-full mt-1.5 shrink-0"></span>
+                         <p>Thêm Emoji <span className="inline-block animate-bounce">✨</span> giúp tăng 20% tỷ lệ click đó nha!</p>
                       </li>
                       <li className="flex items-start gap-2">
-                         <span className="w-1.5 h-1.5 bg-amber-400 rounded-full mt-1.5"></span>
+                         <span className="w-1.5 h-1.5 bg-amber-400 rounded-full mt-1.5 shrink-0"></span>
                          Thông báo ngắn gọn (dưới 50 từ) sẽ dễ đọc hơn trên điện thoại.
                       </li>
                    </ul>

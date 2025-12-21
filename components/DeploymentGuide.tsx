@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 const DeploymentGuide: React.FC = () => {
@@ -10,7 +11,7 @@ const DeploymentGuide: React.FC = () => {
   return (
     <div className="max-w-4xl space-y-10 animate-in fade-in duration-500 pb-20">
       <section>
-        <h2 className="text-3xl font-bold mb-4 text-slate-800 dark:text-white">Hướng dẫn Deploy Miễn Phí (Tốc độ cao)</h2>
+        <h2 className="text-3xl font-bold mb-4 text-slate-800 dark:text-white">Hướng dẫn Deploy & Cấu hình</h2>
         <p className="text-gray-600 dark:text-gray-400 mb-6">Combo tối ưu nhất hiện nay: Frontend (Vercel) + Backend (Koyeb) + Database (MongoDB Atlas).</p>
         
         <div className="space-y-8">
@@ -24,7 +25,7 @@ const DeploymentGuide: React.FC = () => {
                  <li>Truy cập <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-indigo-500 hover:underline font-bold">Google AI Studio</a>.</li>
                  <li>Đăng nhập bằng Gmail của bạn.</li>
                  <li>Nhấn nút <strong>Create API key</strong> &rarr; <strong>Create API key in new project</strong>.</li>
-                 <li>Copy chuỗi ký tự bắt đầu bằng <code>AIza...</code> (Lưu lại để dùng ở Bước 2).</li>
+                 <li>Copy chuỗi ký tự bắt đầu bằng <code>AIza...</code> (Lưu lại để dùng ở Bước 4).</li>
               </ul>
             </div>
           </div>
@@ -82,13 +83,35 @@ const DeploymentGuide: React.FC = () => {
               </ul>
             </div>
           </div>
+
+          {/* Step 4: Add Env Vars */}
+          <div className="flex gap-4">
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold">4</div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-800 dark:text-white">Quan trọng: Thêm API Key vào Vercel</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Để chat hoạt động ngay cả khi Backend chưa sẵn sàng.</p>
+              <ul className="list-disc ml-5 mt-2 text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                 <li>Trong Dashboard dự án trên Vercel, vào tab <strong>Settings</strong>.</li>
+                 <li>Chọn mục <strong>Environment Variables</strong>.</li>
+                 <li>Thêm biến mới:
+                    <ul className="ml-4 mt-1 font-mono text-xs bg-slate-100 p-2 rounded">
+                        <li>Key: <strong>API_KEY</strong></li>
+                        <li>Value: (Key Gemini của bạn)</li>
+                    </ul>
+                 </li>
+                 <li>Nhấn <strong>Save</strong>.</li>
+                 <li>Vào tab <strong>Deployments</strong>, nhấn dấu 3 chấm ở bản build mới nhất &rarr; <strong>Redeploy</strong> để áp dụng key.</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </section>
 
       <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-8 text-white mt-8 shadow-xl">
-        <h3 className="text-xl font-bold mb-2 flex items-center gap-2"><i className="fa-solid fa-bolt"></i> Tại sao chọn Koyeb?</h3>
+        <h3 className="text-xl font-bold mb-2 flex items-center gap-2"><i className="fa-solid fa-bolt"></i> Mẹo xử lý lỗi</h3>
         <p className="opacity-90 text-sm leading-relaxed">
-          Koyeb cung cấp gói miễn phí với hạ tầng tốt hơn Render cho các ứng dụng chat. Server không bị "ngủ sâu" (deep sleep), giúp tin nhắn đầu tiên của khách hàng được phản hồi ngay lập tức thay vì phải chờ đợi.
+          Nếu bạn gặp lỗi "Thiếu API Key", hãy chắc chắn bạn đã thực hiện <strong>Bước 4</strong> và Redeploy lại nhé! Bạn cũng có thể mở Console trình duyệt (F12) và nhập lệnh sau để test nhanh không cần deploy: <br/>
+          <code className="bg-black/30 px-2 py-1 rounded mt-2 inline-block">localStorage.setItem('API_KEY', 'your-key')</code>
         </p>
       </div>
     </div>

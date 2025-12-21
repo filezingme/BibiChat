@@ -43,12 +43,6 @@ const Login: React.FC<Props> = ({ onLogin }) => {
     }
   };
 
-  const fillAdminCreds = () => {
-    setEmail('admin@bibichat.io');
-    setPassword('123456');
-    setError('');
-  };
-
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-[#f0f2f5] p-6 font-sans relative overflow-hidden">
       {/* Background Decor - Vibrant Mesh */}
@@ -90,7 +84,7 @@ const Login: React.FC<Props> = ({ onLogin }) => {
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)} 
                   className="block w-full pl-14 pr-6 py-4 bg-white border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-pink-100 focus:border-pink-500 outline-none text-base font-bold text-slate-800 placeholder:text-slate-400 transition-all" 
-                  placeholder="name@company.com" 
+                  placeholder="Nhập địa chỉ email" 
                 />
               </div>
             </div>
@@ -121,19 +115,6 @@ const Login: React.FC<Props> = ({ onLogin }) => {
             {!isLoading && <i className="fa-solid fa-arrow-right"></i>}
           </button>
         </form>
-
-        {!isRegister && (
-          <div className="mt-8 text-center">
-            <button 
-              type="button"
-              onClick={fillAdminCreds}
-              className="inline-flex items-center px-6 py-3 bg-slate-50 hover:bg-pink-50 text-sm font-bold text-slate-600 hover:text-pink-600 border-2 border-slate-200 hover:border-pink-200 rounded-2xl transition-all shadow-sm hover:shadow-md"
-            >
-              <i className="fa-solid fa-key mr-2 text-pink-500"></i>
-              Thử Demo Admin
-            </button>
-          </div>
-        )}
 
         <div className="mt-8 pt-6 border-t border-slate-100 text-center">
           <p className="text-slate-500 text-sm font-bold">

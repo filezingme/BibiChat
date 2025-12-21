@@ -2,6 +2,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { User, Document, WidgetSettings, ChatLog, UserRole, Notification, Lead, PluginConfig } from "../types";
 
+// URL Backend - Cập nhật URL này nếu bạn deploy backend riêng
 const API_URL = 'https://fuzzy-cosette-filezingme-org-64d51f5d.koyeb.app';
 const DB_KEY = 'omnichat_db_v1';
 
@@ -37,6 +38,11 @@ const getLocalDB = () => {
 
 const saveLocalDB = (db: any) => {
   localStorage.setItem(DB_KEY, JSON.stringify(db));
+};
+
+// Helper để lấy API Key từ Env hoặc LocalStorage (cho phép debug nhanh)
+const getApiKey = () => {
+    return process.env.API_KEY || localStorage.getItem('API_KEY') || localStorage.getItem('omnichat_api_key') || '';
 };
 
 export const apiService = {
@@ -566,10 +572,12 @@ export const apiService = {
   },
 
   suggestIcon: async (text: string): Promise<string> => {
-    if (!process.env.API_KEY) return 'fa-bullhorn';
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const prompt = `Based on the following notification text, suggest the single most appropriate FontAwesome 6 icon class name. ONLY return the class name string. Text: "${text}"`;
+    const apiKey = getApiKey();
+    if (!apiKey) return 'fa-bullhorn';
+    
     try {
+      const ai = new GoogleGenAI({ apiKey });
+      const prompt = `Based on the following notification text, suggest the single most appropriate FontAwesome 6 icon class name. ONLY return the class name string. Text: "${text}"`;
       const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
       const iconClass = response.text?.trim() || 'fa-bullhorn';
       return iconClass.replace(/['".]/g, '');
@@ -590,18 +598,28 @@ export const apiService = {
     } catch (e) {}
 
     try {
-      if (!process.env.API_KEY) return "Lỗi cấu hình: Thiếu API Key.";
+      const apiKey = getApiKey();
+      if (!apiKey) {
+          // Trả về hướng dẫn chi tiết cho người dùng
+          return "⚠️ Lỗi cấu hình: Thiếu API Key.\n\nHệ thống không tìm thấy API Key để chạy AI.\n\n👉 Cách khắc phục:\n1. Vào Vercel > Settings > Environment Variables.\n2. Thêm key: API_KEY = [Key Gemini của bạn].\n3. Redeploy lại ứng dụng.\n\nHoặc mở Console (F12) và nhập: localStorage.setItem('API_KEY', 'your-key') để test nhanh.";
+      }
+
       const db = getLocalDB();
       const docs = db.documents.filter((d: any) => d.userId === userId);
       const context = docs.map((d: any) => `[Tài liệu: ${d.name}]\n${d.content}`).join('\n\n');
       const systemInstruction = `Bạn là trợ lý AI tên "${botName || 'BibiBot'}". Hãy sử dụng kiến thức sau để hỗ trợ khách hàng: ${context}`;
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      
+      const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: message, config: { systemInstruction } });
+      
       if (!db.chatLogs) db.chatLogs = [];
-      // Use the provided sessionId for grouping offline/fallback logs too
       db.chatLogs.push({ id: Math.random().toString(36).substr(2, 9), userId, customerSessionId: sessionId || 'client-fallback', query: message, answer: response.text || '', timestamp: Date.now(), isSolved: true });
       saveLocalDB(db);
+      
       return response.text || "Tôi không thể trả lời lúc này.";
-    } catch (clientError) { return "Lỗi kết nối. Vui lòng thử lại sau."; }
+    } catch (clientError) { 
+        console.error(clientError);
+        return "Lỗi kết nối AI. Vui lòng kiểm tra lại API Key hoặc thử lại sau."; 
+    }
   }
 };
