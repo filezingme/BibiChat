@@ -28,10 +28,10 @@ const LandingPage: React.FC<Props> = ({ onNavigate }) => {
 
   return (
     <div className="min-h-screen bg-white text-slate-800 font-sans selection:bg-pink-100 selection:text-pink-600 overflow-x-hidden">
-      {/* Navbar - Redesigned for better proportions */}
-      <nav className="fixed top-0 w-full z-50 bg-white/90 backdrop-blur-xl border-b border-slate-100 transition-all duration-300 supports-[backdrop-filter]:bg-white/60">
+      {/* Navbar - Absolute on mobile to scroll with page, Fixed on desktop */}
+      <nav className="absolute lg:fixed top-0 w-full z-50 bg-white/90 backdrop-blur-xl border-b border-slate-100 transition-all duration-300 supports-[backdrop-filter]:bg-white/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-20 sm:h-24 flex items-center justify-between">
-          {/* Logo - Increased Size by ~50% */}
+          {/* Logo */}
           <div className="flex items-center gap-3 sm:gap-4 cursor-pointer group" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
             <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-tr from-pink-400 to-violet-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-pink-200 group-hover:rotate-12 transition-transform duration-300">
               <i className="fa-solid fa-comment-dots text-2xl sm:text-3xl"></i>
@@ -197,12 +197,15 @@ const LandingPage: React.FC<Props> = ({ onNavigate }) => {
               { title: 'Tùy biến giao diện', desc: 'Đổi màu sắc, logo, lời chào để phù hợp với thương hiệu của bạn.', icon: 'fa-palette', color: 'text-pink-500', bg: 'bg-pink-100' },
               { title: 'Báo cáo chi tiết', desc: 'Theo dõi hiệu suất, số lượng câu hỏi và mức độ hài lòng của khách hàng.', icon: 'fa-chart-pie', color: 'text-amber-500', bg: 'bg-amber-100' },
             ].map((feature, i) => (
-              <div key={i} className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/50 hover:-translate-y-2 transition-transform duration-300">
-                <div className={`w-16 h-16 ${feature.bg} ${feature.color} rounded-2xl flex items-center justify-center text-3xl mb-6`}>
-                  <i className={`fa-solid ${feature.icon}`}></i>
+              <div key={i} className="bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/50 hover:-translate-y-2 transition-transform duration-300">
+                {/* Updated: Layout change to flex-row for icon and title on mobile */}
+                <div className="flex flex-row sm:flex-col items-center sm:items-start gap-4 sm:gap-0 mb-3 sm:mb-6">
+                    <div className={`w-14 h-14 sm:w-16 sm:h-16 ${feature.bg} ${feature.color} rounded-2xl flex items-center justify-center text-2xl sm:text-3xl shrink-0`}>
+                        <i className={`fa-solid ${feature.icon}`}></i>
+                    </div>
+                    <h3 className="text-lg sm:text-xl font-bold text-slate-800 sm:mt-6">{feature.title}</h3>
                 </div>
-                <h3 className="text-xl font-bold text-slate-800 mb-3">{feature.title}</h3>
-                <p className="text-slate-500 font-medium leading-relaxed">{feature.desc}</p>
+                <p className="text-slate-500 font-medium leading-relaxed text-sm sm:text-base">{feature.desc}</p>
               </div>
             ))}
           </div>
@@ -219,7 +222,8 @@ const LandingPage: React.FC<Props> = ({ onNavigate }) => {
            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
               <div>
                 <h2 className="text-3xl sm:text-4xl font-black text-white mb-6">Tích hợp siêu tốc trong 1 phút</h2>
-                <div className="space-y-6">
+                {/* Explicitly text-left for steps */}
+                <div className="space-y-6 text-left">
                   <div className="flex items-center gap-4 bg-white/10 p-4 rounded-2xl backdrop-blur-sm border border-white/10">
                     <div className="w-10 h-10 rounded-full bg-pink-500 text-white flex items-center justify-center font-bold">1</div>
                     <p className="text-white font-bold">Đăng ký tài khoản BibiChat</p>
@@ -293,6 +297,7 @@ const LandingPage: React.FC<Props> = ({ onNavigate }) => {
              <button onClick={() => onNavigate('contact')} className="hover:text-pink-500 transition-colors">Liên hệ</button>
            </div>
            <div className="flex gap-4">
+             {/* Corrected Icons for Footer */}
              <a href="#" className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-blue-600 hover:text-white transition-colors"><i className="fa-brands fa-facebook"></i></a>
              <a href="#" className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-blue-700 hover:text-white transition-colors"><i className="fa-brands fa-linkedin"></i></a>
            </div>

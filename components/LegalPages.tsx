@@ -51,14 +51,14 @@ const PublicLayout: React.FC<{
         <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-gradient-to-tr from-blue-100/50 to-transparent rounded-full blur-3xl"></div>
       </div>
 
-      {/* Navbar */}
+      {/* Navbar - Updated sizes to match Landing Page */}
       <nav className="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-md border-b border-white/50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3 cursor-pointer group" onClick={() => onNavigate('landing')}>
-            <div className="w-10 h-10 bg-gradient-to-tr from-pink-400 to-violet-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-pink-200 group-hover:rotate-12 transition-transform duration-300">
-              <i className="fa-solid fa-comment-dots text-xl"></i>
+        <div className="max-w-7xl mx-auto px-6 h-20 sm:h-24 flex items-center justify-between">
+          <div className="flex items-center gap-3 sm:gap-4 cursor-pointer group" onClick={() => onNavigate('landing')}>
+            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-tr from-pink-400 to-violet-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-pink-200 group-hover:rotate-12 transition-transform duration-300">
+              <i className="fa-solid fa-comment-dots text-2xl sm:text-3xl"></i>
             </div>
-            <span className="text-xl font-black tracking-tight text-slate-800">Bibi<span className="text-pink-500">Chat</span></span>
+            <span className="text-3xl sm:text-4xl font-black tracking-tight text-slate-800">Bibi<span className="text-pink-500">Chat</span></span>
           </div>
           <button 
             onClick={() => onNavigate('landing')}
@@ -69,8 +69,8 @@ const PublicLayout: React.FC<{
         </div>
       </nav>
 
-      {/* Content */}
-      <main className="flex-1 pt-32 pb-20 px-4 relative flex flex-col items-center z-10">
+      {/* Content - Adjusted top padding for taller header */}
+      <main className="flex-1 pt-36 sm:pt-44 pb-20 px-4 relative flex flex-col items-center z-10">
          <div className="w-full max-w-4xl mx-auto">
             {/* Header with Floating Icon */}
             <div className="text-center mb-8 relative z-20">
@@ -104,8 +104,8 @@ const PublicLayout: React.FC<{
       <footer className="py-8 text-center text-slate-400 font-bold text-xs relative z-10">
         <p>&copy; 2024 BibiChat. Made with <i className="fa-solid fa-heart text-pink-400 mx-1 animate-beat"></i> for you.</p>
         <div className="flex justify-center gap-4 mt-4">
-            <a href="#" className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-slate-400 hover:text-blue-600 hover:scale-110 transition-all shadow-sm"><i className="fa-brands fa-facebook-f text-lg"></i></a>
-            <a href="#" className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-slate-400 hover:text-blue-700 hover:scale-110 transition-all shadow-sm"><i className="fa-brands fa-linkedin-in text-lg"></i></a>
+            <a href="#" className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-slate-400 hover:text-blue-600 hover:scale-110 transition-all shadow-sm"><i className="fa-brands fa-facebook"></i></a>
+            <a href="#" className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-slate-400 hover:text-blue-700 hover:scale-110 transition-all shadow-sm"><i className="fa-brands fa-linkedin"></i></a>
         </div>
       </footer>
 
@@ -290,11 +290,11 @@ export const ContactPage: React.FC<Props> = ({ onNavigate }) => (
 
       <div className="grid grid-cols-2 gap-4">
          <a href="#" className="bg-[#1877F2] p-4 rounded-[2rem] text-center group shadow-lg hover:-translate-y-1 transition-transform">
-            <i className="fa-brands fa-facebook-f text-3xl text-white mb-2 block"></i>
+            <i className="fa-brands fa-facebook text-3xl text-white mb-2 block"></i>
             <span className="font-bold text-white text-sm">Facebook</span>
          </a>
          <a href="#" className="bg-[#0A66C2] p-4 rounded-[2rem] text-center group shadow-lg hover:-translate-y-1 transition-transform">
-            <i className="fa-brands fa-linkedin-in text-3xl text-white mb-2 block"></i>
+            <i className="fa-brands fa-linkedin text-3xl text-white mb-2 block"></i>
             <span className="font-bold text-white text-sm">LinkedIn</span>
          </a>
       </div>

@@ -61,6 +61,7 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
       const filtered = result.data.filter(u => u.role !== 'master');
       setCustomers(filtered);
       setTotalPages(result.totalPages);
+      // Ensure we display total count even if it's 0, based on API result
       setTotalUsers(result.total);
     } catch (err) {
       console.error("Lỗi khi tải khách hàng:", err);
@@ -133,9 +134,9 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
                 </span>
                 Quản lý khách hàng
               </h2>
-              {/* Display Total Count correctly */}
+              {/* Correctly display total count */}
               <p className="text-xs font-bold text-slate-400 dark:text-slate-500 ml-1 mt-1">
-                 Tổng cộng: {totalUsers > 0 ? totalUsers : 0} khách hàng
+                 Tổng cộng: {totalUsers} khách hàng
               </p>
             </div>
             <button 
@@ -186,8 +187,8 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
                   <i className="fa-regular fa-calendar-check mr-2 text-purple-400"></i>
                   Ngày tham gia
                 </th>
-                {/* Updated Alignment: Changed to text-right to match button group */}
-                <th className="px-6 py-5 text-sm font-black text-indigo-900/70 dark:text-indigo-200 rounded-r-2xl text-right pr-8 whitespace-nowrap">
+                {/* Updated Alignment: Changed to text-center to match request, keeping content right-aligned for buttons */}
+                <th className="px-6 py-5 text-sm font-black text-indigo-900/70 dark:text-indigo-200 rounded-r-2xl text-center pr-8 whitespace-nowrap">
                   <i className="fa-solid fa-wand-magic-sparkles mr-2 text-amber-400"></i>
                   Hành động
                 </th>
@@ -231,7 +232,7 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
                         {new Date(customer.createdAt).toLocaleDateString('vi-VN')}
                       </p>
                     </td>
-                    {/* Updated Alignment: Content Right (with pr-8) */}
+                    {/* Content still right-aligned to keep buttons tidy */}
                     <td className="px-6 py-4 rounded-r-2xl border-b border-slate-50 dark:border-slate-700/50 pr-8 text-right">
                       <div className="flex justify-end items-center gap-2">
                         {/* New Chat Button */}
@@ -318,8 +319,6 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
                     </button>
                     <div className="flex items-center gap-1 px-2">
                         {[...Array(totalPages)].map((_, i) => {
-                            // Only show limited page numbers logic could be added here for 10k users (many pages)
-                            // Simple version: Show first, last, current, and adjacent
                             const p = i + 1;
                             if (p === 1 || p === totalPages || (p >= page - 1 && p <= page + 1)) {
                                 return (
@@ -350,7 +349,7 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
       </div>
     </div>
 
-      {/* Toast Notification */}
+      {/* Toast Notification & Modals... (Keep existing code) */}
       {actionMsg.text && createPortal(
         <div className={`fixed top-6 right-6 z-[9999] px-6 py-4 rounded-3xl shadow-xl border flex items-center animate-in slide-in-from-right duration-300 ${actionMsg.type === 'success' ? 'bg-white dark:bg-slate-800 border-emerald-100 dark:border-emerald-900 text-emerald-600 dark:text-emerald-400' : 'bg-white dark:bg-slate-800 border-rose-100 dark:border-rose-900 text-rose-600 dark:text-rose-400'}`}>
           <i className={`fa-solid ${actionMsg.type === 'success' ? 'fa-check-circle' : 'fa-heart-crack'} text-xl mr-3`}></i>
