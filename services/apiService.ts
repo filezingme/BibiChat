@@ -224,10 +224,16 @@ export const apiService = {
           return await res.json();
       } catch (e) {
           const localDB = getLocalDB();
-          let filtered = localDB.users.filter((u: any) => 
-              u.email.toLowerCase().includes(search.toLowerCase()) || 
-              (u.botSettings?.botName || '').toLowerCase().includes(search.toLowerCase())
-          );
+          // Filter out master role locally
+          let filtered = localDB.users.filter((u: any) => u.role !== 'master');
+          
+          if(search) {
+             filtered = filtered.filter((u: any) => 
+                u.email.toLowerCase().includes(search.toLowerCase()) || 
+                (u.botSettings?.botName || '').toLowerCase().includes(search.toLowerCase())
+             );
+          }
+          
           const total = filtered.length;
           const start = (page - 1) * limit;
           return {

@@ -374,13 +374,16 @@ app.get('/api/users', async (req, res) => {
     const limit = parseInt(req.query.limit as string) || 10000;
     const search = (req.query.search as string || '').toLowerCase();
     
-    const query: any = {};
+    // START CHANGE: Filter out master/admin from customer list by default
+    const query: any = { role: { $ne: 'master' } };
+    
     if (search) {
         query.$or = [
             { email: { $regex: search, $options: 'i' } },
             { 'botSettings.botName': { $regex: search, $options: 'i' } }
         ];
     }
+    // END CHANGE
     
     const total = await User.countDocuments(query);
     const users = await User.find(query).skip((page - 1) * limit).limit(limit);
