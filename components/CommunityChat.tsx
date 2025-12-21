@@ -32,6 +32,9 @@ const EMOJIS = ['😀', '😂', '😍', '😎', '😭', '😡', '👍', '👎', 
 
 const REACTIONS = ['❤️', '😆', '😮', '😢', '😡', '👍'];
 
+// Threshold for "Online" status in milliseconds (e.g., 5 minutes)
+const ONLINE_THRESHOLD = 5 * 60 * 1000;
+
 const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTargetUser }) => {
   const [conversations, setConversations] = useState<ConversationUser[]>([]);
   const [activeChatUser, setActiveChatUser] = useState<ConversationUser | null>(null);
@@ -55,6 +58,14 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   const stickerPickerRef = useRef<HTMLDivElement>(null);
   const emojiBtnRef = useRef<HTMLButtonElement>(null);
   const stickerBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Helper to check online status
+  const checkIsOnline = (lastActiveTime?: number, role?: string) => {
+      // Admin/Master is always "Online" for support perception
+      if (role === 'master') return true;
+      if (!lastActiveTime) return false;
+      return (Date.now() - lastActiveTime) < ONLINE_THRESHOLD;
+  };
 
   // Handle Click Outside to Close Pickers
   useEffect(() => {
@@ -150,7 +161,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                   email: 'admin@bibichat.io',
                   role: 'master',
                   lastMessage: 'Chào mừng bạn đến với cộng đồng!',
-                  lastMessageTime: Date.now(),
+                  lastMessageTime: Date.now(), // Admin always active
                   unreadCount: 0
               });
           }
@@ -357,14 +368,22 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
            </div>
 
            <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar-hover">
-               {conversations.map(conv => (
+               {conversations.map(conv => {
+                   const isOnline = checkIsOnline(conv.lastMessageTime, conv.role);
+                   return (
                    <div 
                       key={conv.id}
                       onClick={() => setActiveChatUser(conv)}
                       className={`p-3 rounded-2xl cursor-pointer flex gap-3 items-center transition-all ${activeChatUser?.id === conv.id ? 'bg-indigo-50 dark:bg-slate-700 border-indigo-200 dark:border-slate-600 shadow-sm' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50 border-transparent'} border-2 relative`}
                    >
-                       <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white shrink-0 relative ${conv.role === 'master' ? 'bg-gradient-to-br from-indigo-500 to-purple-600' : 'bg-gradient-to-br from-pink-400 to-orange-400'}`}>
-                           {conv.role === 'master' ? <i className="fa-solid fa-user-shield"></i> : conv.email.charAt(0).toUpperCase()}
+                       <div className="relative shrink-0">
+                           <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white relative ${conv.role === 'master' ? 'bg-gradient-to-br from-indigo-500 to-purple-600' : 'bg-gradient-to-br from-pink-400 to-orange-400'}`}>
+                               {conv.role === 'master' ? <i className="fa-solid fa-user-shield"></i> : conv.email.charAt(0).toUpperCase()}
+                           </div>
+                           {/* ONLINE INDICATOR */}
+                           {isOnline && (
+                               <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-800 rounded-full"></span>
+                           )}
                            {/* UNREAD BADGE */}
                            {conv.unreadCount !== undefined && conv.unreadCount > 0 && (
                                <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-white dark:border-slate-800 animate-bounce">
@@ -380,7 +399,8 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                            <p className={`text-xs truncate font-medium ${conv.unreadCount && conv.unreadCount > 0 ? 'text-slate-800 dark:text-white font-black' : 'text-slate-500 dark:text-slate-400'}`}>{conv.lastMessage || 'Chưa có tin nhắn'}</p>
                        </div>
                    </div>
-               ))}
+                   );
+               })}
                {conversations.length === 0 && (
                    <div className="text-center py-10 opacity-50">
                        <i className="fa-solid fa-user-group text-3xl mb-2"></i>
@@ -406,7 +426,21 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                        </div>
                        <div>
                            <h3 className="font-bold text-slate-800 dark:text-white text-base">{activeChatUser.role === 'master' ? 'Admin Hỗ Trợ' : activeChatUser.email}</h3>
-                           <p className="text-xs text-emerald-500 font-bold flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Online</p>
+                           
+                           {/* Dynamic Status Text */}
+                           {checkIsOnline(activeChatUser.lastMessageTime, activeChatUser.role) ? (
+                               <p className="text-xs text-emerald-500 font-bold flex items-center gap-1">
+                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Đang hoạt động
+                               </p>
+                           ) : (
+                               <p className="text-xs text-slate-400 font-medium flex items-center gap-1">
+                                   <i className="fa-regular fa-clock text-[10px]"></i> 
+                                   {activeChatUser.lastMessageTime 
+                                     ? `Truy cập lúc ${new Date(activeChatUser.lastMessageTime).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}`
+                                     : 'Ngoại tuyến'
+                                   }
+                               </p>
+                           )}
                        </div>
                    </div>
 
