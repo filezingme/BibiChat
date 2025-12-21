@@ -6,9 +6,10 @@ import { User } from '../types';
 
 interface Props {
   onViewStats: (userId: string) => void;
+  onStartChat: (userId: string) => void; // New Prop
 }
 
-const CustomerManagement: React.FC<Props> = ({ onViewStats }) => {
+const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
   const [customers, setCustomers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -173,7 +174,8 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats }) => {
                   <i className="fa-regular fa-calendar-check mr-2 text-purple-400"></i>
                   Ngày tham gia
                 </th>
-                <th className="px-6 py-5 text-sm font-black text-indigo-900/70 dark:text-indigo-200 rounded-r-2xl text-right pr-8 whitespace-nowrap">
+                {/* Changed Alignment to Left as requested */}
+                <th className="px-6 py-5 text-sm font-black text-indigo-900/70 dark:text-indigo-200 rounded-r-2xl text-left whitespace-nowrap">
                   <i className="fa-solid fa-wand-magic-sparkles mr-2 text-amber-400"></i>
                   Hành động
                 </th>
@@ -217,8 +219,20 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats }) => {
                         {new Date(customer.createdAt).toLocaleDateString('vi-VN')}
                       </p>
                     </td>
-                    <td className="px-6 py-4 text-right pr-8 rounded-r-2xl border-b border-slate-50 dark:border-slate-700/50">
-                      <div className="flex justify-end items-center gap-2">
+                    {/* Updated Alignment to Left */}
+                    <td className="px-6 py-4 text-left rounded-r-2xl border-b border-slate-50 dark:border-slate-700/50">
+                      <div className="flex justify-start items-center gap-2">
+                        {/* New Chat Button */}
+                        <button 
+                          onClick={() => onStartChat(customer.id)}
+                          className="w-10 h-10 flex items-center justify-center bg-teal-50 dark:bg-teal-900/20 text-teal-500 dark:text-teal-400 rounded-full hover:bg-teal-500 hover:text-white transition-all shadow-sm hover:scale-110 border border-teal-100 dark:border-transparent hover:border-teal-200"
+                          title="Trò chuyện ngay"
+                        >
+                          <i className="fa-solid fa-comment-dots text-sm"></i>
+                        </button>
+
+                        <div className="w-[1px] h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+
                         {/* Improved Password View Button */}
                         <button 
                           onClick={() => setViewPassModal({ isOpen: true, email: customer.email, pass: customer.password || 'Trống' })}
@@ -227,8 +241,6 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats }) => {
                         >
                           <i className="fa-solid fa-id-card text-sm"></i>
                         </button>
-
-                        <div className="w-[1px] h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
 
                         <button 
                           onClick={() => onViewStats(customer.id)}

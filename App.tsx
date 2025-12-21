@@ -32,6 +32,9 @@ const App: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedCustomerIdForStats, setSelectedCustomerIdForStats] = useState<string>('all');
   
+  // State for direct chat targeting
+  const [chatTargetId, setChatTargetId] = useState<string | null>(null);
+
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('omnichat_theme') === 'dark';
@@ -334,6 +337,12 @@ const App: React.FC = () => {
     setCurrentView(View.DASHBOARD);
   };
 
+  // Handle direct chat from Customer Management
+  const handleStartChat = (userId: string) => {
+      setChatTargetId(userId);
+      setCurrentView(View.DIRECT_MESSAGES);
+  };
+
   if (!isLoggedIn) {
     if (publicView === 'terms') return <TermsPage onNavigate={setPublicView} />;
     if (publicView === 'privacy') return <PrivacyPage onNavigate={setPublicView} />;
@@ -552,9 +561,9 @@ const App: React.FC = () => {
             {currentView === View.LEADS && <Leads user={currentUser!} />}
             {currentView === View.INTEGRATION && <Integration userId={currentUser!.id} />}
             {currentView === View.DEPLOYMENT_GUIDE && <DeploymentGuide />}
-            {currentView === View.CUSTOMER_MANAGEMENT && currentUser?.role === 'master' && <CustomerManagement onViewStats={handleViewCustomerStats} />}
+            {currentView === View.CUSTOMER_MANAGEMENT && currentUser?.role === 'master' && <CustomerManagement onViewStats={handleViewCustomerStats} onStartChat={handleStartChat} />}
              {currentView === View.NOTIFICATION_MANAGER && currentUser?.role === 'master' && <NotificationManager user={currentUser} />}
-             {currentView === View.DIRECT_MESSAGES && <CommunityChat user={currentUser!} />}
+             {currentView === View.DIRECT_MESSAGES && <CommunityChat user={currentUser!} initialChatUserId={chatTargetId} onClearTargetUser={() => setChatTargetId(null)} />}
           </div>
         </div>
       </main>
@@ -578,7 +587,7 @@ const App: React.FC = () => {
                <div className="space-y-4">
                  <div className="relative group"><div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 group-focus-within:text-pink-500 transition-colors"><i className="fa-solid fa-key"></i></div><input type="password" required className="w-full pl-12 pr-6 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-600 focus:border-pink-400 dark:focus:border-pink-500 rounded-2xl text-sm font-bold focus:outline-none transition-all text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:focus:bg-black/20" placeholder="Mật khẩu cũ" value={passwordForm.old} onChange={e => setPasswordForm({...passwordForm, old: e.target.value})} /></div>
                  <div className="relative group"><div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 group-focus-within:text-pink-500 transition-colors"><i className="fa-solid fa-lock"></i></div><input type="password" required className="w-full pl-12 pr-6 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-600 focus:border-pink-400 dark:focus:border-pink-500 rounded-2xl text-sm font-bold focus:outline-none transition-all text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:focus:bg-black/20" placeholder="Mật khẩu mới (>= 6 ký tự)" value={passwordForm.new} onChange={e => setPasswordForm({...passwordForm, new: e.target.value})} /></div>
-                 <div className="relative group"><div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 group-focus-within:text-pink-500 transition-colors"><i className="fa-solid fa-shield-halved"></i></div><input type="password" required className="w-full pl-12 pr-6 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-600 focus:border-pink-400 dark:focus:border-pink-500 rounded-2xl text-sm font-bold focus:outline-none transition-all text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:focus:bg-black/20" placeholder="Nhập lại mật khẩu mới" value={passwordForm.confirm} onChange={e => setPasswordForm({...passwordForm, confirm: e.target.value})} /></div>
+                 <div className="relative group"><div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 group-focus-within:text-pink-500 transition-colors"><i className="fa-solid fa-shield-halved"></i></div><input type="password" required className="w-full pl-12 pr-6 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-600 focus:border-pink-400 dark:focus:border-pink-500 rounded-2xl text-sm font-bold focus:outline-none transition-all text-slate-700 dark:text-slate-200 placeholder-Nhập lại mật khẩu mới" value={passwordForm.confirm} onChange={e => setPasswordForm({...passwordForm, confirm: e.target.value})} /></div>
                </div>
                <button type="submit" className="w-full py-4 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white rounded-2xl font-black shadow-xl shadow-pink-200 dark:shadow-none transition-all active:scale-[0.98] mt-4 flex items-center justify-center gap-2 text-base group"><span>Cập nhật ngay</span><i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i></button>
             </form>

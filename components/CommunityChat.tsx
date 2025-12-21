@@ -5,9 +5,11 @@ import { User, ConversationUser, DirectMessage } from '../types';
 
 interface Props {
   user: User;
+  initialChatUserId?: string | null;
+  onClearTargetUser?: () => void;
 }
 
-const CommunityChat: React.FC<Props> = ({ user }) => {
+const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTargetUser }) => {
   const [conversations, setConversations] = useState<ConversationUser[]>([]);
   const [activeChatUser, setActiveChatUser] = useState<ConversationUser | null>(null);
   const [messages, setMessages] = useState<DirectMessage[]>([]);
@@ -26,6 +28,45 @@ const CommunityChat: React.FC<Props> = ({ user }) => {
     const interval = setInterval(loadConversations, 5000); 
     return () => clearInterval(interval);
   }, [user.id]);
+
+  // Handle Initial Target User (e.g., coming from Customer Management)
+  useEffect(() => {
+      if (initialChatUserId && conversations.length > 0) {
+          const target = conversations.find(c => c.id === initialChatUserId);
+          if (target) {
+              setActiveChatUser(target);
+              if (onClearTargetUser) onClearTargetUser(); // Clear prop to avoid re-trigger
+          } else {
+              // If not found in list (never chatted before), try to fetch user details and add to list temporarily
+              const fetchTarget = async () => {
+                  // Hacky way: We don't have a direct getUserById public API easily accessible in this context without
+                  // fetching all users. But let's assume if they are in Customer list, they exist.
+                  // Ideally, getConversations should return them if we had a proper "create conversation" flow.
+                  // For now, let's just wait for the user to be found or search manually if not found.
+                  // Or better: Use findUserByEmail if we had the email. But we have ID.
+                  // Let's iterate all users to find this ID (Master only feature essentially)
+                  if (user.role === 'master') {
+                      const allUsers = await apiService.getAllUsers();
+                      const found = allUsers.find(u => u.id === initialChatUserId);
+                      if (found) {
+                          const newConv: ConversationUser = {
+                              id: found.id,
+                              email: found.email,
+                              role: found.role,
+                              lastMessage: '',
+                              lastMessageTime: Date.now(),
+                              unreadCount: 0
+                          };
+                          setConversations(prev => [newConv, ...prev]);
+                          setActiveChatUser(newConv);
+                          if (onClearTargetUser) onClearTargetUser();
+                      }
+                  }
+              };
+              fetchTarget();
+          }
+      }
+  }, [initialChatUserId, conversations, user.role]);
 
   // Load messages when active chat changes
   useEffect(() => {
@@ -58,7 +99,8 @@ const CommunityChat: React.FC<Props> = ({ user }) => {
                   email: 'admin@bibichat.io',
                   role: 'master',
                   lastMessage: 'Chào mừng bạn đến với cộng đồng!',
-                  lastMessageTime: Date.now()
+                  lastMessageTime: Date.now(),
+                  unreadCount: 0
               });
           }
       }
@@ -137,7 +179,8 @@ const CommunityChat: React.FC<Props> = ({ user }) => {
                       email: newUser.email,
                       role: newUser.role,
                       lastMessage: '',
-                      lastMessageTime: Date.now()
+                      lastMessageTime: Date.now(),
+                      unreadCount: 0
                   };
                   setConversations(prev => [newConv, ...prev]);
                   setActiveChatUser(newConv);
@@ -188,17 +231,23 @@ const CommunityChat: React.FC<Props> = ({ user }) => {
                    <div 
                       key={conv.id}
                       onClick={() => setActiveChatUser(conv)}
-                      className={`p-3 rounded-2xl cursor-pointer flex gap-3 items-center transition-all ${activeChatUser?.id === conv.id ? 'bg-indigo-50 dark:bg-slate-700 border-indigo-200 dark:border-slate-600 shadow-sm' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50 border-transparent'} border-2`}
+                      className={`p-3 rounded-2xl cursor-pointer flex gap-3 items-center transition-all ${activeChatUser?.id === conv.id ? 'bg-indigo-50 dark:bg-slate-700 border-indigo-200 dark:border-slate-600 shadow-sm' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50 border-transparent'} border-2 relative`}
                    >
-                       <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white shrink-0 ${conv.role === 'master' ? 'bg-gradient-to-br from-indigo-500 to-purple-600' : 'bg-gradient-to-br from-pink-400 to-orange-400'}`}>
+                       <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white shrink-0 relative ${conv.role === 'master' ? 'bg-gradient-to-br from-indigo-500 to-purple-600' : 'bg-gradient-to-br from-pink-400 to-orange-400'}`}>
                            {conv.role === 'master' ? <i className="fa-solid fa-user-shield"></i> : conv.email.charAt(0).toUpperCase()}
+                           {/* UNREAD BADGE */}
+                           {conv.unreadCount !== undefined && conv.unreadCount > 0 && (
+                               <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-white dark:border-slate-800 animate-bounce">
+                                   {conv.unreadCount > 9 ? '9+' : conv.unreadCount}
+                               </span>
+                           )}
                        </div>
                        <div className="flex-1 min-w-0">
                            <div className="flex justify-between items-baseline mb-0.5">
                                <h4 className="font-bold text-sm text-slate-700 dark:text-slate-200 truncate">{conv.role === 'master' ? 'Admin Hỗ Trợ' : conv.email}</h4>
                                <span className="text-[10px] text-slate-400 font-bold">{conv.lastMessageTime > 0 ? new Date(conv.lastMessageTime).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}) : ''}</span>
                            </div>
-                           <p className="text-xs text-slate-500 dark:text-slate-400 truncate font-medium">{conv.lastMessage || 'Chưa có tin nhắn'}</p>
+                           <p className={`text-xs truncate font-medium ${conv.unreadCount && conv.unreadCount > 0 ? 'text-slate-800 dark:text-white font-black' : 'text-slate-500 dark:text-slate-400'}`}>{conv.lastMessage || 'Chưa có tin nhắn'}</p>
                        </div>
                    </div>
                ))}

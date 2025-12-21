@@ -415,20 +415,29 @@ app.get('/api/dm/conversations/:userId', async (req, res) => {
 
     const contacts = await User.find({ id: { $in: Array.from(contactIds) } }).select('id email role');
     
-    // Map last message info
-    const conversations = contacts.map(contact => {
+    // Map last message info AND unread count
+    const conversations = await Promise.all(contacts.map(async contact => {
         const lastMsg = messages.find(m => 
             (m.senderId === userId && m.receiverId === contact.id) || 
             (m.senderId === contact.id && m.receiverId === userId)
         );
+        
+        // Count unread messages from this contact to current user
+        const unreadCount = await DirectMessage.countDocuments({
+            senderId: contact.id,
+            receiverId: userId,
+            isRead: false
+        });
+
         return {
             id: contact.id,
             email: contact.email,
             role: contact.role,
             lastMessage: lastMsg?.content || '',
-            lastMessageTime: lastMsg?.timestamp || 0
+            lastMessageTime: lastMsg?.timestamp || 0,
+            unreadCount: unreadCount 
         };
-    });
+    }));
 
     // Sort by last active
     conversations.sort((a, b) => b.lastMessageTime - a.lastMessageTime);
