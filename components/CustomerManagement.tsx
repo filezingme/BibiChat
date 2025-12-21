@@ -56,13 +56,17 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
     setIsLoading(true);
     try {
       // Fetch paginated data
-      const result = await apiService.getUsersPaginated(currentPage, LIMIT, search);
+      const result: any = await apiService.getUsersPaginated(currentPage, LIMIT, search);
       // Filter out 'master' role locally just in case, though server handles logic mostly
-      const filtered = result.data.filter(u => u.role !== 'master');
+      const filtered = result.data.filter((u: User) => u.role !== 'master');
       setCustomers(filtered);
-      setTotalPages(result.totalPages);
-      // Ensure we display total count even if it's 0, based on API result
-      setTotalUsers(result.total);
+      
+      // Handle inconsistent API response structure (Server uses nested pagination object, Offline uses flat)
+      const total = result.pagination ? result.pagination.total : result.total;
+      const pages = result.pagination ? result.pagination.totalPages : result.totalPages;
+
+      setTotalPages(pages || 1);
+      setTotalUsers(total || 0);
     } catch (err) {
       console.error("Lỗi khi tải khách hàng:", err);
     } finally {
