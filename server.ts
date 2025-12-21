@@ -506,7 +506,7 @@ app.post('/api/dm/react', async (req, res) => {
     if (!message) return res.status(404).json({ success: false });
 
     // Ensure reactions array exists
-    if (!message.reactions) message.reactions = [] as any;
+    if (!message.reactions) message.reactions = [];
 
     // Check if user already reacted
     const existingIndex = message.reactions.findIndex(r => r.userId === userId);
