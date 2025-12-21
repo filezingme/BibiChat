@@ -415,7 +415,16 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
                                        {/* Message Content */}
                                        {msg.type === 'sticker' ? (
-                                           <img src={msg.content} alt="Sticker" className="w-32 h-32 object-contain hover:scale-105 transition-transform" />
+                                           <div className="relative inline-block group">
+                                                <img src={msg.content} alt="Sticker" className="w-32 h-32 object-contain hover:scale-105 transition-transform" />
+                                                {/* Timestamp & Status Overlay for Sticker */}
+                                                <div className={`absolute bottom-2 right-2 bg-black/40 backdrop-blur-sm text-white px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200`}>
+                                                    {new Date(msg.timestamp).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}
+                                                    {isMe && (
+                                                        <i className={`fa-solid fa-check-double ${msg.isRead ? 'text-cyan-300' : 'text-slate-300'}`}></i>
+                                                    )}
+                                                </div>
+                                           </div>
                                        ) : (
                                            <div className={`px-5 py-3 rounded-2xl text-sm font-medium leading-relaxed shadow-sm relative ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-tl-none'}`}>
                                                {msg.content}

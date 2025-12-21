@@ -133,9 +133,10 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
                 </span>
                 Quản lý khách hàng
               </h2>
-              {totalUsers > 0 && (
-                <p className="text-xs font-bold text-slate-400 dark:text-slate-500 ml-1 mt-1">Tổng cộng: {totalUsers} khách hàng</p>
-              )}
+              {/* Display Total Count correctly */}
+              <p className="text-xs font-bold text-slate-400 dark:text-slate-500 ml-1 mt-1">
+                 Tổng cộng: {totalUsers > 0 ? totalUsers : 0} khách hàng
+              </p>
             </div>
             <button 
               onClick={() => loadCustomers(page, searchTerm)}
@@ -185,8 +186,8 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
                   <i className="fa-regular fa-calendar-check mr-2 text-purple-400"></i>
                   Ngày tham gia
                 </th>
-                {/* Updated Alignment: Header Left (as requested), Content Right (with pr-8) */}
-                <th className="px-6 py-5 text-sm font-black text-indigo-900/70 dark:text-indigo-200 rounded-r-2xl text-left whitespace-nowrap">
+                {/* Updated Alignment: Changed to text-right to match button group */}
+                <th className="px-6 py-5 text-sm font-black text-indigo-900/70 dark:text-indigo-200 rounded-r-2xl text-right pr-8 whitespace-nowrap">
                   <i className="fa-solid fa-wand-magic-sparkles mr-2 text-amber-400"></i>
                   Hành động
                 </th>
@@ -230,8 +231,8 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
                         {new Date(customer.createdAt).toLocaleDateString('vi-VN')}
                       </p>
                     </td>
-                    {/* Updated Alignment to Right and Padded with pr-8 to balance pl-8 */}
-                    <td className="px-6 py-4 rounded-r-2xl border-b border-slate-50 dark:border-slate-700/50 pr-8">
+                    {/* Updated Alignment: Content Right (with pr-8) */}
+                    <td className="px-6 py-4 rounded-r-2xl border-b border-slate-50 dark:border-slate-700/50 pr-8 text-right">
                       <div className="flex justify-end items-center gap-2">
                         {/* New Chat Button */}
                         <button 
