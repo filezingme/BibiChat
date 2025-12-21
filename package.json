@@ -19,7 +19,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^2.15.0",
-    "lucide-react": "^0.450.0",
+    "lucide-react": "latest",
     "mongoose": "^8.9.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
