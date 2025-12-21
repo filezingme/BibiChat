@@ -421,7 +421,13 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                                 <div className={`absolute bottom-2 right-2 bg-black/40 backdrop-blur-sm text-white px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200`}>
                                                     {new Date(msg.timestamp).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}
                                                     {isMe && (
-                                                        <i className={`fa-solid fa-check-double ${msg.isRead ? 'text-cyan-300' : 'text-slate-300'}`}></i>
+                                                        <div title={msg.isRead ? "Đã xem" : "Đã gửi"}>
+                                                            {msg.isRead ? (
+                                                                <i className="fa-solid fa-check-double text-cyan-300"></i>
+                                                            ) : (
+                                                                <i className="fa-solid fa-check text-slate-300"></i>
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </div>
                                            </div>
@@ -433,7 +439,13 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                                <div className={`text-[9px] font-bold mt-1 flex items-center gap-1 ${isMe ? 'text-indigo-200 justify-end' : 'text-slate-400 justify-start'}`}>
                                                    {new Date(msg.timestamp).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}
                                                    {isMe && (
-                                                       <i className={`fa-solid fa-check-double ${msg.isRead ? 'text-cyan-300' : 'text-indigo-300'}`}></i>
+                                                       <div title={msg.isRead ? "Đã xem" : "Đã gửi"}>
+                                                            {msg.isRead ? (
+                                                                <i className="fa-solid fa-check-double text-cyan-300"></i>
+                                                            ) : (
+                                                                <i className="fa-solid fa-check text-indigo-300/70"></i>
+                                                            )}
+                                                       </div>
                                                    )}
                                                </div>
                                            </div>
