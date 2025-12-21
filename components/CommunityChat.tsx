@@ -363,7 +363,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
        </div>
 
        {/* Chat Area - Full screen on mobile if Active, else hidden on mobile */}
-       <div className={`flex-1 bg-white dark:bg-slate-800 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 shadow-xl overflow-hidden flex-col relative ${activeChatUser ? 'flex fixed inset-0 z-50 md:static md:inset-auto' : 'hidden md:flex'}`}>
+       <div className={`flex-1 bg-white dark:bg-slate-800 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 shadow-xl overflow-hidden flex-col relative ${activeChatUser ? 'flex fixed inset-0 z-50 md:static md:inset-auto md:z-0' : 'hidden md:flex'}`}>
            {activeChatUser ? (
                <>
                    {/* Chat Header */}
