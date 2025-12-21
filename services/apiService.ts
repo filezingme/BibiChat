@@ -557,7 +557,27 @@ export const apiService = {
       statsMap[key].queries++;
       if (log.isSolved) statsMap[key].solved++;
     });
-    return Object.entries(statsMap).map(([label, data]) => ({ label, ...data }));
+    
+    const result = Object.entries(statsMap).map(([label, data]) => ({ label, ...data }));
+
+    // Sort result based on period to ensure ascending order (Left to Right)
+    if (period === 'day') {
+        return result.sort((a, b) => {
+            const [d1, m1, y1] = a.label.split('/').map(Number);
+            const [d2, m2, y2] = b.label.split('/').map(Number);
+            if (!y1 || !y2) return 0; // Guard against parse failure
+            return new Date(y1, m1 - 1, d1).getTime() - new Date(y2, m2 - 1, d2).getTime();
+        });
+    } else if (period === 'hour') {
+        return result.sort((a, b) => parseInt(a.label) - parseInt(b.label));
+    } else {
+        // Week / Month
+        return result.sort((a, b) => {
+             const numA = parseInt(a.label.replace(/\D/g, '')) || 0;
+             const numB = parseInt(b.label.replace(/\D/g, '')) || 0;
+             return numA - numB;
+        });
+    }
   },
 
   getChatLogs: async (userId: string | 'all'): Promise<ChatLog[]> => {
