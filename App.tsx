@@ -530,7 +530,7 @@ const App: React.FC = () => {
                    </div>
                    <div className="text-left hidden sm:block">
                       <p className="text-xs font-bold text-slate-700 dark:text-slate-200 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transition-colors">
-                        {currentUser?.role === 'master' ? 'Admin' : 'Khách'}
+                        {currentUser?.role === 'master' ? 'Admin' : 'Tài khoản Bibi'}
                       </p>
                    </div>
                    <i className={`fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform hidden sm:block ${isProfileOpen ? 'rotate-180' : ''}`}></i>
