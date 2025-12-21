@@ -9,20 +9,23 @@ interface Props {
   onClearTargetUser?: () => void;
 }
 
-// Updated Diverse Sticker List - Cute Character GIFs (No text)
+// Updated Stable Sticker List (Legacy Giphy IDs for reliability)
 const STICKERS = [
-    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExazF5ZnA5N3Z5M3Z5M3Z5M3Z5M3Z5M3Z5M3Z5M3Z5M3Z5bCZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/1hqb8LwPS2xCNCpWH8/giphy.gif", // Cute Cat Love
-    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcHJEqNmE5b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/GeimqsBK0ThNg4530F/giphy.gif", // Excited Bear
-    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3Z5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/MDJlI8pXfgWTE6G8T2/giphy.gif", // Dancing Cat
-    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOHZ5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/l0HlHDTJ26XQ9U5C8/giphy.gif", // Crying
-    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcjl5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/3o7TKSjRrfIPjeiVyM/giphy.gif", // Angry
-    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcDl5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/26FLdmIp6wJr91JjG/giphy.gif", // Thumbs up / Cool
-    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHZ5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/l2QZSu4x8BbJNkQdU/giphy.gif", // Shocked
-    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcnF5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/3o7TKrEzt2i-GBzbPW/giphy.gif", // Question / Confused
-    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZnZ5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/l0HlO3BJ8LxrErGDe/giphy.gif", // Laughing
-    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbTZ5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/3o6Zt6MLaqfJS2b8Gc/giphy.gif", // Sleepy
-    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbDV5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/3o7TKTK93M10d0t1wA/giphy.gif", // Hi / Hello
-    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdjl5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/xT0xeuOy2Fcl9vDGiA/giphy.gif" // Party
+    "https://media.giphy.com/media/MDJ9IbxxvDuQA/giphy.gif", // Dance Cat
+    "https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif", // Hello
+    "https://media.giphy.com/media/vTKfa32Y2X5Ic/giphy.gif", // Love
+    "https://media.giphy.com/media/11sBLVxNs7v6WA/giphy.gif", // Shocked
+    "https://media.giphy.com/media/mlvseq9yvZhba/giphy.gif", // Sad
+    "https://media.giphy.com/media/C9x8gXo5CnGtO/giphy.gif", // Angry
+    "https://media.giphy.com/media/3o7TKmHNHOvHCryVjf/giphy.gif", // Excited
+    "https://media.giphy.com/media/l4KibWpBGWchSqCRy/giphy.gif", // Cry
+    "https://media.giphy.com/media/3o7TKDkDbIDJieo1sk/giphy.gif", // Laugh
+    "https://media.giphy.com/media/10t57cXgo7x5kI/giphy.gif", // Confused
+    "https://media.giphy.com/media/3o6Zt481isNVuQI1l6/giphy.gif", // Sleepy
+    "https://media.giphy.com/media/l0HlHFRbmaZtVBhXYd/giphy.gif", // Party
+    "https://media.giphy.com/media/QvBoMEcTKDCRjHzwM7/giphy.gif", // OK
+    "https://media.giphy.com/media/xT5LMHxhOfscxPfIfm/giphy.gif", // Good job
+    "https://media.giphy.com/media/26AHvcW0LB97W8dfi/giphy.gif", // Wow
 ];
 
 const EMOJIS = ['😀', '😂', '😍', '😎', '😭', '😡', '👍', '👎', '🎉', '🔥', '❤️', '👀', '✨', '💯', '🤔', '😅', '🤮', '😴', '🥳', '👻'];
@@ -133,7 +136,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
     if (scrollRef.current) {
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages.length, activeChatUser]); 
+  }, [messages.length, activeChatUser, replyingTo]); // Scroll on reply change too to ensure view
 
   const loadConversations = async () => {
     try {
@@ -453,84 +456,98 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                    </div>
 
                    {/* Input Area */}
-                   <div className="p-4 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700 relative">
-                       {/* Reply Banner */}
+                   <div className="bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700 relative z-20">
+                       
+                       {/* Reply Banner - In Flow Design (Not Absolute anymore) */}
                        {replyingTo && (
-                           <div className="absolute -top-12 left-0 right-0 bg-slate-50 dark:bg-slate-700 px-4 py-2 flex justify-between items-center border-t border-slate-200 dark:border-slate-600 text-xs text-slate-500 dark:text-slate-300">
-                               <div className="flex items-center gap-2 truncate">
-                                   <i className="fa-solid fa-reply"></i>
-                                   <span className="font-bold">Đang trả lời:</span>
-                                   <span className="truncate max-w-[200px]">{replyingTo.type === 'sticker' ? '[Sticker]' : replyingTo.content}</span>
+                           <div className="px-4 py-3 bg-slate-50 dark:bg-slate-700/50 flex justify-between items-center border-b border-slate-100 dark:border-slate-600 animate-in slide-in-from-bottom-2 fade-in duration-200">
+                               <div className="flex items-center gap-3 truncate">
+                                   <div className="w-1 h-8 bg-indigo-500 rounded-full shrink-0"></div>
+                                   <div className="flex flex-col truncate">
+                                       <span className="font-bold text-xs text-indigo-500 flex items-center gap-1">
+                                           <i className="fa-solid fa-reply fa-flip-vertical"></i> Đang trả lời
+                                       </span>
+                                       <span className="text-xs text-slate-500 dark:text-slate-300 truncate max-w-[200px] font-medium">
+                                           {replyingTo.type === 'sticker' ? 'Đã gửi một nhãn dán' : replyingTo.content}
+                                       </span>
+                                   </div>
                                </div>
-                               <button onClick={() => setReplyingTo(null)} className="hover:text-rose-500"><i className="fa-solid fa-xmark"></i></button>
-                           </div>
-                       )}
-
-                       {/* Sticker Picker - Fixed Position to Anchor */}
-                       {showStickerPicker && (
-                           <div ref={stickerPickerRef} className="absolute bottom-16 left-4 p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-600 grid grid-cols-3 gap-2 w-64 h-64 overflow-y-auto z-30 animate-in zoom-in duration-200">
-                               {STICKERS.map((url, i) => (
-                                   <img 
-                                       key={i} 
-                                       src={url} 
-                                       alt="Sticker" 
-                                       className="w-full h-auto rounded-lg cursor-pointer hover:scale-110 transition-transform"
-                                       onClick={() => handleSendMessage(url, 'sticker')}
-                                   />
-                               ))}
-                           </div>
-                       )}
-
-                       {/* Emoji Picker - Fixed Position to Anchor */}
-                       {showEmojiPicker && (
-                           <div ref={emojiPickerRef} className="absolute bottom-16 right-16 mb-2 p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-600 grid grid-cols-5 gap-2 w-64 z-30 animate-in zoom-in duration-200">
-                               {EMOJIS.map((emoji) => (
-                                   <button 
-                                       key={emoji} 
-                                       onClick={() => setNewMessage(prev => prev + emoji)}
-                                       className="text-2xl hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg p-1 transition-colors"
-                                   >
-                                       {emoji}
-                                   </button>
-                               ))}
-                           </div>
-                       )}
-
-                       <div className="flex gap-3 items-end">
-                           <button 
-                               ref={stickerBtnRef}
-                               onClick={() => { setShowStickerPicker(!showStickerPicker); setShowEmojiPicker(false); }}
-                               className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${showStickerPicker ? 'bg-pink-100 text-pink-500' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 hover:text-pink-500'}`}
-                           >
-                               <i className="fa-solid fa-note-sticky text-lg"></i>
-                           </button>
-                           
-                           <div className="flex-1 bg-slate-100 dark:bg-slate-900 rounded-2xl flex items-center pr-2 relative transition-all focus-within:ring-2 focus-within:ring-indigo-100">
-                               <input 
-                                  ref={inputRef}
-                                  type="text" 
-                                  value={newMessage}
-                                  onChange={(e) => setNewMessage(e.target.value)}
-                                  onKeyDown={(e) => e.key === 'Enter' && handleSendMessage(newMessage, 'text')}
-                                  placeholder="Nhập tin nhắn..." 
-                                  className="flex-1 px-4 py-3 bg-transparent outline-none text-sm font-medium text-slate-800 dark:text-white"
-                               />
                                <button 
-                                   ref={emojiBtnRef}
-                                   onClick={() => { setShowEmojiPicker(!showEmojiPicker); setShowStickerPicker(false); }}
-                                   className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${showEmojiPicker ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
+                                   onClick={() => setReplyingTo(null)} 
+                                   className="w-6 h-6 rounded-full bg-white dark:bg-slate-600 hover:bg-rose-50 dark:hover:bg-rose-900/50 hover:text-rose-500 text-slate-400 flex items-center justify-center transition-colors shadow-sm"
                                >
-                                   <i className="fa-solid fa-face-smile text-lg"></i>
+                                   <i className="fa-solid fa-xmark text-xs"></i>
                                </button>
                            </div>
+                       )}
 
-                           <button 
-                              onClick={() => handleSendMessage(newMessage, 'text')} 
-                              disabled={!newMessage.trim()}
-                              className="w-12 h-12 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                           >
-                               <i className="fa-solid fa-paper-plane"></i>
-                           </button>
+                       <div className="p-4 relative">
+                           {/* Sticker Picker - Anchored to bottom left of input area */}
+                           {showStickerPicker && (
+                               <div ref={stickerPickerRef} className="absolute bottom-full left-4 mb-2 p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-600 grid grid-cols-3 gap-2 w-72 h-64 overflow-y-auto z-30 animate-in zoom-in duration-200">
+                                   {STICKERS.map((url, i) => (
+                                       <img 
+                                           key={i} 
+                                           src={url} 
+                                           alt="Sticker" 
+                                           className="w-full h-auto rounded-lg cursor-pointer hover:scale-110 transition-transform bg-slate-50 dark:bg-slate-700/50"
+                                           onClick={() => handleSendMessage(url, 'sticker')}
+                                       />
+                                   ))}
+                               </div>
+                           )}
+
+                           {/* Emoji Picker - Anchored to bottom right of input area */}
+                           {showEmojiPicker && (
+                               <div ref={emojiPickerRef} className="absolute bottom-full right-4 mb-2 p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-600 grid grid-cols-5 gap-2 w-64 z-30 animate-in zoom-in duration-200">
+                                   {EMOJIS.map((emoji) => (
+                                       <button 
+                                           key={emoji} 
+                                           onClick={() => setNewMessage(prev => prev + emoji)}
+                                           className="text-2xl hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg p-2 transition-colors"
+                                       >
+                                           {emoji}
+                                       </button>
+                                   ))}
+                               </div>
+                           )}
+
+                           <div className="flex gap-3 items-end">
+                               <button 
+                                   ref={stickerBtnRef}
+                                   onClick={() => { setShowStickerPicker(!showStickerPicker); setShowEmojiPicker(false); }}
+                                   className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${showStickerPicker ? 'bg-pink-100 text-pink-500' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 hover:text-pink-500'}`}
+                               >
+                                   <i className="fa-solid fa-note-sticky text-lg"></i>
+                               </button>
+                               
+                               <div className="flex-1 bg-slate-100 dark:bg-slate-900 rounded-2xl flex items-center pr-2 relative transition-all focus-within:ring-2 focus-within:ring-indigo-100">
+                                   <input 
+                                      ref={inputRef}
+                                      type="text" 
+                                      value={newMessage}
+                                      onChange={(e) => setNewMessage(e.target.value)}
+                                      onKeyDown={(e) => e.key === 'Enter' && handleSendMessage(newMessage, 'text')}
+                                      placeholder="Nhập tin nhắn..." 
+                                      className="flex-1 px-4 py-3 bg-transparent outline-none text-sm font-medium text-slate-800 dark:text-white"
+                                   />
+                                   <button 
+                                       ref={emojiBtnRef}
+                                       onClick={() => { setShowEmojiPicker(!showEmojiPicker); setShowStickerPicker(false); }}
+                                       className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${showEmojiPicker ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
+                                   >
+                                       <i className="fa-solid fa-face-smile text-lg"></i>
+                                   </button>
+                               </div>
+
+                               <button 
+                                  onClick={() => handleSendMessage(newMessage, 'text')} 
+                                  disabled={!newMessage.trim()}
+                                  className="w-12 h-12 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                               >
+                                   <i className="fa-solid fa-paper-plane"></i>
+                               </button>
+                           </div>
                        </div>
                    </div>
                </>
