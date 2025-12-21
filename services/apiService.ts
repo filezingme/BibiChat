@@ -46,10 +46,27 @@ const getApiKey = () => {
 };
 
 export const apiService = {
+  // --- SYSTEM CHECK ---
+  checkHealth: async (): Promise<{ online: boolean, message: string }> => {
+    try {
+      const res = await fetch(`${API_URL}/api/health`);
+      if (res.ok) {
+        const data = await res.json();
+        return { 
+          online: data.status === 'ok',
+          message: data.message 
+        };
+      }
+      return { online: false, message: 'Server Unreachable' };
+    } catch (e) {
+      return { online: false, message: 'Network Error' };
+    }
+  },
+
   // --- AUTH ---
   register: async (email: string, password: string): Promise<{success: boolean, message: string, user?: User}> => {
     try {
-      const res = await fetch(`${API_URL}/register`, {
+      const res = await fetch(`${API_URL}/api/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -77,7 +94,7 @@ export const apiService = {
 
   login: async (email: string, password: string): Promise<{success: boolean, message: string, user?: User}> => {
     try {
-      const res = await fetch(`${API_URL}/login`, {
+      const res = await fetch(`${API_URL}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -99,7 +116,7 @@ export const apiService = {
 
   changePassword: async (userId: string, oldPassword: string, newPassword: string): Promise<{success: boolean, message: string}> => {
     try {
-      const res = await fetch(`${API_URL}/user/change-password`, {
+      const res = await fetch(`${API_URL}/api/user/change-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, oldPassword, newPassword })
@@ -120,7 +137,7 @@ export const apiService = {
   // --- ADMIN TOOLS ---
   getAllUsers: async (): Promise<User[]> => {
     try {
-      const res = await fetch(`${API_URL}/users`);
+      const res = await fetch(`${API_URL}/api/users`);
       if (!res.ok) throw new Error("Server error");
       const data = await res.json();
       return Array.isArray(data) ? data : data.data || [];
@@ -132,7 +149,7 @@ export const apiService = {
 
   getUsersPaginated: async (page: number, limit: number, search: string): Promise<{ data: User[], total: number, totalPages: number }> => {
       try {
-          const res = await fetch(`${API_URL}/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
+          const res = await fetch(`${API_URL}/api/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
           if (!res.ok) throw new Error("Server error");
           return await res.json();
       } catch (e) {
@@ -153,7 +170,7 @@ export const apiService = {
 
   resetUserPassword: async (targetUserId: string, newPassword: string): Promise<{success: boolean, message: string}> => {
     try {
-      const res = await fetch(`${API_URL}/admin/reset-password`, {
+      const res = await fetch(`${API_URL}/api/admin/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ targetUserId, newPassword })
@@ -174,7 +191,7 @@ export const apiService = {
 
   deleteUser: async (targetUserId: string): Promise<{success: boolean, message: string}> => {
     try {
-      const res = await fetch(`${API_URL}/admin/users/${targetUserId}`, { method: 'DELETE' });
+      const res = await fetch(`${API_URL}/api/admin/users/${targetUserId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error("Server error");
       return await res.json();
     } catch (e) {
@@ -188,7 +205,7 @@ export const apiService = {
   // --- SETTINGS ---
   updateSettings: async (userId: string, settings: WidgetSettings) => {
     try {
-      await fetch(`${API_URL}/settings/${userId}`, {
+      await fetch(`${API_URL}/api/settings/${userId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings)
@@ -206,7 +223,7 @@ export const apiService = {
   // --- PLUGINS ---
   getPlugins: async (userId: string): Promise<PluginConfig> => {
     try {
-        const res = await fetch(`${API_URL}/plugins/${userId}`);
+        const res = await fetch(`${API_URL}/api/plugins/${userId}`);
         if (!res.ok) throw new Error("Fetch plugins failed");
         return await res.json();
     } catch (e) {
@@ -218,7 +235,7 @@ export const apiService = {
 
   updatePlugins: async (userId: string, plugins: PluginConfig) => {
     try {
-        await fetch(`${API_URL}/plugins/${userId}`, {
+        await fetch(`${API_URL}/api/plugins/${userId}`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(plugins)
@@ -236,7 +253,7 @@ export const apiService = {
   // --- LEADS (PAGINATED) ---
   getLeadsPaginated: async (userId: string, page: number, limit: number, search: string = ''): Promise<{ data: Lead[], pagination: any }> => {
     try {
-        const res = await fetch(`${API_URL}/leads/${userId}?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
+        const res = await fetch(`${API_URL}/api/leads/${userId}?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
         if (!res.ok) throw new Error("Fetch leads failed");
         return await res.json();
     } catch (e) {
@@ -263,7 +280,7 @@ export const apiService = {
 
   submitLead: async (userId: string, name: string, phone: string, email: string, isTest: boolean = false): Promise<Lead> => {
     try {
-        const res = await fetch(`${API_URL}/leads`, {
+        const res = await fetch(`${API_URL}/api/leads`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ userId, name, phone, email, isTest })
@@ -291,7 +308,7 @@ export const apiService = {
   
   updateLeadStatus: async (leadId: string, status: string) => {
     try {
-        await fetch(`${API_URL}/leads/${leadId}/status`, {
+        await fetch(`${API_URL}/api/leads/${leadId}/status`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ status })
@@ -308,7 +325,7 @@ export const apiService = {
 
   deleteLead: async (leadId: string) => {
     try {
-      await fetch(`${API_URL}/leads/${leadId}`, { method: 'DELETE' });
+      await fetch(`${API_URL}/api/leads/${leadId}`, { method: 'DELETE' });
     } catch (e) {
       const db = getLocalDB();
       db.leads = (db.leads || []).filter((l: any) => l.id !== leadId);
@@ -319,7 +336,7 @@ export const apiService = {
   // --- DOCUMENTS ---
   getDocuments: async (userId: string): Promise<Document[]> => {
     try {
-      const res = await fetch(`${API_URL}/documents/${userId}`);
+      const res = await fetch(`${API_URL}/api/documents/${userId}`);
       if (!res.ok) throw new Error("Server error");
       return await res.json();
     } catch (e) {
@@ -330,7 +347,7 @@ export const apiService = {
 
   addDocument: async (userId: string, name: string, content: string, type: 'text' | 'file'): Promise<Document> => {
     try {
-      const res = await fetch(`${API_URL}/documents/text`, {
+      const res = await fetch(`${API_URL}/api/documents/text`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, content, userId })
@@ -356,7 +373,7 @@ export const apiService = {
 
   deleteDocument: async (id: string) => {
     try {
-      await fetch(`${API_URL}/documents/${id}`, { method: 'DELETE' });
+      await fetch(`${API_URL}/api/documents/${id}`, { method: 'DELETE' });
     } catch (e) {
       const db = getLocalDB();
       db.documents = db.documents.filter((d: any) => d.id !== id);
@@ -369,7 +386,7 @@ export const apiService = {
   // 1. Get List of Sessions (Paginated) with FULL Offline Support
   getChatSessionsPaginated: async (userId: string | 'all', page: number, limit: number, filterUserId: string = 'all'): Promise<{ data: any[], pagination: any }> => {
       try {
-          const res = await fetch(`${API_URL}/chat-sessions/${userId}?page=${page}&limit=${limit}&filterUserId=${filterUserId}`);
+          const res = await fetch(`${API_URL}/api/chat-sessions/${userId}?page=${page}&limit=${limit}&filterUserId=${filterUserId}`);
           if(!res.ok) throw new Error("Fetch sessions failed");
           return await res.json();
       } catch (e) {
@@ -428,7 +445,7 @@ export const apiService = {
   // 2. Get Messages for a specific session (Lazy Load) with FULL Offline Support
   getChatMessages: async (userId: string | 'all', sessionId: string): Promise<ChatLog[]> => {
       try {
-          const res = await fetch(`${API_URL}/chat-messages/${userId}/${sessionId}`);
+          const res = await fetch(`${API_URL}/api/chat-messages/${userId}/${sessionId}`);
           if(!res.ok) throw new Error("Fetch messages failed");
           return await res.json();
       } catch (e) {
@@ -469,7 +486,7 @@ export const apiService = {
 
   getChatLogs: async (userId: string | 'all'): Promise<ChatLog[]> => {
     try {
-        const res = await fetch(`${API_URL}/chat-logs/${userId}`);
+        const res = await fetch(`${API_URL}/api/chat-logs/${userId}`);
         if(!res.ok) throw new Error("Fetch logs failed");
         return await res.json();
     } catch (e) {
@@ -483,7 +500,7 @@ export const apiService = {
   // --- NOTIFICATIONS ---
   getNotifications: async (userId: string): Promise<Notification[]> => {
     try {
-      const res = await fetch(`${API_URL}/notifications/${userId}`);
+      const res = await fetch(`${API_URL}/api/notifications/${userId}`);
       if (!res.ok) throw new Error("Server error");
       return await res.json();
     } catch (e) {
@@ -506,7 +523,7 @@ export const apiService = {
 
   markNotificationRead: async (id: string, userId: string): Promise<void> => {
     try {
-      await fetch(`${API_URL}/notifications/${id}/read`, { 
+      await fetch(`${API_URL}/api/notifications/${id}/read`, { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId })
@@ -524,7 +541,7 @@ export const apiService = {
 
   markAllNotificationsRead: async (userId: string): Promise<void> => {
     try {
-        await fetch(`${API_URL}/notifications/read-all`, {
+        await fetch(`${API_URL}/api/notifications/read-all`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId })
@@ -546,7 +563,7 @@ export const apiService = {
 
   createSystemNotification: async (data: Partial<Notification>) => {
     try {
-      await fetch(`${API_URL}/notifications/create`, {
+      await fetch(`${API_URL}/api/notifications/create`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(data)
@@ -586,7 +603,7 @@ export const apiService = {
 
   chat: async (userId: string, message: string, botName: string, sessionId: string): Promise<string> => {
     try {
-      const res = await fetch(`${API_URL}/chat`, {
+      const res = await fetch(`${API_URL}/api/chat`, {
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({ userId, message, botName, sessionId })

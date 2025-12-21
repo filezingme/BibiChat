@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -49,6 +50,9 @@ const App: React.FC = () => {
   const [passwordForm, setPasswordForm] = useState({ old: '', new: '', confirm: '' });
   const [passwordMsg, setPasswordMsg] = useState({ type: '', text: '' });
   
+  // Offline Mode State
+  const [isOffline, setIsOffline] = useState(false);
+
   const [settings, setSettings] = useState<WidgetSettings>({
     primaryColor: '#8b5cf6', 
     botName: 'Trợ lý AI',
@@ -74,6 +78,17 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
+    // Check Database Connection Status
+    apiService.checkHealth().then(status => {
+        if (status.online) {
+            console.log('%c✅ Database Connected Successfully!', 'color: #10b981; font-weight: bold; font-size: 14px; background: #ecfdf5; padding: 4px; border-radius: 4px;');
+            setIsOffline(false);
+        } else {
+            console.log('%c⚠️ Unable to connect to Database. Switching to Offline Mode.', 'color: #f59e0b; font-weight: bold; font-size: 14px; background: #fffbeb; padding: 4px; border-radius: 4px;');
+            setIsOffline(true);
+        }
+    });
+
     // Detect Embed Mode via URL params
     const params = new URLSearchParams(window.location.search);
     const mode = params.get('mode');
@@ -87,7 +102,7 @@ const App: React.FC = () => {
              // We can't query specific user by ID easily with current API, 
              // but assuming we fetch user settings via a public endpoint would be better.
              // For now, we reuse the existing settings endpoint which is open enough.
-             fetch(`http://127.0.0.1:3001/api/settings/${userId}`)
+             fetch(`https://fuzzy-cosette-filezingme-org-64d51f5d.koyeb.app/api/settings/${userId}`)
                 .then(r => r.json())
                 .then(data => {
                     if(data) setSettings(data);
@@ -322,6 +337,14 @@ const App: React.FC = () => {
     <div className={`flex h-screen w-full overflow-hidden relative font-sans antialiased transition-colors duration-500
       ${darkMode ? 'bg-slate-900 text-slate-100 selection:bg-purple-500 selection:text-white' : 'bg-[#f0f2f5] text-slate-700 selection:bg-pink-100 selection:text-pink-900'}
     `}>
+      {/* Offline Banner */}
+      {isOffline && (
+          <div className="absolute top-0 left-0 right-0 z-[100] bg-amber-500 text-white text-center py-1 text-xs font-bold shadow-md animate-in slide-in-from-top duration-300">
+              <i className="fa-solid fa-wifi-slash mr-2"></i>
+              Mất kết nối Database - Hệ thống đang sử dụng dữ liệu Offline trên trình duyệt.
+          </div>
+      )}
+
       {!darkMode && (
         <div className="absolute inset-0 z-0 pointer-events-none opacity-60">
            <div className="absolute top-[-10%] left-[-10%] w-[40rem] h-[40rem] bg-pink-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>

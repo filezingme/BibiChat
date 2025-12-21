@@ -135,8 +135,6 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 // --- WIDGET SCRIPT SERVING (SAAS CORE) ---
 app.get('/widget.js', (req, res) => {
-  // Script này sẽ được nhúng vào website khách hàng
-  // Nó tạo ra một iframe trỏ về Frontend App của chúng ta với tham số ?embed=true
   const scriptContent = `
 (function() {
   if (window.BibiChatLoaded) return;
@@ -150,39 +148,35 @@ app.get('/widget.js', (req, res) => {
     return;
   }
 
-  // Create Container
   var container = document.createElement('div');
   container.id = 'bibichat-widget-container';
   container.style.position = 'fixed';
-  container.style.zIndex = '2147483647'; // Max z-index
+  container.style.zIndex = '2147483647';
   container.style.bottom = '20px';
-  container.style.right = '20px'; // Default right
-  container.style.width = '80px'; // Initial button size
+  container.style.right = '20px';
+  container.style.width = '80px';
   container.style.height = '80px';
   container.style.border = 'none';
   container.style.transition = 'all 0.3s ease';
   
-  // Create Iframe pointing to Frontend
   var iframe = document.createElement('iframe');
-  // Trỏ về Frontend URL với mode=embed
   iframe.src = '${CLIENT_URL}?mode=embed&userId=' + widgetId;
   iframe.style.width = '100%';
   iframe.style.height = '100%';
   iframe.style.border = 'none';
   iframe.style.borderRadius = '20px';
-  iframe.allow = "microphone"; // Cho phép voice chat nếu cần
+  iframe.allow = "microphone";
   
   container.appendChild(iframe);
   document.body.appendChild(container);
 
-  // Lắng nghe message từ Iframe để resize (Mở/Đóng chat)
   window.addEventListener('message', function(event) {
     if (event.data === 'bibichat-open') {
        container.style.width = '380px';
        container.style.height = '600px';
        container.style.borderRadius = '24px';
        container.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.25)';
-       if(window.innerWidth < 480) { // Mobile responsive
+       if(window.innerWidth < 480) {
          container.style.width = '100%';
          container.style.height = '100%';
          container.style.bottom = '0';
@@ -197,7 +191,6 @@ app.get('/widget.js', (req, res) => {
        container.style.bottom = '20px';
        container.style.right = '20px';
     } else if (event.data && event.data.type === 'bibichat-position') {
-       // Cập nhật vị trí trái/phải nếu config thay đổi
        if (event.data.position === 'left') {
           container.style.left = '20px';
           container.style.right = 'auto';
@@ -211,6 +204,17 @@ app.get('/widget.js', (req, res) => {
   `;
   res.setHeader('Content-Type', 'application/javascript');
   res.send(scriptContent);
+});
+
+// --- HEALTH CHECK ---
+app.get('/api/health', (req, res) => {
+  const dbState = mongoose.connection.readyState;
+  // 0: disconnected, 1: connected, 2: connecting, 3: disconnecting
+  res.json({ 
+    status: dbState === 1 ? 'ok' : 'error', 
+    dbState: dbState,
+    message: dbState === 1 ? 'Connected to MongoDB' : 'Disconnected from MongoDB'
+  });
 });
 
 // --- API ROUTES ---
@@ -279,30 +283,28 @@ app.get('/api/notifications/:userId', async (req, res) => {
     const { userId } = req.params;
     const now = Date.now();
     
-    // Corrected Logic: Always include notifications for 'all' OR specific user
-    const baseQuery = {
-        $or: [{ userId: 'all' }, { userId: userId }]
-    };
-    
-    let finalQuery: any = baseQuery;
+    let filter: any = {};
 
-    // For non-admin users, we must also check the schedule time
-    if (userId !== 'admin') {
-        finalQuery = {
+    if (userId === 'admin' || userId === 'master') {
+        filter = {
+            $or: [{ userId: 'all' }, { userId: 'admin' }]
+        };
+    } else {
+        filter = {
             $and: [
-                baseQuery,
+                { $or: [{ userId: 'all' }, { userId: userId }] },
                 { 
                     $or: [
-                        { scheduledAt: { $lte: now + 60000 } }, // +60s buffer
+                        { scheduledAt: { $lte: now + 60000 } },
                         { time: { $lte: now + 60000 } },
-                        { scheduledAt: { $exists: false } } // Handle legacy docs
+                        { scheduledAt: { $exists: false } }
                     ] 
                 }
             ]
         };
     }
 
-    const notifs = await Notification.find(finalQuery).sort({ scheduledAt: -1, time: -1 });
+    const notifs = await Notification.find(filter).sort({ scheduledAt: -1, time: -1 });
     
     const mapped = notifs.map(n => ({
         ...n.toObject(),
@@ -322,8 +324,10 @@ app.post('/api/notifications/:id/read', async (req, res) => {
 
 app.post('/api/notifications/read-all', async (req, res) => {
     const { userId } = req.body;
+    const filter = { $or: [{ userId: 'all' }, { userId: userId }] };
+    
     await Notification.updateMany(
-        { $or: [{ userId: 'all' }, { userId: userId }] },
+        filter,
         { $addToSet: { readBy: userId } }
     );
     res.json({ success: true });
@@ -375,11 +379,12 @@ app.get('/api/chat-sessions/:userId', async (req, res) => {
 
     let matchStage: any = {};
     
-    // Only apply filter if it's NOT 'all'
-    if (userId !== 'all') {
+    if (userId !== 'all' && userId !== 'admin') {
         matchStage.userId = userId;
-    } else if (filterUserId !== 'all') {
-        matchStage.userId = filterUserId;
+    } else {
+        if (filterUserId !== 'all') {
+            matchStage.userId = filterUserId;
+        }
     }
 
     const sessions = await ChatLog.aggregate([
@@ -400,8 +405,6 @@ app.get('/api/chat-sessions/:userId', async (req, res) => {
         { $limit: limit }
     ]);
 
-    // Count total distinct sessions for pagination
-    // Note: This can be heavy on huge datasets, but okay for MVP
     const countResult = await ChatLog.aggregate([
         { $match: matchStage },
         { $group: { _id: { userId: "$userId", sessionId: "$customerSessionId" } } },
@@ -423,14 +426,14 @@ app.get('/api/chat-sessions/:userId', async (req, res) => {
 app.get('/api/chat-messages/:userId/:sessionId', async (req, res) => {
     const { userId, sessionId } = req.params;
     const query: any = { customerSessionId: sessionId };
-    if (userId !== 'all') query.userId = userId;
+    if (userId !== 'all' && userId !== 'admin') query.userId = userId;
     
     const messages = await ChatLog.find(query).sort({ timestamp: 1 });
     res.json(messages);
 });
 
 app.get('/api/chat-logs/:userId', async (req, res) => {
-    const query = req.params.userId !== 'all' ? { userId: req.params.userId } : {};
+    const query = (req.params.userId !== 'all' && req.params.userId !== 'admin') ? { userId: req.params.userId } : {};
     const logs = await ChatLog.find(query).sort({ timestamp: -1 });
     res.json(logs);
 });
