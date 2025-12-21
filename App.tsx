@@ -45,6 +45,9 @@ const App: React.FC = () => {
   const notifRef = useRef<HTMLDivElement>(null);
   const [visibleNotifCount, setVisibleNotifCount] = useState(5);
   
+  // Unread Direct Messages Count
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -189,15 +192,29 @@ const App: React.FC = () => {
 
   }, []);
 
+  // Poll for Notifications and Unread Messages
   useEffect(() => {
     if (isLoggedIn && currentUser && !isEmbedMode) {
       loadNotifications();
-      const interval = setInterval(loadNotifications, 5000);
+      loadUnreadMessages(); // Initial load
+      
+      const interval = setInterval(() => {
+          loadNotifications();
+          loadUnreadMessages();
+      }, 5000);
+      
       return () => {
         clearInterval(interval);
       };
     }
   }, [isLoggedIn, currentUser?.id, isEmbedMode]);
+
+  const loadUnreadMessages = async () => {
+      if (currentUser) {
+          const count = await apiService.getUnreadMessagesCount(currentUser.id);
+          setUnreadMessagesCount(count);
+      }
+  };
 
   const handleDropdownScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -372,6 +389,7 @@ const App: React.FC = () => {
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
         user={currentUser!}
+        unreadMessagesCount={unreadMessagesCount}
       />
       
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-10">

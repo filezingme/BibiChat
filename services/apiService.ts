@@ -110,6 +110,16 @@ export const apiService = {
       }
   },
 
+  getUnreadMessagesCount: async (userId: string): Promise<number> => {
+      try {
+          const res = await fetch(`${API_URL}/api/dm/unread/${userId}`);
+          const data = await res.json();
+          return data.count || 0;
+      } catch (e) {
+          return 0;
+      }
+  },
+
   // --- AUTH ---
   register: async (email: string, password: string): Promise<{success: boolean, message: string, user?: User}> => {
     try {

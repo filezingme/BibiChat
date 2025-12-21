@@ -9,9 +9,10 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   user: User;
+  unreadMessagesCount?: number; // New Prop
 }
 
-const Sidebar: React.FC<Props> = ({ currentView, onViewChange, isOpen, onClose, user }) => {
+const Sidebar: React.FC<Props> = ({ currentView, onViewChange, isOpen, onClose, user, unreadMessagesCount = 0 }) => {
   const isMaster = user.role === 'master';
 
   const menuItems = [
@@ -33,6 +34,37 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange, isOpen, onClose, 
 
   return (
     <>
+    {/* Style tag for custom scrollbar behavior */}
+    <style>{`
+      .sidebar-scroll {
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: transparent transparent;
+      }
+      .sidebar-scroll::-webkit-scrollbar {
+        width: 4px;
+      }
+      .sidebar-scroll::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .sidebar-scroll::-webkit-scrollbar-thumb {
+        background-color: transparent;
+        border-radius: 20px;
+      }
+      .sidebar-scroll:hover {
+        scrollbar-color: #cbd5e1 transparent;
+      }
+      .dark .sidebar-scroll:hover {
+        scrollbar-color: #475569 transparent;
+      }
+      .sidebar-scroll:hover::-webkit-scrollbar-thumb {
+        background-color: #cbd5e1;
+      }
+      .dark .sidebar-scroll:hover::-webkit-scrollbar-thumb {
+        background-color: #475569;
+      }
+    `}</style>
+
     <div className={`
       fixed inset-y-4 left-4 z-50 w-80 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-white dark:border-slate-700 rounded-[2.5rem] flex flex-col py-8 transition-all duration-300 lg:relative lg:translate-x-0 shadow-2xl shadow-pink-200/40 dark:shadow-none
       ${isOpen ? 'translate-x-0' : '-translate-x-[110%] lg:translate-x-0'}
@@ -58,7 +90,7 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange, isOpen, onClose, 
         </button>
       </div>
 
-      <nav className="flex-1 px-6 space-y-3 overflow-y-auto no-scrollbar">
+      <nav className="flex-1 px-6 space-y-3 sidebar-scroll">
         {menuItems.map(item => (
           <button
             key={item.id}
@@ -71,7 +103,15 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange, isOpen, onClose, 
               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-pink-600 dark:hover:text-pink-300 font-bold hover:scale-[1.02]'
             }`}
           >
-            <i className={`${item.icon} w-6 text-center text-xl ${currentView === item.id ? 'text-white' : 'text-slate-400 dark:text-slate-500 group-hover:text-current transition-colors'}`}></i>
+            <div className="relative">
+                <i className={`${item.icon} w-6 text-center text-xl ${currentView === item.id ? 'text-white' : 'text-slate-400 dark:text-slate-500 group-hover:text-current transition-colors'}`}></i>
+                {/* UNREAD BADGE FOR CHAT MENU */}
+                {item.id === View.DIRECT_MESSAGES && unreadMessagesCount > 0 && (
+                    <span className="absolute -top-2 -right-3 min-w-[18px] h-[18px] bg-rose-500 text-white text-[9px] font-black rounded-full border-2 border-white dark:border-slate-800 flex items-center justify-center animate-bounce-slow shadow-sm px-1">
+                        {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
+                    </span>
+                )}
+            </div>
             <span className="text-base font-bold tracking-wide">{item.label}</span>
           </button>
         ))}

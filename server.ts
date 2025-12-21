@@ -436,9 +436,30 @@ app.get('/api/dm/conversations/:userId', async (req, res) => {
     res.json(conversations);
 });
 
+// Get Total Unread Count
+app.get('/api/dm/unread/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const count = await DirectMessage.countDocuments({ 
+            receiverId: userId, 
+            isRead: false 
+        });
+        res.json({ count });
+    } catch (error) {
+        res.json({ count: 0 });
+    }
+});
+
 // Get message history between two users
 app.get('/api/dm/history/:userId/:otherUserId', async (req, res) => {
     const { userId, otherUserId } = req.params;
+    
+    // Update isRead to true for messages received by userId from otherUserId
+    await DirectMessage.updateMany(
+        { senderId: otherUserId, receiverId: userId, isRead: false },
+        { isRead: true }
+    );
+
     const messages = await DirectMessage.find({
         $or: [
             { senderId: userId, receiverId: otherUserId },
