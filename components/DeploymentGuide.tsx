@@ -23,7 +23,7 @@ const DeploymentGuide: React.FC = () => {
               <ul className="list-disc ml-5 mt-2 text-sm text-gray-600 dark:text-gray-400 space-y-1">
                  <li>Truy cập <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-indigo-500 hover:underline font-bold">Google AI Studio</a>.</li>
                  <li>Đăng nhập bằng Gmail của bạn.</li>
-                 <li>Nhấn nút <strong>Create API key</strong> -> <strong>Create API key in new project</strong>.</li>
+                 <li>Nhấn nút <strong>Create API key</strong> &rarr; <strong>Create API key in new project</strong>.</li>
                  <li>Copy chuỗi ký tự bắt đầu bằng <code>AIza...</code> (Lưu lại để dùng ở Bước 2).</li>
               </ul>
             </div>
@@ -53,7 +53,7 @@ const DeploymentGuide: React.FC = () => {
               <ul className="list-disc ml-5 mt-2 text-sm text-gray-600 dark:text-gray-400 space-y-1">
                  <li>Push code lên GitHub.</li>
                  <li>Đăng ký tài khoản tại <strong>app.koyeb.com</strong>.</li>
-                 <li>Chọn <strong>Create Service</strong> -> <strong>GitHub</strong> -> Chọn repository của bạn.</li>
+                 <li>Chọn <strong>Create Service</strong> &rarr; <strong>GitHub</strong> &rarr; Chọn repository của bạn.</li>
                  <li>Trong phần <strong>Builder</strong>, chọn "Buildpack" (Mặc định).</li>
                  <li>Trong phần <strong>Environment variables</strong>, thêm:
                     <ul className="ml-4 mt-1 font-mono text-xs bg-slate-100 p-2 rounded">
@@ -78,7 +78,7 @@ const DeploymentGuide: React.FC = () => {
                  <li>Vào code, mở file <code>services/apiService.ts</code>.</li>
                  <li>Sửa dòng <code>API_URL</code> thành URL của Koyeb vừa copy ở bước 2.</li>
                  <li>Commit và Push code lên GitHub.</li>
-                 <li>Vào <strong>vercel.com</strong> -> Add New Project -> Import GitHub Repo -> Deploy!</li>
+                 <li>Vào <strong>vercel.com</strong> &rarr; Add New Project &rarr; Import GitHub Repo &rarr; Deploy!</li>
               </ul>
             </div>
           </div>
