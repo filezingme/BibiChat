@@ -9,20 +9,20 @@ interface Props {
   onClearTargetUser?: () => void;
 }
 
-// Updated Diverse Sticker List
+// Updated Diverse Sticker List - Cute Character GIFs (No text)
 const STICKERS = [
-    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcDdtY2J6eHR5cTZ5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/l4KibWpBGWchSqCRy/giphy.gif", // Hello
-    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3Z5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/3o7TKr3nzbh5WgCFxe/giphy.gif", // Love
-    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOHZ5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/l0HlO3BJ8LxrErGDe/giphy.gif", // Haha
-    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcjl5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/3o7TKDkDbIDJieo1sk/giphy.gif", // Cry
-    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcDl5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/3o6Zt6MLaqfJS2b8Gc/giphy.gif", // Angry
-    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHZ5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/3o7TKs8b6ZID0Hznh6/giphy.gif", // Wow
-    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExN3J6aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/26AHvcW0LB97W8dfi/giphy.gif", // Party
-    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcnF5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/l0HlCqV9E9PnktnJ6/giphy.gif", // Confused
-    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZnZ5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/3o7TKUZfthdbNgUSMN/giphy.gif", // OK
-    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbTZ5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/3o7TKUZfthdbNgUSMN/giphy.gif", // Waiting/Sleepy
-    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbDV5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/l0HlO3BJ8LxrErGDe/giphy.gif", // Wink
-    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdjl5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/3o7TKDkDbIDJieo1sk/giphy.gif" // Scared
+    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExazF5ZnA5N3Z5M3Z5M3Z5M3Z5M3Z5M3Z5M3Z5M3Z5M3Z5bCZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/1hqb8LwPS2xCNCpWH8/giphy.gif", // Cute Cat Love
+    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcHJEqNmE5b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/GeimqsBK0ThNg4530F/giphy.gif", // Excited Bear
+    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3Z5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/MDJlI8pXfgWTE6G8T2/giphy.gif", // Dancing Cat
+    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOHZ5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/l0HlHDTJ26XQ9U5C8/giphy.gif", // Crying
+    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcjl5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/3o7TKSjRrfIPjeiVyM/giphy.gif", // Angry
+    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcDl5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/26FLdmIp6wJr91JjG/giphy.gif", // Thumbs up / Cool
+    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHZ5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/l2QZSu4x8BbJNkQdU/giphy.gif", // Shocked
+    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcnF5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/3o7TKrEzt2i-GBzbPW/giphy.gif", // Question / Confused
+    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZnZ5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/l0HlO3BJ8LxrErGDe/giphy.gif", // Laughing
+    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbTZ5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/3o6Zt6MLaqfJS2b8Gc/giphy.gif", // Sleepy
+    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbDV5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/3o7TKTK93M10d0t1wA/giphy.gif", // Hi / Hello
+    "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdjl5aG55b3pidjZ5aG55b3pidjZ5aG55b3pidjZ5aCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/xT0xeuOy2Fcl9vDGiA/giphy.gif" // Party
 ];
 
 const EMOJIS = ['😀', '😂', '😍', '😎', '😭', '😡', '👍', '👎', '🎉', '🔥', '❤️', '👀', '✨', '💯', '🤔', '😅', '🤮', '😴', '🥳', '👻'];
@@ -39,6 +39,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   const [searchError, setSearchError] = useState('');
   
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null); // Ref for input field
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
   // New UI States
@@ -285,6 +286,15 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       setActiveChatUser(null);
   };
 
+  // Helper to handle reply click and focus
+  const handleReplyClick = (msg: DirectMessage) => {
+      setReplyingTo(msg);
+      // Immediately focus the input
+      if (inputRef.current) {
+          inputRef.current.focus();
+      }
+  };
+
   return (
     <div className="h-[calc(100vh-8rem)] min-h-[600px] flex gap-6 animate-in fade-in duration-500 pb-2 relative">
        {/* Sidebar List - Hidden on Mobile if Chat is Active */}
@@ -371,15 +381,17 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
                    {/* Messages List */}
                    <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50 dark:bg-slate-900" ref={scrollRef}>
-                       {messages.map(msg => {
+                       {messages.map((msg) => {
                            const isMe = msg.senderId === user.id;
+                           const hasReactions = msg.reactions && msg.reactions.length > 0;
+                           
                            return (
-                               <div key={msg.id} className={`flex w-full group ${isMe ? 'justify-end' : 'justify-start'}`}>
+                               <div key={msg.id} className={`flex w-full group ${isMe ? 'justify-end' : 'justify-start'} ${hasReactions ? 'mb-5' : 'mb-1'}`}>
                                    <div className={`relative max-w-[70%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                                        
                                        {/* Hover Toolbar (Reply & React) */}
                                        <div className={`absolute -top-8 ${isMe ? 'right-0' : 'left-0'} hidden group-hover:flex items-center gap-1 bg-white dark:bg-slate-800 p-1 rounded-full shadow-lg border border-slate-100 dark:border-slate-700 z-20 animate-in fade-in zoom-in duration-200`}>
-                                            <button onClick={() => setReplyingTo(msg)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors" title="Trả lời">
+                                            <button onClick={() => handleReplyClick(msg)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors" title="Trả lời">
                                                 <i className="fa-solid fa-reply text-xs"></i>
                                             </button>
                                             <div className="w-[1px] h-4 bg-slate-200 dark:bg-slate-600 mx-1"></div>
@@ -404,30 +416,30 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                        ) : (
                                            <div className={`px-5 py-3 rounded-2xl text-sm font-medium leading-relaxed shadow-sm relative ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-tl-none'}`}>
                                                {msg.content}
-                                           </div>
-                                       )}
-
-                                       {/* Reactions Display */}
-                                       {msg.reactions && msg.reactions.length > 0 && (
-                                           <div className={`absolute -bottom-3 ${isMe ? 'right-0' : 'left-0'} flex -space-x-1`}>
-                                               {Array.from(new Set(msg.reactions.map(r => r.emoji))).slice(0, 3).map((emoji, i) => (
-                                                   <div key={i} className="bg-white dark:bg-slate-700 rounded-full w-5 h-5 flex items-center justify-center text-[10px] shadow-sm border border-slate-100 dark:border-slate-600 z-10">
-                                                       {emoji}
-                                                   </div>
-                                               ))}
-                                               <div className="bg-slate-100 dark:bg-slate-800 rounded-full px-1.5 h-5 flex items-center justify-center text-[9px] font-bold text-slate-500 border border-slate-200 dark:border-slate-600 shadow-sm">
-                                                   {msg.reactions.length}
+                                               
+                                               {/* Timestamp & Status INSIDE Bubble */}
+                                               <div className={`text-[9px] font-bold mt-1 flex items-center gap-1 ${isMe ? 'text-indigo-200 justify-end' : 'text-slate-400 justify-start'}`}>
+                                                   {new Date(msg.timestamp).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}
+                                                   {isMe && (
+                                                       <i className={`fa-solid fa-check-double ${msg.isRead ? 'text-cyan-300' : 'text-indigo-300'}`}></i>
+                                                   )}
                                                </div>
                                            </div>
                                        )}
 
-                                       {/* Timestamp & Status */}
-                                       <div className={`text-[9px] font-bold mt-1 flex items-center gap-1 ${isMe ? 'text-indigo-300 pr-1' : 'text-slate-400 pl-1'}`}>
-                                           {new Date(msg.timestamp).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}
-                                           {isMe && (
-                                               <i className={`fa-solid fa-check-double ${msg.isRead ? 'text-cyan-400' : 'text-slate-400'}`}></i>
-                                           )}
-                                       </div>
+                                       {/* Reactions Display - Floating Outside/Overlapping Bottom */}
+                                       {hasReactions && (
+                                           <div className={`absolute bottom-[-14px] ${isMe ? 'right-2' : 'left-2'} flex -space-x-1 z-10 filter drop-shadow-sm`}>
+                                               {Array.from(new Set(msg.reactions!.map(r => r.emoji))).slice(0, 3).map((emoji, i) => (
+                                                   <div key={i} className="bg-white dark:bg-slate-700 rounded-full w-6 h-6 flex items-center justify-center text-xs shadow-sm border-[2px] border-slate-50 dark:border-slate-900">
+                                                       {emoji}
+                                                   </div>
+                                               ))}
+                                               <div className="bg-slate-100 dark:bg-slate-800 rounded-full px-1.5 h-6 flex items-center justify-center text-[9px] font-bold text-slate-500 border-[2px] border-slate-50 dark:border-slate-900 shadow-sm min-w-[20px]">
+                                                   {msg.reactions!.length}
+                                               </div>
+                                           </div>
+                                       )}
                                    </div>
                                </div>
                            );
@@ -495,6 +507,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                            
                            <div className="flex-1 bg-slate-100 dark:bg-slate-900 rounded-2xl flex items-center pr-2 relative transition-all focus-within:ring-2 focus-within:ring-indigo-100">
                                <input 
+                                  ref={inputRef}
                                   type="text" 
                                   value={newMessage}
                                   onChange={(e) => setNewMessage(e.target.value)}
