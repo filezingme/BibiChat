@@ -8,7 +8,9 @@ export const apiService = {
   checkHealth: async () => {
     try {
       const res = await fetch(`${API_URL}/api/health`);
-      return await res.json();
+      const data = await res.json();
+      // Fix: Map 'status' from server to 'online' property expected by App.tsx
+      return { online: data.status === 'ok' };
     } catch (e) {
       return { online: false };
     }
@@ -54,6 +56,7 @@ export const apiService = {
           const res = await fetch(`${API_URL}/api/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
           if (!res.ok) throw new Error("Lỗi máy chủ");
           const json = await res.json();
+          // Fix: Server returns nested pagination object, flatten it for component
           if (json.pagination) {
               return {
                   data: json.data,
