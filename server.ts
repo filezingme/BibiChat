@@ -103,7 +103,10 @@ const directMessageSchema = new mongoose.Schema({
   receiverId: String,
   content: String,
   timestamp: Number,
-  isRead: { type: Boolean, default: false }
+  isRead: { type: Boolean, default: false },
+  type: { type: String, default: 'text' }, // text, sticker
+  replyToId: String,
+  reactions: [{ userId: String, emoji: String }]
 });
 
 // Models
@@ -433,7 +436,7 @@ app.get('/api/dm/conversations/:userId', async (req, res) => {
             id: contact.id,
             email: contact.email,
             role: contact.role,
-            lastMessage: lastMsg?.content || '',
+            lastMessage: lastMsg?.type === 'sticker' ? '[Sticker]' : (lastMsg?.content || ''),
             lastMessageTime: lastMsg?.timestamp || 0,
             unreadCount: unreadCount 
         };
@@ -480,16 +483,52 @@ app.get('/api/dm/history/:userId/:otherUserId', async (req, res) => {
 
 // Send Message
 app.post('/api/dm/send', async (req, res) => {
-    const { senderId, receiverId, content } = req.body;
+    const { senderId, receiverId, content, type, replyToId } = req.body;
     const newMessage = await DirectMessage.create({
         id: Math.random().toString(36).substr(2, 9),
         senderId,
         receiverId,
         content,
         timestamp: Date.now(),
-        isRead: false
+        isRead: false,
+        type: type || 'text',
+        replyToId: replyToId || null,
+        reactions: []
     });
     res.json(newMessage);
+});
+
+// React to Message
+app.post('/api/dm/react', async (req, res) => {
+    const { messageId, userId, emoji } = req.body;
+    
+    const message = await DirectMessage.findOne({ id: messageId });
+    if (!message) return res.status(404).json({ success: false });
+
+    // Ensure reactions array exists
+    if (!message.reactions) message.reactions = [];
+
+    // Check if user already reacted
+    const existingIndex = message.reactions.findIndex(r => r.userId === userId);
+    
+    if (existingIndex > -1) {
+        if (message.reactions[existingIndex].emoji === emoji) {
+            // Remove reaction if same emoji clicked
+            message.reactions.splice(existingIndex, 1);
+        } else {
+            // Update emoji
+            message.reactions[existingIndex].emoji = emoji;
+        }
+    } else {
+        // Add new reaction
+        message.reactions.push({ userId, emoji });
+    }
+
+    // Mark specific path as modified because it's a nested array
+    message.markModified('reactions');
+    await message.save();
+    
+    res.json({ success: true, reactions: message.reactions });
 });
 
 // CHAT SESSIONS (AI)

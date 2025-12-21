@@ -99,6 +99,11 @@ export interface Notification {
   bg: string;
 }
 
+export interface Reaction {
+  userId: string;
+  emoji: string;
+}
+
 export interface DirectMessage {
   id: string;
   senderId: string;
@@ -106,6 +111,10 @@ export interface DirectMessage {
   content: string;
   timestamp: number;
   isRead: boolean;
+  type?: 'text' | 'sticker'; // New field
+  replyToId?: string; // New field
+  replyToContent?: string; // Optional: populated on frontend for display
+  reactions?: Reaction[]; // New field
 }
 
 export interface ConversationUser {

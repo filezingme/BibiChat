@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { User, Document, WidgetSettings, ChatLog, UserRole, Notification, Lead, PluginConfig, DirectMessage, ConversationUser } from "../types";
+import { User, Document, WidgetSettings, ChatLog, UserRole, Notification, Lead, PluginConfig, DirectMessage, ConversationUser, Reaction } from "../types";
 
 // URL Backend - Cập nhật URL này nếu bạn deploy backend riêng
 const API_URL = 'https://fuzzy-cosette-filezingme-org-64d51f5d.koyeb.app';
@@ -97,16 +97,29 @@ export const apiService = {
       }
   },
 
-  sendDirectMessage: async (senderId: string, receiverId: string, content: string): Promise<DirectMessage> => {
+  sendDirectMessage: async (senderId: string, receiverId: string, content: string, type: 'text' | 'sticker' = 'text', replyToId?: string): Promise<DirectMessage> => {
       try {
           const res = await fetch(`${API_URL}/api/dm/send`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ senderId, receiverId, content })
+              body: JSON.stringify({ senderId, receiverId, content, type, replyToId })
           });
           return await res.json();
       } catch (e) {
           throw new Error("Gửi tin nhắn thất bại");
+      }
+  },
+
+  reactToMessage: async (messageId: string, userId: string, emoji: string): Promise<{ success: boolean, reactions?: Reaction[] }> => {
+      try {
+          const res = await fetch(`${API_URL}/api/dm/react`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ messageId, userId, emoji })
+          });
+          return await res.json();
+      } catch (e) {
+          return { success: false };
       }
   },
 
