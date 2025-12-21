@@ -16,13 +16,14 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange, isOpen, onClose, 
 
   const menuItems = [
     { id: View.DASHBOARD, label: 'Tổng quan', icon: 'fa-solid fa-chart-pie' },
+    { id: View.DIRECT_MESSAGES, label: 'Trò chuyện', icon: 'fa-solid fa-comments' }, // Renamed for brevity
     ...(isMaster ? [
       { id: View.CUSTOMER_MANAGEMENT, label: 'Quản lý Khách hàng', icon: 'fa-solid fa-users-gear' },
       { id: View.NOTIFICATION_MANAGER, label: 'Quản lý Thông báo', icon: 'fa-solid fa-bell' },
       { id: View.CHAT_HISTORY, label: 'Lịch sử Hệ thống', icon: 'fa-solid fa-clock-rotate-left' },
       { id: View.DEPLOYMENT_GUIDE, label: 'Hướng dẫn', icon: 'fa-solid fa-circle-question' },
     ] : [
-      { id: View.CHAT_HISTORY, label: 'Lịch sử Chat', icon: 'fa-solid fa-comments' },
+      { id: View.CHAT_HISTORY, label: 'Lịch sử Chat AI', icon: 'fa-solid fa-robot' },
       { id: View.KNOWLEDGE_BASE, label: 'Kho tri thức', icon: 'fa-solid fa-book-open' },
       { id: View.WIDGET_CONFIG, label: 'Cấu hình Widget', icon: 'fa-solid fa-sliders' }, // Renamed and merged
       { id: View.LEADS, label: 'Danh sách Lead', icon: 'fa-solid fa-address-book' }, 

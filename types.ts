@@ -9,7 +9,8 @@ export enum View {
   CUSTOMER_MANAGEMENT = 'customer_management',
   CHAT_HISTORY = 'chat_history',
   NOTIFICATION_MANAGER = 'notification_manager',
-  LEADS = 'leads'
+  LEADS = 'leads',
+  DIRECT_MESSAGES = 'direct_messages'
 }
 
 export type UserRole = 'master' | 'user';
@@ -96,4 +97,22 @@ export interface Notification {
   icon: string;
   color: string;
   bg: string;
+}
+
+export interface DirectMessage {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  timestamp: number;
+  isRead: boolean;
+}
+
+export interface ConversationUser {
+  id: string;
+  email: string;
+  role: string;
+  lastMessage?: string;
+  lastMessageTime?: number;
+  unreadCount?: number;
 }

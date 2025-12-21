@@ -27,8 +27,8 @@ app.use(express.json() as any);
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/bibichat_local";
 
 mongoose.connect(MONGODB_URI)
-  .then(() => console.log('✅ Connected to MongoDB'))
-  .catch(err => console.error('❌ MongoDB Connection Error:', err));
+  .then(() => console.log('✅ Đã kết nối cơ sở dữ liệu thành công!'))
+  .catch(err => console.error('❌ Lỗi kết nối MongoDB:', err));
 
 // --- SCHEMAS & MODELS ---
 const userSchema = new mongoose.Schema({
@@ -97,12 +97,22 @@ const notificationSchema = new mongoose.Schema({
   bg: String
 });
 
+const directMessageSchema = new mongoose.Schema({
+  id: String,
+  senderId: String,
+  receiverId: String,
+  content: String,
+  timestamp: Number,
+  isRead: { type: Boolean, default: false }
+});
+
 // Models
 const User = mongoose.model('User', userSchema);
 const Document = mongoose.model('Document', documentSchema);
 const ChatLog = mongoose.model('ChatLog', chatLogSchema);
 const Lead = mongoose.model('Lead', leadSchema);
 const Notification = mongoose.model('Notification', notificationSchema);
+const DirectMessage = mongoose.model('DirectMessage', directMessageSchema);
 
 // --- INIT ADMIN USER ---
 const initDB = async () => {
@@ -213,7 +223,7 @@ app.get('/api/health', (req, res) => {
   res.json({ 
     status: dbState === 1 ? 'ok' : 'error', 
     dbState: dbState,
-    message: dbState === 1 ? 'Connected to MongoDB' : 'Disconnected from MongoDB'
+    message: dbState === 1 ? 'Đã kết nối cơ sở dữ liệu' : 'Mất kết nối cơ sở dữ liệu'
   });
 });
 
@@ -375,7 +385,84 @@ app.get('/api/users', async (req, res) => {
     res.json({ data: users, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } });
 });
 
-// CHAT SESSIONS
+// --- NEW DIRECT MESSAGE ROUTES ---
+
+// Search User by Email
+app.post('/api/dm/find', async (req, res) => {
+    const { email } = req.body;
+    const user = await User.findOne({ email: email.toLowerCase() }).select('id email role');
+    if (user) {
+        res.json({ success: true, user: { id: user.id, email: user.email, role: user.role } });
+    } else {
+        res.json({ success: false, message: 'Không tìm thấy người dùng.' });
+    }
+});
+
+// Get conversations list (Users you have talked to)
+app.get('/api/dm/conversations/:userId', async (req, res) => {
+    const { userId } = req.params;
+    
+    // Find all messages where user is sender or receiver
+    const messages = await DirectMessage.find({
+        $or: [{ senderId: userId }, { receiverId: userId }]
+    }).sort({ timestamp: -1 });
+
+    const contactIds = new Set<string>();
+    messages.forEach(m => {
+        if (m.senderId !== userId) contactIds.add(m.senderId);
+        if (m.receiverId !== userId) contactIds.add(m.receiverId);
+    });
+
+    const contacts = await User.find({ id: { $in: Array.from(contactIds) } }).select('id email role');
+    
+    // Map last message info
+    const conversations = contacts.map(contact => {
+        const lastMsg = messages.find(m => 
+            (m.senderId === userId && m.receiverId === contact.id) || 
+            (m.senderId === contact.id && m.receiverId === userId)
+        );
+        return {
+            id: contact.id,
+            email: contact.email,
+            role: contact.role,
+            lastMessage: lastMsg?.content || '',
+            lastMessageTime: lastMsg?.timestamp || 0
+        };
+    });
+
+    // Sort by last active
+    conversations.sort((a, b) => b.lastMessageTime - a.lastMessageTime);
+
+    res.json(conversations);
+});
+
+// Get message history between two users
+app.get('/api/dm/history/:userId/:otherUserId', async (req, res) => {
+    const { userId, otherUserId } = req.params;
+    const messages = await DirectMessage.find({
+        $or: [
+            { senderId: userId, receiverId: otherUserId },
+            { senderId: otherUserId, receiverId: userId }
+        ]
+    }).sort({ timestamp: 1 });
+    res.json(messages);
+});
+
+// Send Message
+app.post('/api/dm/send', async (req, res) => {
+    const { senderId, receiverId, content } = req.body;
+    const newMessage = await DirectMessage.create({
+        id: Math.random().toString(36).substr(2, 9),
+        senderId,
+        receiverId,
+        content,
+        timestamp: Date.now(),
+        isRead: false
+    });
+    res.json(newMessage);
+});
+
+// CHAT SESSIONS (AI)
 app.get('/api/chat-sessions/:userId', async (req, res) => {
     const { userId } = req.params;
     const page = parseInt(req.query.page as string) || 1;

@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { User, Document, WidgetSettings, ChatLog, UserRole, Notification, Lead, PluginConfig } from "../types";
+import { User, Document, WidgetSettings, ChatLog, UserRole, Notification, Lead, PluginConfig, DirectMessage, ConversationUser } from "../types";
 
 // URL Backend - Cập nhật URL này nếu bạn deploy backend riêng
 const API_URL = 'https://fuzzy-cosette-filezingme-org-64d51f5d.koyeb.app';
@@ -15,7 +15,7 @@ const MASTER_USER: User = {
   botSettings: { 
     botName: 'BibiBot', 
     primaryColor: '#ec4899', 
-    welcomeMessage: 'Xin chào! Hệ thống quản trị Master (Offline Mode).', 
+    welcomeMessage: 'Xin chào! Hệ thống quản trị Master (Chế độ Offline).', 
     position: 'right', 
     avatarUrl: '' 
   }
@@ -57,10 +57,57 @@ export const apiService = {
           message: data.message 
         };
       }
-      return { online: false, message: 'Server Unreachable' };
+      return { online: false, message: 'Không thể kết nối máy chủ' };
     } catch (e) {
-      return { online: false, message: 'Network Error' };
+      return { online: false, message: 'Lỗi kết nối mạng' };
     }
+  },
+
+  // --- DIRECT MESSAGING ---
+  findUserByEmail: async (email: string): Promise<{ success: boolean, user?: {id: string, email: string, role: string}, message?: string }> => {
+      try {
+          const res = await fetch(`${API_URL}/api/dm/find`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email })
+          });
+          return await res.json();
+      } catch (e) {
+          return { success: false, message: 'Lỗi kết nối: Không thể tìm kiếm người dùng.' };
+      }
+  },
+
+  getConversations: async (userId: string): Promise<ConversationUser[]> => {
+      try {
+          const res = await fetch(`${API_URL}/api/dm/conversations/${userId}`);
+          return await res.json();
+      } catch (e) {
+          console.error("Lỗi tải hội thoại:", e);
+          return [];
+      }
+  },
+
+  getDirectMessages: async (userId: string, otherUserId: string): Promise<DirectMessage[]> => {
+      try {
+          const res = await fetch(`${API_URL}/api/dm/history/${userId}/${otherUserId}`);
+          return await res.json();
+      } catch (e) {
+          console.error("Lỗi tải tin nhắn:", e);
+          return [];
+      }
+  },
+
+  sendDirectMessage: async (senderId: string, receiverId: string, content: string): Promise<DirectMessage> => {
+      try {
+          const res = await fetch(`${API_URL}/api/dm/send`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ senderId, receiverId, content })
+          });
+          return await res.json();
+      } catch (e) {
+          throw new Error("Gửi tin nhắn thất bại");
+      }
   },
 
   // --- AUTH ---
@@ -73,11 +120,11 @@ export const apiService = {
       });
       const serverRes = await res.json();
       if (res.ok && serverRes.success) return serverRes;
-      else return { success: false, message: serverRes.message || 'Lỗi đăng ký từ server' };
+      else return { success: false, message: serverRes.message || 'Lỗi đăng ký từ máy chủ' };
     } catch (e) {
-      console.warn("Server Offline: Registration saved locally.");
+      console.warn("Máy chủ ngoại tuyến: Đăng ký được lưu cục bộ.");
       const db = getLocalDB();
-      if (db.users.find((u: any) => u.email === email)) return { success: false, message: 'Email này đã được đăng ký (Offline)' };
+      if (db.users.find((u: any) => u.email === email)) return { success: false, message: 'Email này đã được đăng ký (Chế độ Offline)' };
       const newUser: User = {
         id: Math.random().toString(36).substring(2, 11),
         email,
@@ -105,12 +152,12 @@ export const apiService = {
       }
       return await res.json();
     } catch (e) {
-      console.warn("Server Offline: Fallback to LocalStorage login");
+      console.warn("Máy chủ ngoại tuyến: Đăng nhập bằng dữ liệu cục bộ");
       const db = getLocalDB();
       let user = db.users.find((u: any) => u.email === email && u.password === password);
       if (!user && email === MASTER_USER.email && password === MASTER_USER.password) user = MASTER_USER;
-      if (user) return { success: true, message: 'Đăng nhập thành công (Offline Mode)', user };
-      return { success: false, message: 'Không thể kết nối Server & Sai thông tin Offline.' };
+      if (user) return { success: true, message: 'Đăng nhập thành công (Chế độ Offline)', user };
+      return { success: false, message: 'Không thể kết nối máy chủ & Sai thông tin Offline.' };
     }
   },
 
@@ -121,16 +168,16 @@ export const apiService = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, oldPassword, newPassword })
       });
-      if (!res.ok) throw new Error("Server error");
+      if (!res.ok) throw new Error("Lỗi máy chủ");
       return await res.json();
     } catch (e) {
       const db = getLocalDB();
       const idx = db.users.findIndex((u: any) => u.id === userId);
-      if (idx === -1) return { success: false, message: "User không tồn tại" };
-      if (db.users[idx].password !== oldPassword) return { success: false, message: "Mật khẩu cũ sai" };
+      if (idx === -1) return { success: false, message: "Người dùng không tồn tại" };
+      if (db.users[idx].password !== oldPassword) return { success: false, message: "Mật khẩu cũ không đúng" };
       db.users[idx].password = newPassword;
       saveLocalDB(db);
-      return { success: true, message: "Đổi mật khẩu thành công (Offline)" };
+      return { success: true, message: "Đổi mật khẩu thành công (Chế độ Offline)" };
     }
   },
 
@@ -138,7 +185,7 @@ export const apiService = {
   getAllUsers: async (): Promise<User[]> => {
     try {
       const res = await fetch(`${API_URL}/api/users`);
-      if (!res.ok) throw new Error("Server error");
+      if (!res.ok) throw new Error("Lỗi máy chủ");
       const data = await res.json();
       return Array.isArray(data) ? data : data.data || [];
     } catch (e) {
@@ -150,7 +197,7 @@ export const apiService = {
   getUsersPaginated: async (page: number, limit: number, search: string): Promise<{ data: User[], total: number, totalPages: number }> => {
       try {
           const res = await fetch(`${API_URL}/api/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
-          if (!res.ok) throw new Error("Server error");
+          if (!res.ok) throw new Error("Lỗi máy chủ");
           return await res.json();
       } catch (e) {
           const localDB = getLocalDB();
@@ -175,7 +222,7 @@ export const apiService = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ targetUserId, newPassword })
       });
-      if (!res.ok) throw new Error("Server error");
+      if (!res.ok) throw new Error("Lỗi máy chủ");
       return await res.json();
     } catch (e) {
       const db = getLocalDB();
@@ -183,7 +230,7 @@ export const apiService = {
       if (idx !== -1) {
         db.users[idx].password = newPassword;
         saveLocalDB(db);
-        return { success: true, message: "Reset thành công (Offline)" };
+        return { success: true, message: "Reset thành công (Chế độ Offline)" };
       }
       return { success: false, message: "Lỗi Offline" };
     }
@@ -192,13 +239,13 @@ export const apiService = {
   deleteUser: async (targetUserId: string): Promise<{success: boolean, message: string}> => {
     try {
       const res = await fetch(`${API_URL}/api/admin/users/${targetUserId}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error("Server error");
+      if (!res.ok) throw new Error("Lỗi máy chủ");
       return await res.json();
     } catch (e) {
       const db = getLocalDB();
       db.users = db.users.filter((u: any) => u.id !== targetUserId);
       saveLocalDB(db);
-      return { success: true, message: "Xóa thành công (Offline)" };
+      return { success: true, message: "Xóa thành công (Chế độ Offline)" };
     }
   },
 
@@ -224,7 +271,7 @@ export const apiService = {
   getPlugins: async (userId: string): Promise<PluginConfig> => {
     try {
         const res = await fetch(`${API_URL}/api/plugins/${userId}`);
-        if (!res.ok) throw new Error("Fetch plugins failed");
+        if (!res.ok) throw new Error("Lỗi tải tiện ích");
         return await res.json();
     } catch (e) {
         const db = getLocalDB();
@@ -254,7 +301,7 @@ export const apiService = {
   getLeadsPaginated: async (userId: string, page: number, limit: number, search: string = ''): Promise<{ data: Lead[], pagination: any }> => {
     try {
         const res = await fetch(`${API_URL}/api/leads/${userId}?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
-        if (!res.ok) throw new Error("Fetch leads failed");
+        if (!res.ok) throw new Error("Lỗi tải danh sách khách hàng");
         return await res.json();
     } catch (e) {
         // Fallback for offline mode (non-paginated simulation)
@@ -337,7 +384,7 @@ export const apiService = {
   getDocuments: async (userId: string): Promise<Document[]> => {
     try {
       const res = await fetch(`${API_URL}/api/documents/${userId}`);
-      if (!res.ok) throw new Error("Server error");
+      if (!res.ok) throw new Error("Lỗi máy chủ");
       return await res.json();
     } catch (e) {
       const db = getLocalDB();
@@ -352,7 +399,7 @@ export const apiService = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, content, userId })
       });
-      if (!res.ok) throw new Error("Server error");
+      if (!res.ok) throw new Error("Lỗi máy chủ");
       return await res.json();
     } catch (e) {
       const db = getLocalDB();
@@ -387,7 +434,7 @@ export const apiService = {
   getChatSessionsPaginated: async (userId: string | 'all', page: number, limit: number, filterUserId: string = 'all'): Promise<{ data: any[], pagination: any }> => {
       try {
           const res = await fetch(`${API_URL}/api/chat-sessions/${userId}?page=${page}&limit=${limit}&filterUserId=${filterUserId}`);
-          if(!res.ok) throw new Error("Fetch sessions failed");
+          if(!res.ok) throw new Error("Lỗi tải danh sách chat");
           return await res.json();
       } catch (e) {
           // Offline Fallback Logic: Replicate Server grouping locally
@@ -446,7 +493,7 @@ export const apiService = {
   getChatMessages: async (userId: string | 'all', sessionId: string): Promise<ChatLog[]> => {
       try {
           const res = await fetch(`${API_URL}/api/chat-messages/${userId}/${sessionId}`);
-          if(!res.ok) throw new Error("Fetch messages failed");
+          if(!res.ok) throw new Error("Lỗi tải tin nhắn");
           return await res.json();
       } catch (e) {
           // Offline Fallback
@@ -487,7 +534,7 @@ export const apiService = {
   getChatLogs: async (userId: string | 'all'): Promise<ChatLog[]> => {
     try {
         const res = await fetch(`${API_URL}/api/chat-logs/${userId}`);
-        if(!res.ok) throw new Error("Fetch logs failed");
+        if(!res.ok) throw new Error("Lỗi tải nhật ký");
         return await res.json();
     } catch (e) {
         const db = getLocalDB();
@@ -501,7 +548,7 @@ export const apiService = {
   getNotifications: async (userId: string): Promise<Notification[]> => {
     try {
       const res = await fetch(`${API_URL}/api/notifications/${userId}`);
-      if (!res.ok) throw new Error("Server error");
+      if (!res.ok) throw new Error("Lỗi máy chủ");
       return await res.json();
     } catch (e) {
       const db = getLocalDB();

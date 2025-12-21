@@ -13,6 +13,7 @@ import NotificationManager from './components/NotificationManager';
 import Leads from './components/Leads';
 import Login from './components/Login';
 import LandingPage from './components/LandingPage';
+import CommunityChat from './components/CommunityChat'; // Import new component
 import { TermsPage, PrivacyPage, ContactPage, DemoPage } from './components/LegalPages'; 
 import { View, Document, WidgetSettings, User, Notification } from './types';
 import { apiService } from './services/apiService';
@@ -74,7 +75,8 @@ const App: React.FC = () => {
     [View.CUSTOMER_MANAGEMENT]: 'Khách hàng',
     [View.CHAT_HISTORY]: 'Lịch sử chat',
     [View.NOTIFICATION_MANAGER]: 'Quản lý thông báo',
-    [View.LEADS]: 'Khách hàng tiềm năng'
+    [View.LEADS]: 'Khách hàng tiềm năng',
+    [View.DIRECT_MESSAGES]: 'Trò chuyện cộng đồng'
   };
 
   useEffect(() => {
@@ -534,6 +536,7 @@ const App: React.FC = () => {
             {currentView === View.DEPLOYMENT_GUIDE && <DeploymentGuide />}
             {currentView === View.CUSTOMER_MANAGEMENT && currentUser?.role === 'master' && <CustomerManagement onViewStats={handleViewCustomerStats} />}
              {currentView === View.NOTIFICATION_MANAGER && currentUser?.role === 'master' && <NotificationManager user={currentUser} />}
+             {currentView === View.DIRECT_MESSAGES && <CommunityChat user={currentUser!} />}
           </div>
         </div>
       </main>
