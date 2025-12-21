@@ -1,414 +1,470 @@
-
-import express from 'express';
+import express, { RequestHandler } from 'express';
 import cors from 'cors';
-import fs from 'fs';
-import path from 'path';
-import { GoogleGenAI } from "@google/genai";
+import mongoose from 'mongoose';
 import multer from 'multer';
+import fs from 'fs';
+import { GoogleGenAI } from "@google/genai";
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
+// Middleware
+// Fix: Cast cors middleware to any to resolve type mismatch between @types/cors and express types
 app.use(cors({
-  origin: '*', 
+  origin: '*', // Trong production nên set domain cụ thể
   methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }) as any);
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = './uploads';
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir);
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname);
-  }
-});
-const upload = multer({ storage });
-
+// Fix: Cast express.json() to any to resolve overload mismatch
 app.use(express.json() as any);
 
-const DB_FILE = './db.json';
-const initDB = () => {
-  if (!fs.existsSync(DB_FILE)) {
-    const now = Date.now();
-    
-    fs.writeFileSync(DB_FILE, JSON.stringify({ 
-      users: [
-        { 
-          id: 'admin', 
-          email: 'admin@bibichat.io', 
-          password: '123456', 
-          role: 'master', 
-          botSettings: { botName: 'BibiBot', primaryColor: '#ec4899', welcomeMessage: 'Xin chào! Mình là BibiBot đây.' },
-          plugins: {
-             autoOpen: { enabled: false, delay: 5 },
-             social: { enabled: true, zalo: '0979116118', phone: '0979116118' },
-             leadForm: { enabled: true, title: 'Để lại thông tin để được tư vấn kỹ hơn nha!', trigger: 'manual' }
-          }
-        }
-      ], 
-      documents: [],
-      // Clean initialization without sample logs to avoid confusion
-      chatLogs: [],
-      leads: [],
-      notifications: [
-        { id: '1', userId: 'all', title: 'Bé AI đã học xong', desc: 'Dữ liệu "Chính sách đổi trả" đã được nạp thành công vào bộ nhớ.', time: Date.now() - 7200000, scheduledAt: Date.now() - 7200000, readBy: [], icon: 'fa-graduation-cap', color: 'text-pink-500', bg: 'bg-pink-100 dark:bg-pink-900/30' },
-        { id: '2', userId: 'all', title: 'Hệ thống an toàn', desc: 'Dữ liệu của bạn được bảo vệ tuyệt đối an toàn với mã hóa 2 lớp.', time: Date.now() - 18000000, scheduledAt: Date.now() - 18000000, readBy: [], icon: 'fa-shield-heart', color: 'text-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-900/30' }
-      ]
-    }));
+// --- MONGODB CONNECTION ---
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/bibichat_local";
+
+mongoose.connect(MONGODB_URI)
+  .then(() => console.log('✅ Connected to MongoDB'))
+  .catch(err => console.error('❌ MongoDB Connection Error:', err));
+
+// --- SCHEMAS & MODELS ---
+const userSchema = new mongoose.Schema({
+  id: { type: String, unique: true }, // Custom ID for compatibility
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  role: { type: String, default: 'user' },
+  createdAt: { type: Number, default: Date.now },
+  botSettings: {
+    botName: { type: String, default: 'Trợ lý AI' },
+    primaryColor: { type: String, default: '#8b5cf6' },
+    welcomeMessage: { type: String, default: 'Xin chào! Tôi có thể giúp gì cho bạn?' },
+    position: { type: String, default: 'right' },
+    avatarUrl: { type: String, default: '' }
+  },
+  plugins: {
+    autoOpen: { enabled: { type: Boolean, default: false }, delay: { type: Number, default: 5 } },
+    social: { enabled: { type: Boolean, default: false }, zalo: String, phone: String },
+    leadForm: { enabled: { type: Boolean, default: false }, title: String, trigger: String }
+  }
+});
+
+const documentSchema = new mongoose.Schema({
+  id: String,
+  userId: String,
+  name: String,
+  content: String,
+  type: String,
+  status: String,
+  createdAt: Number
+});
+
+const chatLogSchema = new mongoose.Schema({
+  id: String,
+  userId: String,
+  customerSessionId: String,
+  query: String,
+  answer: String,
+  timestamp: Number,
+  tokens: Number,
+  isSolved: Boolean
+});
+
+const leadSchema = new mongoose.Schema({
+  id: String,
+  userId: String,
+  name: String,
+  phone: String,
+  email: String,
+  source: String,
+  status: String,
+  createdAt: Number,
+  isTest: Boolean
+});
+
+const notificationSchema = new mongoose.Schema({
+  id: String,
+  userId: String,
+  title: String,
+  desc: String,
+  time: Number,
+  scheduledAt: Number,
+  readBy: [String],
+  icon: String,
+  color: String,
+  bg: String
+});
+
+// Models
+const User = mongoose.model('User', userSchema);
+const Document = mongoose.model('Document', documentSchema);
+const ChatLog = mongoose.model('ChatLog', chatLogSchema);
+const Lead = mongoose.model('Lead', leadSchema);
+const Notification = mongoose.model('Notification', notificationSchema);
+
+// --- INIT ADMIN USER ---
+const initDB = async () => {
+  const count = await User.countDocuments();
+  if (count === 0) {
+    console.log("Initializing Admin User...");
+    await User.create({
+      id: 'admin',
+      email: 'admin@bibichat.io',
+      password: '123456',
+      role: 'master',
+      botSettings: { botName: 'BibiBot', primaryColor: '#ec4899', welcomeMessage: 'Xin chào Admin!' },
+      plugins: {
+         autoOpen: { enabled: false, delay: 5 },
+         social: { enabled: true, zalo: '0979116118', phone: '0979116118' },
+         leadForm: { enabled: true, title: 'Để lại thông tin nhé!', trigger: 'manual' }
+      }
+    });
+    // Sample Notification
+    await Notification.create({
+      id: '1', userId: 'all', title: 'Hệ thống sẵn sàng', desc: 'BibiChat đã kết nối MongoDB thành công!', 
+      time: Date.now(), scheduledAt: Date.now(), readBy: [], icon: 'fa-rocket', color: 'text-emerald-500', bg: 'bg-emerald-100'
+    });
   }
 };
 initDB();
 
-const getDB = () => JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
-const saveDB = (data: any) => fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+// Multer for memory storage (Cloud compatible - we extract text immediately)
+const upload = multer({ storage: multer.memoryStorage() });
 
-// ... (Plugins, Leads, Notifications, Users APIs - Keep as is)
-app.get('/api/plugins/:userId', (req, res) => {
-    const db = getDB();
-    const user = db.users.find((u: any) => u.id === req.params.userId);
-    if (user) {
-        const plugins = user.plugins || {
-            autoOpen: { enabled: false, delay: 5 },
-            social: { enabled: false, zalo: '', phone: '' },
-            leadForm: { enabled: false, title: 'Nhập thông tin liên hệ', trigger: 'manual' }
-        };
-        res.json(plugins);
-    } else {
-        res.status(404).json({ success: false });
-    }
+// --- API ROUTES ---
+
+// PLUGINS
+app.get('/api/plugins/:userId', async (req, res) => {
+    const user = await User.findOne({ id: req.params.userId });
+    if (user) res.json(user.plugins);
+    else res.status(404).json({ success: false });
 });
 
-app.post('/api/plugins/:userId', (req, res) => {
-    const db = getDB();
-    const userIndex = db.users.findIndex((u: any) => u.id === req.params.userId);
-    if (userIndex !== -1) {
-        db.users[userIndex].plugins = req.body;
-        saveDB(db);
-        res.json({ success: true });
-    } else {
-        res.status(404).json({ success: false });
-    }
+app.post('/api/plugins/:userId', async (req, res) => {
+    await User.findOneAndUpdate({ id: req.params.userId }, { plugins: req.body });
+    res.json({ success: true });
 });
 
-app.get('/api/leads/:userId', (req, res) => {
-    const db = getDB();
+// LEADS
+app.get('/api/leads/:userId', async (req, res) => {
     const { userId } = req.params;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
-    const search = (req.query.search as string || '').toLowerCase().trim();
+    const search = (req.query.search as string || '').toLowerCase();
     
-    let leads = (db.leads || []).filter((l: any) => l.userId === userId);
-    
+    const query: any = { userId };
     if (search) {
-        leads = leads.filter((l: any) => 
-            (l.name && l.name.toLowerCase().includes(search)) || 
-            (l.phone && String(l.phone).includes(search)) || 
-            (l.email && l.email.toLowerCase().includes(search))
-        );
+        query.$or = [
+            { name: { $regex: search, $options: 'i' } },
+            { phone: { $regex: search, $options: 'i' } },
+            { email: { $regex: search, $options: 'i' } }
+        ];
     }
     
-    leads.sort((a: any, b: any) => b.createdAt - a.createdAt);
-    const total = leads.length;
-    const startIndex = (page - 1) * limit;
+    const total = await Lead.countDocuments(query);
+    const leads = await Lead.find(query)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit);
+
     res.json({
-        data: leads.slice(startIndex, startIndex + limit),
+        data: leads,
         pagination: { total, page, limit, totalPages: Math.ceil(total / limit) }
     });
 });
 
-app.post('/api/leads', (req, res) => {
-    const db = getDB();
+app.post('/api/leads', async (req, res) => {
     const { userId, name, phone, email, isTest } = req.body;
-    if (!db.leads) db.leads = [];
-    const newLead = { id: Math.random().toString(36).substr(2, 9), userId, name, phone, email, source: 'chat_form', status: 'new', createdAt: Date.now(), isTest: !!isTest };
-    db.leads.push(newLead);
-    saveDB(db);
+    const newLead = await Lead.create({
+        id: Math.random().toString(36).substr(2, 9),
+        userId, name, phone, email, source: 'chat_form', status: 'new', createdAt: Date.now(), isTest: !!isTest
+    });
     res.json(newLead);
 });
 
-app.post('/api/leads/:id/status', (req, res) => {
-    const db = getDB();
-    const idx = (db.leads || []).findIndex((l: any) => l.id === req.params.id);
-    if (idx !== -1) { db.leads[idx].status = req.body.status; saveDB(db); res.json({ success: true }); } 
-    else { res.status(404).json({ success: false }); }
-});
-
-app.delete('/api/leads/:id', (req, res) => {
-    const db = getDB();
-    const initialLength = (db.leads || []).length;
-    db.leads = (db.leads || []).filter((l: any) => l.id !== req.params.id);
-    if (db.leads.length < initialLength) { saveDB(db); res.json({ success: true }); } 
-    else { res.status(404).json({ success: false, message: 'Lead not found' }); }
-});
-
-// ... (Rest of Notification, User, Chat APIs remain the same)
-app.get('/api/notifications/:userId', (req, res) => {
-  const { userId } = req.params;
-  const db = getDB();
-  const now = Date.now();
-  let notifs = (db.notifications || []).filter((n: any) => {
-    const nUserId = String(n.userId || '').trim();
-    const reqUserId = String(userId || '').trim();
-    if (nUserId !== 'all' && nUserId !== reqUserId) return false;
-    if (reqUserId === 'admin') return true;
-    const scheduleTime = Number(n.scheduledAt || n.time || 0);
-    return scheduleTime <= (now + 60000); 
-  });
-  notifs = notifs.map((n: any) => ({ ...n, isRead: Array.isArray(n.readBy) ? n.readBy.includes(userId) : (n.isRead || false) }));
-  notifs.sort((a: any, b: any) => (b.scheduledAt || b.time) - (a.scheduledAt || a.time));
-  res.json(notifs);
-});
-app.post('/api/notifications/:id/read', (req, res) => {
-  const { userId } = req.body; 
-  const db = getDB();
-  const notif = (db.notifications || []).find((n: any) => n.id === req.params.id);
-  if (notif) {
-    if (!notif.readBy) notif.readBy = [];
-    if (!notif.readBy.includes(userId)) notif.readBy.push(userId);
-    saveDB(db);
+app.post('/api/leads/:id/status', async (req, res) => {
+    await Lead.findOneAndUpdate({ id: req.params.id }, { status: req.body.status });
     res.json({ success: true });
-  } else res.status(404).json({ success: false });
-});
-app.post('/api/notifications/read-all', (req, res) => {
-  const { userId } = req.body;
-  const db = getDB();
-  const now = Date.now();
-  if (db.notifications) {
-    db.notifications.forEach((n: any) => {
-        const nUserId = String(n.userId || '').trim();
-        const reqUserId = String(userId || '').trim();
-        if ((nUserId === 'all' || nUserId === reqUserId) && (reqUserId === 'admin' || Number(n.scheduledAt || n.time) <= (now + 60000))) {
-            if (!n.readBy) n.readBy = [];
-            if (!n.readBy.includes(userId)) n.readBy.push(userId);
-        }
-    });
-    saveDB(db);
-  }
-  res.json({ success: true });
-});
-app.post('/api/notifications/create', (req, res) => {
-  const db = getDB();
-  const scheduledTime = Number(req.body.scheduledAt) || Date.now();
-  const newNotif = {
-    id: Math.random().toString(36).substr(2, 9),
-    userId: req.body.userId || 'all',
-    title: req.body.title,
-    desc: req.body.desc,
-    time: scheduledTime,
-    scheduledAt: scheduledTime, 
-    readBy: [], 
-    icon: req.body.icon || 'fa-bell',
-    color: req.body.color || 'text-blue-500',
-    bg: req.body.bg || 'bg-blue-100 dark:bg-blue-900/30'
-  };
-  if (!db.notifications) db.notifications = [];
-  db.notifications.push(newNotif);
-  saveDB(db);
-  res.json(newNotif);
 });
 
-app.get('/api/users', (req, res) => {
-  const db = getDB();
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 10000;
-  const search = (req.query.search as string || '').toLowerCase();
-  let filteredUsers = db.users;
-  if (search) {
-    filteredUsers = filteredUsers.filter((u: any) => u.email.toLowerCase().includes(search) || (u.botSettings?.botName || '').toLowerCase().includes(search));
-  }
-  const total = filteredUsers.length;
-  if (!req.query.page && !req.query.limit) return res.json(filteredUsers);
-  const startIndex = (page - 1) * limit;
-  res.json({ data: filteredUsers.slice(startIndex, startIndex + limit), pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } });
+app.delete('/api/leads/:id', async (req, res) => {
+    await Lead.findOneAndDelete({ id: req.params.id });
+    res.json({ success: true });
 });
 
-// 1. Get Paginated Sessions (Grouped logs)
-app.get('/api/chat-sessions/:userId', (req, res) => {
-    const { userId } = req.params; // 'all' (Admin) or specific user ID
-    const db = getDB();
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const filterUserId = req.query.filterUserId as string || 'all'; 
-
-    let allLogs = db.chatLogs || [];
-
-    if (userId !== 'all') {
-        allLogs = allLogs.filter((l: any) => l.userId === userId);
-    } else {
-        if (filterUserId !== 'all') {
-            allLogs = allLogs.filter((l: any) => l.userId === filterUserId);
-        }
+// NOTIFICATIONS
+app.get('/api/notifications/:userId', async (req, res) => {
+    const { userId } = req.params;
+    const now = Date.now();
+    
+    let query: any = {
+        $or: [{ userId: 'all' }, { userId: userId }]
+    };
+    
+    // If not admin, hide future scheduled notifications
+    if (userId !== 'admin') {
+        query.$or.forEach((cond: any) => {
+            cond.$or = [{ scheduledAt: { $lte: now + 60000 } }, { time: { $lte: now + 60000 } }];
+        });
     }
 
-    const sessionsMap: Record<string, any> = {};
-    allLogs.forEach((log: any) => {
-        const sessId = log.customerSessionId || 'legacy_session';
-        const key = `${log.userId}_${sessId}`; 
-        
-        if (!sessionsMap[key]) {
-            sessionsMap[key] = {
-                uniqueKey: key,
-                sessionId: sessId,
-                userId: log.userId,
-                lastActive: log.timestamp,
-                preview: log.query,
-                messageCount: 0
-            };
-        }
-        sessionsMap[key].messageCount++;
-        if (log.timestamp > sessionsMap[key].lastActive) {
-            sessionsMap[key].lastActive = log.timestamp;
-            sessionsMap[key].preview = log.query;
-        }
-    });
+    const notifs = await Notification.find(query).sort({ scheduledAt: -1, time: -1 });
+    
+    const mapped = notifs.map(n => ({
+        ...n.toObject(),
+        isRead: n.readBy.includes(userId)
+    }));
+    
+    res.json(mapped);
+});
 
-    const sessions = Object.values(sessionsMap).sort((a: any, b: any) => b.lastActive - a.lastActive);
-    const total = sessions.length;
-    const startIndex = (page - 1) * limit;
-    const paginatedSessions = sessions.slice(startIndex, startIndex + limit);
+app.post('/api/notifications/:id/read', async (req, res) => {
+    await Notification.findOneAndUpdate(
+        { id: req.params.id },
+        { $addToSet: { readBy: req.body.userId } }
+    );
+    res.json({ success: true });
+});
+
+app.post('/api/notifications/read-all', async (req, res) => {
+    // Logic: Find all relevant notifications and add userId to readBy
+    const { userId } = req.body;
+    await Notification.updateMany(
+        { $or: [{ userId: 'all' }, { userId: userId }] },
+        { $addToSet: { readBy: userId } }
+    );
+    res.json({ success: true });
+});
+
+app.post('/api/notifications/create', async (req, res) => {
+    const scheduledTime = Number(req.body.scheduledAt) || Date.now();
+    const newNotif = await Notification.create({
+        id: Math.random().toString(36).substr(2, 9),
+        userId: req.body.userId || 'all',
+        title: req.body.title,
+        desc: req.body.desc,
+        time: scheduledTime,
+        scheduledAt: scheduledTime,
+        readBy: [],
+        icon: req.body.icon || 'fa-bell',
+        color: req.body.color || 'text-blue-500',
+        bg: req.body.bg || 'bg-blue-100'
+    });
+    res.json(newNotif);
+});
+
+// USERS
+app.get('/api/users', async (req, res) => {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10000;
+    const search = (req.query.search as string || '').toLowerCase();
+    
+    const query: any = {};
+    if (search) {
+        query.$or = [
+            { email: { $regex: search, $options: 'i' } },
+            { 'botSettings.botName': { $regex: search, $options: 'i' } }
+        ];
+    }
+    
+    const total = await User.countDocuments(query);
+    const users = await User.find(query).skip((page - 1) * limit).limit(limit);
+    
+    res.json({ data: users, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } });
+});
+
+// CHAT SESSIONS (Aggregated)
+app.get('/api/chat-sessions/:userId', async (req, res) => {
+    const { userId } = req.params;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const filterUserId = req.query.filterUserId as string || 'all';
+
+    let matchStage: any = {};
+    if (userId !== 'all') {
+        matchStage.userId = userId;
+    } else if (filterUserId !== 'all') {
+        matchStage.userId = filterUserId;
+    }
+
+    // Aggregation to group by session
+    const sessions = await ChatLog.aggregate([
+        { $match: matchStage },
+        { $sort: { timestamp: -1 } },
+        {
+            $group: {
+                _id: { userId: "$userId", sessionId: "$customerSessionId" },
+                lastActive: { $max: "$timestamp" },
+                preview: { $first: "$query" },
+                messageCount: { $sum: 1 },
+                userId: { $first: "$userId" },
+                sessionId: { $first: "$customerSessionId" }
+            }
+        },
+        { $sort: { lastActive: -1 } },
+        { $skip: (page - 1) * limit },
+        { $limit: limit }
+    ]);
+
+    // Need separate count for pagination (simplified for performance)
+    // For exact count, we'd need another aggregation or facet
+    const total = 100; // Placeholder or implement facet if needed strict
+
+    const mappedSessions = sessions.map(s => ({
+        uniqueKey: `${s.userId}_${s.sessionId}`,
+        ...s
+    }));
 
     res.json({
-        data: paginatedSessions,
-        pagination: { total, page, limit, totalPages: Math.ceil(total / limit) }
+        data: mappedSessions,
+        pagination: { total, page, limit, totalPages: 10 }
     });
 });
 
-app.get('/api/chat-messages/:userId/:sessionId', (req, res) => {
+app.get('/api/chat-messages/:userId/:sessionId', async (req, res) => {
     const { userId, sessionId } = req.params;
-    const db = getDB();
-    const messages = (db.chatLogs || []).filter((l: any) => 
-        (userId === 'all' || l.userId === userId) && 
-        (l.customerSessionId === sessionId || (sessionId === 'legacy_session' && !l.customerSessionId))
-    );
-    messages.sort((a: any, b: any) => a.timestamp - b.timestamp);
+    const query: any = { customerSessionId: sessionId };
+    if (userId !== 'all') query.userId = userId;
+    
+    const messages = await ChatLog.find(query).sort({ timestamp: 1 });
     res.json(messages);
 });
 
-app.get('/api/chat-logs/:userId', (req, res) => {
-    const { userId } = req.params;
-    const db = getDB();
-    let logs = db.chatLogs || [];
-    if (userId !== 'all') logs = logs.filter((l: any) => l.userId === userId);
-    res.json(logs); 
+app.get('/api/chat-logs/:userId', async (req, res) => {
+    const query = req.params.userId !== 'all' ? { userId: req.params.userId } : {};
+    const logs = await ChatLog.find(query).sort({ timestamp: -1 });
+    res.json(logs);
 });
 
-app.post('/api/register', (req, res) => {
-  const { email, password } = req.body;
-  const db = getDB();
-  if (db.users.find((u: any) => u.email === email)) return res.status(400).json({ success: false, message: 'Email đã tồn tại' });
-  const newUser = { id: Math.random().toString(36).substr(2, 9), email, password, role: 'user', createdAt: Date.now(), botSettings: { botName: 'Trợ lý AI', primaryColor: '#8b5cf6', welcomeMessage: 'Chào mừng bạn đến với hỗ trợ trực tuyến!', position: 'right', avatarUrl: '' }, plugins: { autoOpen: { enabled: false, delay: 5 }, social: { enabled: false, zalo: '', phone: '' }, leadForm: { enabled: true, title: 'Nhập thông tin', trigger: 'manual' } } };
-  db.users.push(newUser);
-  saveDB(db);
-  res.json({ success: true, user: newUser });
-});
-app.post('/api/login', (req, res) => {
-  const { email, password } = req.body;
-  const db = getDB();
-  const user = db.users.find((u: any) => u.email === email && u.password === password);
-  if (user) res.json({ success: true, user });
-  else res.status(401).json({ success: false, message: 'Sai thông tin đăng nhập' });
-});
-app.post('/api/user/change-password', (req, res) => {
-  const { userId, oldPassword, newPassword } = req.body;
-  const db = getDB();
-  const idx = db.users.findIndex((u: any) => u.id === userId);
-  if (idx === -1) return res.status(404).json({ success: false, message: 'User không tồn tại' });
-  if (db.users[idx].password !== oldPassword) return res.status(400).json({ success: false, message: 'Mật khẩu cũ không đúng' });
-  db.users[idx].password = newPassword;
-  saveDB(db);
-  res.json({ success: true, message: 'Đổi mật khẩu thành công' });
-});
-app.post('/api/admin/reset-password', (req, res) => {
-  const { targetUserId, newPassword } = req.body;
-  const db = getDB();
-  const idx = db.users.findIndex((u: any) => u.id === targetUserId);
-  if (idx === -1) return res.status(404).json({ success: false, message: 'User không tồn tại' });
-  db.users[idx].password = newPassword;
-  saveDB(db);
-  res.json({ success: true, message: 'Reset mật khẩu thành công' });
-});
-app.delete('/api/admin/users/:id', (req, res) => {
-  const db = getDB();
-  const initialLen = db.users.length;
-  db.users = db.users.filter((u: any) => u.id !== req.params.id);
-  if (db.users.length === initialLen) return res.status(404).json({ success: false });
-  const userDocs = db.documents.filter((d: any) => d.userId === req.params.id);
-  userDocs.forEach((doc: any) => { if (doc.path && fs.existsSync(doc.path)) try { fs.unlinkSync(doc.path); } catch(e) {} });
-  db.documents = db.documents.filter((d: any) => d.userId !== req.params.id);
-  db.chatLogs = db.chatLogs.filter((l: any) => l.userId !== req.params.id);
-  db.leads = (db.leads || []).filter((l: any) => l.userId !== req.params.id);
-  saveDB(db);
-  res.json({ success: true, message: 'Xóa user thành công' });
-});
-app.get('/api/documents/:userId', (req, res) => {
-  const db = getDB();
-  res.json(db.documents.filter((d: any) => d.userId === req.params.userId));
-});
-app.get('/api/settings/:userId', (req, res) => {
-  const db = getDB();
-  const user = db.users.find((u: any) => u.id === req.params.userId);
-  user ? res.json(user.botSettings) : res.status(404).json({ success: false });
-});
-app.post('/api/settings/:userId', (req, res) => {
-  const db = getDB();
-  const idx = db.users.findIndex((u: any) => u.id === req.params.userId);
-  if (idx !== -1) { db.users[idx].botSettings = req.body; saveDB(db); res.json({ success: true }); } 
-  else res.status(404).json({ success: false });
-});
-app.post('/api/documents/text', (req, res) => {
-  const { name, content, userId } = req.body;
-  const db = getDB();
-  const newDoc = { id: Math.random().toString(36).substr(2, 9), userId, name, content, type: 'text', status: 'indexed', createdAt: Date.now() };
-  db.documents.push(newDoc);
-  saveDB(db);
-  res.json(newDoc);
-});
-app.post('/api/documents/upload', upload.single('file') as any, (req: any, res: any) => {
-  const file = (req as any).file;
-  if (!file || !req.body.userId) return res.status(400).send('Missing file/userId');
-  const db = getDB();
-  const newDoc = { id: Math.random().toString(36).substr(2, 9), userId: req.body.userId, name: file.originalname, content: fs.readFileSync(file.path, 'utf-8'), path: file.path, type: 'file', status: 'indexed', createdAt: Date.now() };
-  db.documents.push(newDoc);
-  saveDB(db);
-  res.json(newDoc);
-});
-app.delete('/api/documents/:id', (req, res) => {
-  const db = getDB();
-  const doc = db.documents.find((d: any) => d.id === req.params.id);
-  if (doc && doc.path && fs.existsSync(doc.path)) fs.unlinkSync(doc.path);
-  db.documents = db.documents.filter((d: any) => d.id !== req.params.id);
-  saveDB(db);
-  res.json({ success: true });
-});
-app.post('/api/chat', async (req, res) => {
-  const { message, userId, botName, sessionId } = req.body;
-  const db = getDB();
-  if (!process.env.API_KEY) return res.status(500).json({ error: "Missing API KEY" });
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const context = db.documents.filter((d: any) => d.userId === userId).map((d: any) => `[Tài liệu: ${d.name}]\n${d.content}`).join('\n\n');
-  const systemInstruction = `Bạn là trợ lý AI tên "${botName || 'BibiBot'}". Dữ liệu: ${context}`;
-  try {
-    const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: message, config: { systemInstruction } });
-    const reply = response.text || "Tôi không thể trả lời.";
-    if (!db.chatLogs) db.chatLogs = [];
-    db.chatLogs.push({ 
-        id: Math.random().toString(36).substr(2, 9), 
-        userId, 
-        customerSessionId: sessionId || 'anon', 
-        query: message, 
-        answer: reply, 
-        timestamp: Date.now(), 
-        tokens: message.length, 
-        isSolved: !reply.includes("không có thông tin") 
+// AUTH
+app.post('/api/register', async (req, res) => {
+    const { email, password } = req.body;
+    const existing = await User.findOne({ email });
+    if (existing) return res.status(400).json({ success: false, message: 'Email đã tồn tại' });
+    
+    const newUser = await User.create({
+        id: Math.random().toString(36).substr(2, 9),
+        email, password, role: 'user', createdAt: Date.now()
     });
-    saveDB(db);
-    res.json({ text: reply });
-  } catch (error) { res.status(500).json({ error: "AI Error" }); }
+    res.json({ success: true, user: newUser });
+});
+
+app.post('/api/login', async (req, res) => {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email, password });
+    if (user) res.json({ success: true, user });
+    else res.status(401).json({ success: false, message: 'Sai thông tin đăng nhập' });
+});
+
+app.post('/api/user/change-password', async (req, res) => {
+    const { userId, oldPassword, newPassword } = req.body;
+    const user = await User.findOne({ id: userId });
+    if (!user) return res.status(404).json({ success: false, message: 'User không tồn tại' });
+    if (user.password !== oldPassword) return res.status(400).json({ success: false, message: 'Mật khẩu cũ không đúng' });
+    
+    user.password = newPassword;
+    await user.save();
+    res.json({ success: true, message: 'Đổi mật khẩu thành công' });
+});
+
+app.post('/api/admin/reset-password', async (req, res) => {
+    const { targetUserId, newPassword } = req.body;
+    await User.findOneAndUpdate({ id: targetUserId }, { password: newPassword });
+    res.json({ success: true, message: 'Reset mật khẩu thành công' });
+});
+
+app.delete('/api/admin/users/:id', async (req, res) => {
+    const userId = req.params.id;
+    await User.findOneAndDelete({ id: userId });
+    await Document.deleteMany({ userId });
+    await ChatLog.deleteMany({ userId });
+    await Lead.deleteMany({ userId });
+    res.json({ success: true, message: 'Xóa user thành công' });
+});
+
+// DOCS
+app.get('/api/documents/:userId', async (req, res) => {
+    const docs = await Document.find({ userId: req.params.userId });
+    res.json(docs);
+});
+
+app.get('/api/settings/:userId', async (req, res) => {
+    const user = await User.findOne({ id: req.params.userId });
+    if(user) res.json(user.botSettings);
+    else res.status(404).json({success: false});
+});
+
+app.post('/api/settings/:userId', async (req, res) => {
+    await User.findOneAndUpdate({ id: req.params.userId }, { botSettings: req.body });
+    res.json({ success: true });
+});
+
+app.post('/api/documents/text', async (req, res) => {
+    const { name, content, userId } = req.body;
+    const newDoc = await Document.create({
+        id: Math.random().toString(36).substr(2, 9),
+        userId, name, content, type: 'text', status: 'indexed', createdAt: Date.now()
+    });
+    res.json(newDoc);
+});
+
+app.post('/api/documents/upload', upload.single('file') as any, async (req: any, res: any) => {
+    if (!req.file || !req.body.userId) return res.status(400).send('Missing file/userId');
+    // Store content directly in DB to avoid filesystem issues on cloud (M0 limit 512MB is plenty for text)
+    const content = req.file.buffer.toString('utf-8');
+    const newDoc = await Document.create({
+        id: Math.random().toString(36).substr(2, 9),
+        userId: req.body.userId,
+        name: req.file.originalname,
+        content: content,
+        type: 'file',
+        status: 'indexed',
+        createdAt: Date.now()
+    });
+    res.json(newDoc);
+});
+
+app.delete('/api/documents/:id', async (req, res) => {
+    await Document.findOneAndDelete({ id: req.params.id });
+    res.json({ success: true });
+});
+
+// CHAT AI
+app.post('/api/chat', async (req, res) => {
+    const { message, userId, botName, sessionId } = req.body;
+    if (!process.env.API_KEY) return res.status(500).json({ error: "Missing API KEY" });
+    
+    const docs = await Document.find({ userId });
+    const context = docs.map(d => `[Tài liệu: ${d.name}]\n${d.content}`).join('\n\n');
+    const systemInstruction = `Bạn là trợ lý AI tên "${botName || 'BibiBot'}". Dữ liệu: ${context}`;
+    
+    try {
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const response = await ai.models.generateContent({ 
+            model: 'gemini-3-flash-preview', 
+            contents: message, 
+            config: { systemInstruction } 
+        });
+        const reply = response.text || "Tôi không thể trả lời.";
+        
+        await ChatLog.create({
+            id: Math.random().toString(36).substr(2, 9),
+            userId,
+            customerSessionId: sessionId || 'anon',
+            query: message,
+            answer: reply,
+            timestamp: Date.now(),
+            tokens: message.length,
+            isSolved: !reply.includes("không có thông tin")
+        });
+        
+        res.json({ text: reply });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "AI Error" });
+    }
 });
 
 app.listen(PORT, () => {
-  console.log(`SaaS Backend running at http://localhost:${PORT}`);
+  console.log(`Server running at http://localhost:${PORT}`);
 });
