@@ -121,9 +121,9 @@ const initDB = async () => {
          leadForm: { enabled: true, title: 'Để lại thông tin nhé!', trigger: 'manual' }
       }
     });
-    // Sample Notification
+    // Sample Notification - UPDATED TEXT
     await Notification.create({
-      id: '1', userId: 'all', title: 'Hệ thống sẵn sàng', desc: 'BibiChat đã kết nối MongoDB thành công!', 
+      id: '1', userId: 'all', title: 'Hệ thống sẵn sàng', desc: 'BibiChat đã kết nối cơ sở dữ liệu thành công!', 
       time: Date.now(), scheduledAt: Date.now(), readBy: [], icon: 'fa-rocket', color: 'text-emerald-500', bg: 'bg-emerald-100'
     });
   }
@@ -227,7 +227,12 @@ app.get('/api/plugins/:userId', async (req, res) => {
 });
 
 app.post('/api/plugins/:userId', async (req, res) => {
-    await User.findOneAndUpdate({ id: req.params.userId }, { plugins: req.body });
+    // Use $set to ensure fields are updated correctly even if nested schema changes
+    await User.findOneAndUpdate(
+        { id: req.params.userId }, 
+        { $set: { plugins: req.body } }, 
+        { new: true, upsert: true }
+    );
     res.json({ success: true });
 });
 
@@ -496,7 +501,11 @@ app.get('/api/settings/:userId', async (req, res) => {
 });
 
 app.post('/api/settings/:userId', async (req, res) => {
-    await User.findOneAndUpdate({ id: req.params.userId }, { botSettings: req.body });
+    await User.findOneAndUpdate(
+        { id: req.params.userId }, 
+        { $set: { botSettings: req.body } },
+        { new: true, upsert: true }
+    );
     res.json({ success: true });
 });
 
