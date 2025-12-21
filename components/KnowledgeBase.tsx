@@ -22,7 +22,7 @@ const KnowledgeBase: React.FC<Props> = ({ userId, documents, onAddDocument, onDe
   const handleManualAdd = async () => {
     if (!newDocName || !newDocText) return;
     setIsProcessing(true);
-    await new Promise(r => setTimeout(r, 1000)); // Cute delay
+    // Removed artificial delay
     await onAddDocument(newDocName, newDocText, 'text');
     setNewDocName('');
     setNewDocText('');
@@ -37,7 +37,7 @@ const KnowledgeBase: React.FC<Props> = ({ userId, documents, onAddDocument, onDe
     const reader = new FileReader();
     reader.onload = async (event) => {
       const content = event.target?.result as string;
-      await new Promise(r => setTimeout(r, 1000)); // Cute delay
+      // Removed artificial delay
       await onAddDocument(file.name, content, 'file');
       setIsProcessing(false);
     };
@@ -46,7 +46,7 @@ const KnowledgeBase: React.FC<Props> = ({ userId, documents, onAddDocument, onDe
 
   const handleDelete = async (id: string) => {
       setDeletingId(id);
-      await new Promise(r => setTimeout(r, 800)); // Cute delay
+      // Removed artificial delay
       await onDeleteDocument(id);
       setDeletingId(null);
   };

@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { apiService } from '../services/apiService';
@@ -96,20 +97,14 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Hàm xử lý đóng modal và reset form
-  // Tách ra để dùng chung cho cả sự kiện click và timeout
   const handleCloseSuccess = () => {
     setShowSuccess(false);
-    // Reset form
     setTitle('');
     setDesc('');
     setScheduleTime('');
     setSendImmediately(true);
   };
 
-  // Effect để tự động đóng sau 2.5s
-  // Sử dụng useEffect giúp clear timeout nếu user tự click đóng trước đó
-  // Tránh việc reset form 2 lần (gây mất dữ liệu nếu user đang nhập mới)
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
     if (showSuccess) {
@@ -123,20 +118,14 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
   const handleSmartIcon = async () => {
     if (!title && !desc) return;
     setIsAiLoading(true);
-    // Combine title and desc for better context, prioritizing title
     const context = `Tiêu đề: ${title}. Nội dung: ${desc}`;
     try {
         const suggested = await apiService.suggestIcon(context);
-        
-        // Clean up suggestion just in case
         let iconClass = suggested.trim();
         if (!iconClass.startsWith('fa-')) iconClass = 'fa-' + iconClass.replace(/^fa\s/, '');
-
-        // Add to list if not present so it shows as selected
         if (!iconList.find(ic => ic.class === iconClass)) {
             setIconList(prev => [{ class: iconClass, label: 'Gợi ý AI' }, ...prev]);
         }
-        
         setSelectedIcon(iconClass);
     } catch (e) {
         console.error("AI suggest error", e);
@@ -164,13 +153,8 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
     };
 
     await apiService.createSystemNotification(newNotif);
-    
-    // Simulate delay for effect
-    await new Promise(r => setTimeout(r, 1000));
-
+    // Removed artificial delay
     setShowSuccess(true); 
-    // Không cần setTimeout ở đây nữa, useEffect sẽ lo việc đó
-    
     setIsSubmitting(false);
   };
 
@@ -200,61 +184,26 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
              </h3>
              
              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                       <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 ml-2">Tiêu đề</label>
-                       <div className="relative">
-                          <input 
-                            type="text" 
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            placeholder="VD: Bảo trì hệ thống..." 
-                            className="w-full pl-5 pr-12 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-600 rounded-2xl focus:border-indigo-500 font-bold text-sm text-slate-800 dark:text-white outline-none transition-all"
-                          />
-                          <button 
-                            type="button" 
-                            onClick={handleSmartIcon}
-                            title="AI Chọn icon"
-                            className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 hover:bg-indigo-200 flex items-center justify-center transition-colors"
-                            disabled={isAiLoading || !title}
-                          >
-                             {isAiLoading ? <i className="fa-solid fa-circle-notch animate-spin text-xs"></i> : <i className="fa-solid fa-wand-magic-sparkles text-xs"></i>}
-                          </button>
-                       </div>
+                <div>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 ml-2">Tiêu đề</label>
+                    <div className="relative">
+                        <input 
+                        type="text" 
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder="VD: Bảo trì hệ thống..." 
+                        className="w-full pl-5 pr-12 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-600 rounded-2xl focus:border-indigo-500 font-bold text-sm text-slate-800 dark:text-white outline-none transition-all"
+                        />
+                        <button 
+                        type="button" 
+                        onClick={handleSmartIcon}
+                        title="AI Chọn icon"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 hover:bg-indigo-200 flex items-center justify-center transition-colors"
+                        disabled={isAiLoading || !title}
+                        >
+                            {isAiLoading ? <i className="fa-solid fa-circle-notch animate-spin text-xs"></i> : <i className="fa-solid fa-wand-magic-sparkles text-xs"></i>}
+                        </button>
                     </div>
-                    
-                    {/* Target Dropdown */}
-                    <div className="relative" ref={dropdownRef}>
-                      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 ml-2">Gửi tới ai?</label>
-                      <button 
-                        type="button"
-                        onClick={() => setIsTargetDropdownOpen(!isTargetDropdownOpen)}
-                        className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-600 rounded-2xl font-bold text-xs text-slate-700 dark:text-slate-200 outline-none flex items-center justify-between hover:border-indigo-400 transition-all h-[52px]"
-                      >
-                         <span className="flex items-center gap-2">
-                            <i className={`fa-solid ${selectedTargetLabel?.icon} text-indigo-500`}></i>
-                            {selectedTargetLabel?.label}
-                         </span>
-                         <i className={`fa-solid fa-chevron-down text-[10px] transition-transform ${isTargetDropdownOpen ? 'rotate-180' : ''}`}></i>
-                      </button>
-
-                      {isTargetDropdownOpen && (
-                        <div className="absolute top-full left-0 w-full mt-2 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-600 rounded-2xl shadow-xl overflow-hidden z-20 animate-in fade-in zoom-in duration-200">
-                           {targetOptions.map(opt => (
-                             <div 
-                               key={opt.value}
-                               onClick={() => { setTargetUser(opt.value); setIsTargetDropdownOpen(false); }}
-                               className={`px-4 py-3 text-xs font-bold cursor-pointer flex items-center gap-3 transition-colors ${targetUser === opt.value ? 'bg-indigo-50 dark:bg-slate-700 text-indigo-600 dark:text-white' : 'hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'}`}
-                             >
-                                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${targetUser === opt.value ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'}`}>
-                                   <i className={`fa-solid ${opt.icon}`}></i>
-                                </div>
-                                {opt.label}
-                             </div>
-                           ))}
-                        </div>
-                      )}
-                   </div>
                 </div>
 
                 <div>
@@ -262,10 +211,43 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
                    <textarea 
                       value={desc}
                       onChange={(e) => setDesc(e.target.value)}
-                      rows={3}
+                      rows={5}
                       placeholder="Nhập nội dung chi tiết..." 
                       className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-600 rounded-2xl focus:border-indigo-500 font-medium text-sm text-slate-800 dark:text-white outline-none transition-all resize-none"
                    />
+                </div>
+
+                {/* Target Dropdown */}
+                <div className="relative" ref={dropdownRef}>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 ml-2">Gửi tới ai?</label>
+                    <button 
+                    type="button"
+                    onClick={() => setIsTargetDropdownOpen(!isTargetDropdownOpen)}
+                    className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-600 rounded-2xl font-bold text-xs text-slate-700 dark:text-slate-200 outline-none flex items-center justify-between hover:border-indigo-400 transition-all h-[52px]"
+                    >
+                        <span className="flex items-center gap-2">
+                        <i className={`fa-solid ${selectedTargetLabel?.icon} text-indigo-500`}></i>
+                        {selectedTargetLabel?.label}
+                        </span>
+                        <i className={`fa-solid fa-chevron-down text-[10px] transition-transform ${isTargetDropdownOpen ? 'rotate-180' : ''}`}></i>
+                    </button>
+
+                    {isTargetDropdownOpen && (
+                    <div className="absolute top-full left-0 w-full mt-2 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-600 rounded-2xl shadow-xl overflow-hidden z-20 animate-in fade-in zoom-in duration-200">
+                        {targetOptions.map(opt => (
+                            <div 
+                            key={opt.value}
+                            onClick={() => { setTargetUser(opt.value); setIsTargetDropdownOpen(false); }}
+                            className={`px-4 py-3 text-xs font-bold cursor-pointer flex items-center gap-3 transition-colors ${targetUser === opt.value ? 'bg-indigo-50 dark:bg-slate-700 text-indigo-600 dark:text-white' : 'hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'}`}
+                            >
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${targetUser === opt.value ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'}`}>
+                                <i className={`fa-solid ${opt.icon}`}></i>
+                            </div>
+                            {opt.label}
+                            </div>
+                        ))}
+                    </div>
+                    )}
                 </div>
 
                 {/* Styled Date Picker with Toggle */}
@@ -331,7 +313,7 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
                            key={i}
                            type="button"
                            onClick={() => setSelectedColor(c)}
-                           className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${selectedColor.text === c.text ? 'ring-2 ring-offset-2 ring-indigo-400 scale-110' : ''} ${c.bg} ${c.text}`}
+                           className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${selectedColor.text === c.text ? 'ring-4 ring-offset-2 ring-indigo-200 dark:ring-indigo-900 scale-110' : ''} ${c.bg} ${c.text}`}
                          >
                             <i className="fa-solid fa-circle text-xs"></i>
                          </button>
@@ -359,56 +341,59 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
              </form>
           </div>
 
-          {/* Right Column: Creative Center (Replaced History) - Taking 4 columns now */}
-          <div className="lg:col-span-4 space-y-8">
-             {/* Phone Mockup Preview - Sticky */}
-             <div className="sticky top-6">
-                <div className="bg-slate-900 rounded-[3rem] p-4 shadow-2xl border-4 border-slate-800 relative max-w-[320px] mx-auto overflow-hidden">
-                   {/* Notch & Top Bar */}
-                   <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-slate-900 rounded-b-xl z-20"></div>
-                   <div className="absolute top-2 right-6 w-12 h-3 flex gap-1 justify-end z-20">
-                      <div className="w-4 h-full bg-slate-700 rounded-sm"></div>
-                      <div className="w-3 h-full bg-slate-700 rounded-sm"></div>
-                   </div>
+          {/* Right Column: Creative Center - Preview Updated to Dropdown Style */}
+          <div className="lg:col-span-4 space-y-8 sticky top-6 h-fit">
+             <div className="bg-slate-100 dark:bg-slate-800/50 p-6 rounded-[2.5rem] border border-slate-200 dark:border-slate-700 shadow-xl relative overflow-hidden group">
+                <div className="absolute inset-0 bg-slate-200/50 dark:bg-slate-900/50 backdrop-blur-sm z-0 pointer-events-none"></div>
+                
+                <h3 className="font-bold text-slate-500 dark:text-slate-400 mb-6 text-center relative z-10 flex items-center justify-center gap-2">
+                    <i className="fa-regular fa-eye"></i> Xem trước hiển thị
+                </h3>
 
-                   {/* Screen Content */}
-                   <div className="bg-gradient-to-br from-indigo-500 to-purple-600 h-[500px] rounded-[2.2rem] overflow-hidden relative">
-                      {/* Wallpaper Decor */}
-                      <div className="absolute inset-0 opacity-30">
-                         <div className="absolute top-[-50px] right-[-50px] w-40 h-40 bg-pink-400 rounded-full blur-2xl"></div>
-                         <div className="absolute bottom-[-20px] left-[-20px] w-60 h-60 bg-blue-400 rounded-full blur-3xl"></div>
-                      </div>
+                {/* Dropdown Preview Container */}
+                <div className="relative z-10 w-full max-w-sm mx-auto bg-white/90 dark:bg-slate-900/95 backdrop-blur-2xl rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border-[3px] border-white/60 dark:border-slate-700 overflow-hidden ring-4 ring-pink-100/50 dark:ring-pink-900/20 transform hover:scale-[1.02] transition-transform duration-300">
+                    <div className="px-5 py-3 border-b border-slate-100/50 dark:border-slate-700/50 flex justify-between items-center bg-gradient-to-r from-white/50 to-pink-50/50 dark:from-slate-800/50 dark:to-slate-800/30">
+                       <h3 className="font-black text-base text-slate-800 dark:text-white flex items-center gap-2">
+                          <span className="w-7 h-7 bg-pink-500 text-white rounded-lg flex items-center justify-center shadow-lg shadow-pink-200 dark:shadow-none text-xs"><i className="fa-solid fa-bell"></i></span>
+                          Thông báo
+                       </h3>
+                       <div className="flex gap-2 items-center">
+                           <button className="px-2.5 py-1 rounded-full bg-white dark:bg-slate-700 text-[10px] font-bold text-slate-500 shadow-sm border border-slate-200 dark:border-slate-600"><i className="fa-solid fa-check-double"></i></button>
+                       </div>
+                    </div>
 
-                      {/* Time & Date */}
-                      <div className="text-center pt-12 text-white/90">
-                         <div className="text-5xl font-thin tracking-tight">{new Date().toLocaleTimeString('vi-VN', {hour: '2-digit', minute: '2-digit'})}</div>
-                         <div className="text-xs font-bold mt-1 opacity-70">{new Date().toLocaleDateString('vi-VN', {weekday: 'long', day: 'numeric', month: 'long'})}</div>
-                      </div>
-
-                      {/* Notification Card */}
-                      <div className="mt-8 px-4 animate-in slide-in-from-bottom-4 duration-700">
-                         <div className="bg-white/90 backdrop-blur-md rounded-2xl p-4 shadow-lg">
-                            <div className="flex items-center gap-2 mb-2">
-                               <div className="w-5 h-5 bg-gradient-to-tr from-pink-500 to-violet-500 rounded-md flex items-center justify-center text-white text-[10px]">
-                                  <i className="fa-solid fa-robot"></i>
-                               </div>
-                               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">BibiChat • Vừa xong</span>
+                    <div className="bg-slate-50/50 dark:bg-slate-900/20 p-2 space-y-2">
+                        {/* Sample Notification Item */}
+                        <div className="relative p-3 rounded-[1.2rem] bg-white dark:bg-slate-800 border-white dark:border-slate-700 shadow-[0_4px_15px_-4px_rgba(236,72,153,0.15)] dark:shadow-none border-2 flex items-start gap-3 transform translate-y-0 hover:-translate-y-0.5 transition-transform duration-300 cursor-pointer">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${selectedColor.bg} ${selectedColor.text} shadow-sm border-2 border-white dark:border-slate-700 relative`}>
+                                <i className={`fa-solid ${selectedIcon} text-base`}></i>
+                                <span className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 rounded-full border-2 border-white dark:border-slate-800 animate-pulse"></span>
                             </div>
-                            <div className="flex gap-3">
-                               <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${selectedColor.bg} ${selectedColor.text}`}>
-                                  <i className={`fa-solid ${selectedIcon} text-lg`}></i>
-                               </div>
-                               <div className="flex-1 min-w-0">
-                                  <h4 className="text-xs font-black text-slate-800 truncate">{title || 'Tiêu đề ở đây...'}</h4>
-                                  <p className="text-xs text-slate-600 mt-1 leading-snug line-clamp-2">{desc || 'Nội dung thông báo sẽ hiển thị như thế này trên điện thoại của khách hàng nha!'}</p>
-                               </div>
+                            <div className="flex-1 min-w-0 pt-0.5">
+                                <div className="flex justify-between items-start gap-1 mb-0.5">
+                                    <h4 className="text-xs font-black text-slate-800 dark:text-white leading-snug truncate">{title || 'Tiêu đề thông báo...'}</h4>
+                                    <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 whitespace-nowrap bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-md">vừa xong</span>
+                                </div>
+                                <p className="text-[11px] leading-relaxed line-clamp-2 text-slate-600 dark:text-slate-400 font-medium">{desc || 'Nội dung chi tiết sẽ xuất hiện ở đây nè!'}</p>
                             </div>
-                         </div>
-                      </div>
-                      
-                      {/* Swipe Indicator */}
-                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1 bg-white/50 rounded-full"></div>
-                   </div>
+                        </div>
+                        
+                        {/* Fake background items for realism */}
+                        <div className="opacity-40 pointer-events-none filter blur-[1px]">
+                             <div className="relative p-3 rounded-[1.2rem] bg-white/40 dark:bg-slate-800/40 border-transparent border-2 flex items-start gap-3">
+                                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-slate-200 dark:bg-slate-700 text-slate-400 shadow-sm border-2 border-white dark:border-slate-700">
+                                    <i className="fa-solid fa-check-circle text-base"></i>
+                                </div>
+                                <div className="flex-1 min-w-0 pt-0.5">
+                                    <div className="flex justify-between items-start gap-1 mb-0.5">
+                                        <h4 className="text-xs font-bold text-slate-600 dark:text-slate-300 leading-snug">Chào mừng bạn</h4>
+                                        <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500">10:00</span>
+                                    </div>
+                                    <p className="text-[11px] leading-relaxed line-clamp-2 text-slate-500 dark:text-slate-500">Hệ thống đã sẵn sàng sử dụng.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Tips Card */}
@@ -426,10 +411,6 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
                          <span className="w-1.5 h-1.5 bg-amber-400 rounded-full mt-1.5"></span>
                          Thông báo ngắn gọn (dưới 50 từ) sẽ dễ đọc hơn trên điện thoại.
                       </li>
-                      <li className="flex items-start gap-2">
-                         <span className="w-1.5 h-1.5 bg-amber-400 rounded-full mt-1.5"></span>
-                         Gửi vào khung giờ vàng (9h sáng hoặc 8h tối) để tiếp cận nhiều người nhất.
-                      </li>
                    </ul>
                 </div>
              </div>
@@ -444,14 +425,14 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
           onClick={handleCloseSuccess} // Click backdrop to close
         >
           <div 
-            className="bg-white dark:bg-slate-800 p-8 rounded-[3rem] shadow-2xl flex flex-col items-center animate-in zoom-in duration-300 border-[6px] border-white dark:border-slate-700 cursor-default"
+            className="bg-white dark:bg-slate-800 p-10 rounded-[3rem] shadow-2xl flex flex-col items-center animate-in zoom-in duration-300 border-[8px] border-white dark:border-slate-700 cursor-default"
             onClick={(e) => e.stopPropagation()} // Prevent close on content click
           >
-              <div className="w-24 h-24 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mb-4">
-                  <i className="fa-solid fa-check text-4xl text-emerald-500 animate-bounce"></i>
+              <div className="w-28 h-28 bg-gradient-to-tr from-emerald-400 to-teal-500 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-emerald-200 dark:shadow-none">
+                  <i className="fa-solid fa-paper-plane text-5xl text-white animate-bounce-slow"></i>
               </div>
-              <h3 className="text-2xl font-black text-slate-800 dark:text-white">Thành công!</h3>
-              <p className="text-slate-500 dark:text-slate-400 font-bold mt-2">Thông báo đã được gửi đi nha.</p>
+              <h3 className="text-3xl font-black text-slate-800 dark:text-white mb-2">Thành công!</h3>
+              <p className="text-slate-500 dark:text-slate-400 font-bold text-center max-w-[200px]">Thông báo đã được gửi đi rồi nha.</p>
           </div>
         </div>,
         document.body

@@ -1,11 +1,10 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { User, Document, WidgetSettings, ChatLog, UserRole, Notification } from "../types";
+import { User, Document, WidgetSettings, ChatLog, UserRole, Notification, Lead, PluginConfig } from "../types";
 
-const API_URL = 'http://localhost:3001/api';
+const API_URL = 'http://127.0.0.1:3001/api';
 const DB_KEY = 'omnichat_db_v1';
 
-// Cấu hình tài khoản Master mặc định
 const MASTER_USER: User = {
   id: 'admin',
   email: 'admin@bibichat.io',
@@ -21,27 +20,17 @@ const MASTER_USER: User = {
   }
 };
 
-// --- HELPER: LOCAL STORAGE FALLBACK ---
 const getLocalDB = () => {
   const data = localStorage.getItem(DB_KEY);
   let db;
-  
   if (!data) {
-    db = { 
-      users: [MASTER_USER], 
-      documents: [],
-      chatLogs: [],
-      notifications: []
-    };
+    db = { users: [MASTER_USER], documents: [], chatLogs: [], notifications: [], leads: [] };
     localStorage.setItem(DB_KEY, JSON.stringify(db));
   } else {
     db = JSON.parse(data);
-    if (!db.users.find((u: any) => u.id === 'admin')) {
-      db.users.unshift(MASTER_USER);
-      localStorage.setItem(DB_KEY, JSON.stringify(db));
-    }
-    // Ensure notifications array exists
     if (!db.notifications) db.notifications = [];
+    if (!db.leads) db.leads = [];
+    if (!db.chatLogs) db.chatLogs = [];
   }
   return db;
 };
@@ -53,50 +42,31 @@ const saveLocalDB = (db: any) => {
 export const apiService = {
   // --- AUTH ---
   register: async (email: string, password: string): Promise<{success: boolean, message: string, user?: User}> => {
-    // 0. Kiểm tra trùng lặp Local trước
-    const db = getLocalDB();
-    if (db.users.find((u: any) => u.email === email)) {
-       return { success: false, message: 'Email này đã được đăng ký rồi nè!' };
-    }
-
-    // 1. Tạo user object
-    const newUser: User = {
-      id: Math.random().toString(36).substring(2, 11),
-      email,
-      password,
-      role: 'user',
-      createdAt: Date.now(),
-      botSettings: {
-        botName: 'Trợ lý AI',
-        primaryColor: '#8b5cf6',
-        welcomeMessage: 'Xin chào!',
-        position: 'right',
-        avatarUrl: ''
-      }
-    };
-
-    // 2. Luôn lưu vào LocalStorage (Shadow Save) để đảm bảo Admin nhìn thấy ngay
-    db.users.push(newUser);
-    saveLocalDB(db);
-
-    // 3. Gọi Server (nếu online)
     try {
       const res = await fetch(`${API_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
-      if (res.ok) {
-         const serverRes = await res.json();
-         // Ưu tiên dùng ID từ server nếu có
-         return serverRes;
-      }
+      const serverRes = await res.json();
+      if (res.ok && serverRes.success) return serverRes;
+      else return { success: false, message: serverRes.message || 'Lỗi đăng ký từ server' };
     } catch (e) {
       console.warn("Server Offline: Registration saved locally.");
+      const db = getLocalDB();
+      if (db.users.find((u: any) => u.email === email)) return { success: false, message: 'Email này đã được đăng ký (Offline)' };
+      const newUser: User = {
+        id: Math.random().toString(36).substring(2, 11),
+        email,
+        password,
+        role: 'user',
+        createdAt: Date.now(),
+        botSettings: { botName: 'Trợ lý AI', primaryColor: '#8b5cf6', welcomeMessage: 'Xin chào!', position: 'right', avatarUrl: '' }
+      };
+      db.users.push(newUser);
+      saveLocalDB(db);
+      return { success: true, message: 'Đăng ký thành công (Chế độ Offline)', user: newUser };
     }
-
-    // Trả về kết quả thành công dựa trên LocalStorage
-    return { success: true, message: 'Đăng ký thành công (Offline/Hybrid)', user: newUser };
   },
 
   login: async (email: string, password: string): Promise<{success: boolean, message: string, user?: User}> => {
@@ -106,24 +76,18 @@ export const apiService = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
-      if (!res.ok) throw new Error("Server response not ok");
+      if (!res.ok) {
+         const errData = await res.json();
+         return { success: false, message: errData.message || 'Lỗi đăng nhập' };
+      }
       return await res.json();
     } catch (e) {
       console.warn("Server Offline: Fallback to LocalStorage login");
       const db = getLocalDB();
-      
       let user = db.users.find((u: any) => u.email === email && u.password === password);
-      
-      if (!user && email === MASTER_USER.email && password === MASTER_USER.password) {
-        user = MASTER_USER;
-        if (!db.users.find((u: any) => u.id === 'admin')) {
-           db.users.unshift(MASTER_USER);
-           saveLocalDB(db);
-        }
-      }
-
+      if (!user && email === MASTER_USER.email && password === MASTER_USER.password) user = MASTER_USER;
       if (user) return { success: true, message: 'Đăng nhập thành công (Offline Mode)', user };
-      return { success: false, message: 'Email hoặc mật khẩu không chính xác.' };
+      return { success: false, message: 'Không thể kết nối Server & Sai thông tin Offline.' };
     }
   },
 
@@ -149,29 +113,36 @@ export const apiService = {
 
   // --- ADMIN TOOLS ---
   getAllUsers: async (): Promise<User[]> => {
-    const localDB = getLocalDB();
-    const localUsers: User[] = localDB.users;
-
     try {
       const res = await fetch(`${API_URL}/users`);
       if (!res.ok) throw new Error("Server error");
-      const serverUsers: User[] = await res.json();
-
-      // Merge: Lấy tất cả user từ Local + Server, loại bỏ trùng lặp email
-      const map = new Map();
-      
-      // Ưu tiên local users trước để đảm bảo những user vừa tạo (chưa sync server) được hiện
-      [...localUsers, ...serverUsers].forEach(u => {
-        if (!map.has(u.email)) {
-          map.set(u.email, u);
-        }
-      });
-      
-      const combinedUsers = Array.from(map.values());
-      return combinedUsers.filter((u: any) => u.id !== 'admin'); 
+      const data = await res.json();
+      return Array.isArray(data) ? data : data.data || [];
     } catch (e) {
-      return localUsers.filter(u => u.id !== 'admin');
+      const localDB = getLocalDB();
+      return localDB.users;
     }
+  },
+
+  getUsersPaginated: async (page: number, limit: number, search: string): Promise<{ data: User[], total: number, totalPages: number }> => {
+      try {
+          const res = await fetch(`${API_URL}/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
+          if (!res.ok) throw new Error("Server error");
+          return await res.json();
+      } catch (e) {
+          const localDB = getLocalDB();
+          let filtered = localDB.users.filter((u: any) => 
+              u.email.toLowerCase().includes(search.toLowerCase()) || 
+              (u.botSettings?.botName || '').toLowerCase().includes(search.toLowerCase())
+          );
+          const total = filtered.length;
+          const start = (page - 1) * limit;
+          return {
+              data: filtered.slice(start, start + limit),
+              total,
+              totalPages: Math.ceil(total / limit)
+          };
+      }
   },
 
   resetUserPassword: async (targetUserId: string, newPassword: string): Promise<{success: boolean, message: string}> => {
@@ -197,16 +168,12 @@ export const apiService = {
 
   deleteUser: async (targetUserId: string): Promise<{success: boolean, message: string}> => {
     try {
-      const res = await fetch(`${API_URL}/admin/users/${targetUserId}`, {
-        method: 'DELETE'
-      });
+      const res = await fetch(`${API_URL}/admin/users/${targetUserId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error("Server error");
       return await res.json();
     } catch (e) {
       const db = getLocalDB();
       db.users = db.users.filter((u: any) => u.id !== targetUserId);
-      db.documents = db.documents.filter((d: any) => d.userId !== targetUserId);
-      db.chatLogs = db.chatLogs.filter((l: any) => l.userId !== targetUserId);
       saveLocalDB(db);
       return { success: true, message: "Xóa thành công (Offline)" };
     }
@@ -230,6 +197,119 @@ export const apiService = {
     }
   },
 
+  // --- PLUGINS ---
+  getPlugins: async (userId: string): Promise<PluginConfig> => {
+    try {
+        const res = await fetch(`${API_URL}/plugins/${userId}`);
+        if (!res.ok) throw new Error("Fetch plugins failed");
+        return await res.json();
+    } catch (e) {
+        const db = getLocalDB();
+        const user = db.users.find((u: any) => u.id === userId);
+        return user?.plugins || { autoOpen: { enabled: false, delay: 5 }, social: { enabled: false, zalo: '', phone: '' }, leadForm: { enabled: false, title: '', trigger: 'manual' } };
+    }
+  },
+
+  updatePlugins: async (userId: string, plugins: PluginConfig) => {
+    try {
+        await fetch(`${API_URL}/plugins/${userId}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(plugins)
+        });
+    } catch (e) {
+        const db = getLocalDB();
+        const idx = db.users.findIndex((u: any) => u.id === userId);
+        if (idx !== -1) {
+            db.users[idx].plugins = plugins;
+            saveLocalDB(db);
+        }
+    }
+  },
+
+  // --- LEADS (PAGINATED) ---
+  getLeadsPaginated: async (userId: string, page: number, limit: number, search: string = ''): Promise<{ data: Lead[], pagination: any }> => {
+    try {
+        const res = await fetch(`${API_URL}/leads/${userId}?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
+        if (!res.ok) throw new Error("Fetch leads failed");
+        return await res.json();
+    } catch (e) {
+        // Fallback for offline mode (non-paginated simulation)
+        const db = getLocalDB();
+        let leads = (db.leads || []).filter((l: any) => l.userId === userId);
+        if(search) {
+            const s = search.toLowerCase();
+            leads = leads.filter((l: any) => 
+                (l.name && l.name.toLowerCase().includes(s)) || 
+                (l.phone && String(l.phone).includes(s)) ||
+                (l.email && l.email.toLowerCase().includes(s))
+            );
+        }
+        return { data: leads, pagination: { total: leads.length, page: 1, limit: 1000, totalPages: 1 } };
+    }
+  },
+  
+  // Legacy support
+  getLeads: async (userId: string): Promise<Lead[]> => {
+      const res = await apiService.getLeadsPaginated(userId, 1, 1000, '');
+      return res.data;
+  },
+
+  submitLead: async (userId: string, name: string, phone: string, email: string, isTest: boolean = false): Promise<Lead> => {
+    try {
+        const res = await fetch(`${API_URL}/leads`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ userId, name, phone, email, isTest })
+        });
+        return await res.json();
+    } catch (e) {
+        const db = getLocalDB();
+        if (!db.leads) db.leads = [];
+        const newLead: Lead = { 
+            id: Math.random().toString(36).substr(2, 9), 
+            userId, 
+            name, 
+            phone, 
+            email, 
+            source: 'chat_form', 
+            status: 'new', 
+            createdAt: Date.now(),
+            isTest: isTest
+        };
+        db.leads.push(newLead);
+        saveLocalDB(db);
+        return newLead;
+    }
+  },
+  
+  updateLeadStatus: async (leadId: string, status: string) => {
+    try {
+        await fetch(`${API_URL}/leads/${leadId}/status`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ status })
+        });
+    } catch (e) {
+        const db = getLocalDB();
+        const idx = db.leads.findIndex((l: any) => l.id === leadId);
+        if (idx !== -1) {
+            db.leads[idx].status = status;
+            saveLocalDB(db);
+        }
+    }
+  },
+
+  deleteLead: async (leadId: string) => {
+    try {
+      await fetch(`${API_URL}/leads/${leadId}`, { method: 'DELETE' });
+    } catch (e) {
+      const db = getLocalDB();
+      db.leads = (db.leads || []).filter((l: any) => l.id !== leadId);
+      saveLocalDB(db);
+    }
+  },
+
   // --- DOCUMENTS ---
   getDocuments: async (userId: string): Promise<Document[]> => {
     try {
@@ -250,9 +330,7 @@ export const apiService = {
         body: JSON.stringify({ name, content, userId })
       });
       if (!res.ok) throw new Error("Server error");
-      const doc = await res.json();
-      if (type === 'file') doc.type = 'file'; 
-      return doc;
+      return await res.json();
     } catch (e) {
       const db = getLocalDB();
       const newDoc: Document = {
@@ -280,41 +358,120 @@ export const apiService = {
     }
   },
 
-  // --- ANALYTICS & LOGS ---
+  // --- ANALYTICS & LOGS (PAGINATED CHAT - HYBRID ONLINE/OFFLINE) ---
+  
+  // 1. Get List of Sessions (Paginated) with FULL Offline Support
+  getChatSessionsPaginated: async (userId: string | 'all', page: number, limit: number, filterUserId: string = 'all'): Promise<{ data: any[], pagination: any }> => {
+      try {
+          const res = await fetch(`${API_URL}/chat-sessions/${userId}?page=${page}&limit=${limit}&filterUserId=${filterUserId}`);
+          if(!res.ok) throw new Error("Fetch sessions failed");
+          return await res.json();
+      } catch (e) {
+          // Offline Fallback Logic: Replicate Server grouping locally
+          const db = getLocalDB();
+          let allLogs = db.chatLogs || [];
+
+          // Filter by Owner (similar to server)
+          if (userId !== 'all') {
+              allLogs = allLogs.filter((l: any) => l.userId === userId);
+          } else {
+              // Admin view offline
+              if (filterUserId !== 'all') {
+                  allLogs = allLogs.filter((l: any) => l.userId === filterUserId);
+              }
+          }
+
+          // Grouping Logic
+          const sessionsMap: Record<string, any> = {};
+          allLogs.forEach((log: any) => {
+              const sessId = log.customerSessionId || 'legacy_session';
+              const key = `${log.userId}_${sessId}`; 
+              if (!sessionsMap[key]) {
+                  sessionsMap[key] = {
+                      uniqueKey: key,
+                      sessionId: sessId,
+                      userId: log.userId,
+                      lastActive: log.timestamp,
+                      preview: log.query,
+                      messageCount: 0
+                  };
+              }
+              sessionsMap[key].messageCount++;
+              if (log.timestamp > sessionsMap[key].lastActive) {
+                  sessionsMap[key].lastActive = log.timestamp;
+                  sessionsMap[key].preview = log.query;
+              }
+          });
+
+          const sessions = Object.values(sessionsMap).sort((a: any, b: any) => b.lastActive - a.lastActive);
+          const total = sessions.length;
+          const startIndex = (page - 1) * limit;
+          
+          return { 
+              data: sessions.slice(startIndex, startIndex + limit), 
+              pagination: { 
+                  total, 
+                  page, 
+                  limit, 
+                  totalPages: Math.ceil(total / limit) 
+              }
+          };
+      }
+  },
+
+  // 2. Get Messages for a specific session (Lazy Load) with FULL Offline Support
+  getChatMessages: async (userId: string | 'all', sessionId: string): Promise<ChatLog[]> => {
+      try {
+          const res = await fetch(`${API_URL}/chat-messages/${userId}/${sessionId}`);
+          if(!res.ok) throw new Error("Fetch messages failed");
+          return await res.json();
+      } catch (e) {
+          // Offline Fallback
+          const db = getLocalDB();
+          const messages = (db.chatLogs || []).filter((l: any) => 
+              (userId === 'all' || l.userId === userId) && 
+              (l.customerSessionId === sessionId || (sessionId === 'legacy_session' && !l.customerSessionId))
+          );
+          return messages.sort((a: any, b: any) => a.timestamp - b.timestamp);
+      }
+  },
+
   getStats: async (userId: string | 'all', period: 'hour' | 'day' | 'week' | 'month') => {
-    const db = getLocalDB();
-    let logs = db.chatLogs as ChatLog[];
-    
-    if (userId !== 'all') {
-      logs = logs.filter(l => l.userId === userId);
+    let logs: ChatLog[] = [];
+    try {
+        logs = await apiService.getChatLogs('all'); // Try fetch all to compute stats
+    } catch (e) {
+        const db = getLocalDB();
+        logs = db.chatLogs;
     }
+    if (userId !== 'all') logs = logs.filter(l => l.userId === userId);
 
     const statsMap: Record<string, { queries: number, solved: number }> = {};
-
     logs.forEach(log => {
       let key = '';
       const date = new Date(log.timestamp);
-      
       if (period === 'hour') key = `${date.getHours()}h`;
       else if (period === 'day') key = date.toLocaleDateString('vi-VN');
       else if (period === 'week') key = `Tuần ${Math.ceil(date.getDate() / 7)}`;
       else key = `Tháng ${date.getMonth() + 1}`;
-
       if (!statsMap[key]) statsMap[key] = { queries: 0, solved: 0 };
       statsMap[key].queries++;
       if (log.isSolved) statsMap[key].solved++;
     });
-
     return Object.entries(statsMap).map(([label, data]) => ({ label, ...data }));
   },
 
   getChatLogs: async (userId: string | 'all'): Promise<ChatLog[]> => {
-    const db = getLocalDB();
-    let logs = db.chatLogs as ChatLog[];
-    if (userId !== 'all') {
-      logs = logs.filter(l => l.userId === userId);
+    try {
+        const res = await fetch(`${API_URL}/chat-logs/${userId}`);
+        if(!res.ok) throw new Error("Fetch logs failed");
+        return await res.json();
+    } catch (e) {
+        const db = getLocalDB();
+        let logs = db.chatLogs as ChatLog[];
+        if (userId !== 'all') logs = logs.filter(l => l.userId === userId);
+        return logs.sort((a, b) => b.timestamp - a.timestamp);
     }
-    return logs.sort((a, b) => b.timestamp - a.timestamp);
   },
 
   // --- NOTIFICATIONS ---
@@ -324,14 +481,12 @@ export const apiService = {
       if (!res.ok) throw new Error("Server error");
       return await res.json();
     } catch (e) {
-      // Offline fallback logic: Filter and map readBy -> isRead
       const db = getLocalDB();
       const now = Date.now();
       return (db.notifications || [])
         .filter((n: any) => {
           const isTargetUser = (n.userId === 'all' || n.userId === userId);
           if (!isTargetUser) return false;
-          // Nếu admin, xem hết. Nếu không, chỉ xem quá khứ.
           if (userId === 'admin') return true;
           return n.scheduledAt ? n.scheduledAt <= now : n.time <= now;
         })
@@ -340,17 +495,6 @@ export const apiService = {
             isRead: Array.isArray(n.readBy) ? n.readBy.includes(userId) : (n.isRead || false)
         }))
         .sort((a: any, b: any) => (b.scheduledAt || b.time) - (a.scheduledAt || a.time));
-    }
-  },
-
-  getAdminNotifications: async (): Promise<Notification[]> => {
-    try {
-      const res = await fetch(`${API_URL}/admin/notifications`);
-      if (!res.ok) throw new Error("Server error");
-      return await res.json();
-    } catch (e) {
-      const db = getLocalDB();
-      return (db.notifications || []).sort((a: any, b: any) => (b.scheduledAt || b.time) - (a.scheduledAt || a.time));
     }
   },
 
@@ -366,10 +510,7 @@ export const apiService = {
       const n = db.notifications?.find((x: any) => x.id === id);
       if (n) {
         if (!n.readBy) n.readBy = [];
-        if (!n.readBy.includes(userId)) {
-            n.readBy.push(userId);
-        }
-        // No longer set boolean isRead globally
+        if (!n.readBy.includes(userId)) n.readBy.push(userId);
         saveLocalDB(db);
       }
     }
@@ -388,19 +529,15 @@ export const apiService = {
         db.notifications?.forEach((n: any) => {
             const isTargetUser = (n.userId === 'all' || n.userId === userId);
             const isVisible = userId === 'admin' ? true : (n.scheduledAt ? n.scheduledAt <= now : n.time <= now);
-            
             if (isTargetUser && isVisible) {
                 if (!n.readBy) n.readBy = [];
-                if (!n.readBy.includes(userId)) {
-                    n.readBy.push(userId);
-                }
+                if (!n.readBy.includes(userId)) n.readBy.push(userId);
             }
         });
         saveLocalDB(db);
     }
   },
 
-  // Tạo thông báo (Admin)
   createSystemNotification: async (data: Partial<Notification>) => {
     try {
       await fetch(`${API_URL}/notifications/create`, {
@@ -409,7 +546,6 @@ export const apiService = {
         body: JSON.stringify(data)
       });
     } catch (e) {
-      // Offline fallback
       const db = getLocalDB();
       if (!db.notifications) db.notifications = [];
       const now = Date.now();
@@ -429,76 +565,43 @@ export const apiService = {
     }
   },
 
-  // Tính năng AI: Gợi ý icon cho thông báo
   suggestIcon: async (text: string): Promise<string> => {
-    if (!process.env.API_KEY) return 'fa-bullhorn'; // Fallback nếu không có key
-
+    if (!process.env.API_KEY) return 'fa-bullhorn';
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    // Prompt được tinh chỉnh để trả về class FontAwesome 6 chuẩn
-    const prompt = `Based on the following notification text, suggest the single most appropriate FontAwesome 6 icon class name (e.g., 'fa-bell', 'fa-triangle-exclamation', 'fa-gift', 'fa-champagne-glasses'). ONLY return the class name string, no markdown, no other text.
-    
-    Text: "${text}"`;
-
+    const prompt = `Based on the following notification text, suggest the single most appropriate FontAwesome 6 icon class name. ONLY return the class name string. Text: "${text}"`;
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt
-      });
+      const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
       const iconClass = response.text?.trim() || 'fa-bullhorn';
-      // Đảm bảo trả về chuỗi sạch (đôi khi AI thêm dấu ngoặc kép hoặc chấm câu)
       return iconClass.replace(/['".]/g, '');
-    } catch (error) {
-      console.error("AI Icon suggestion failed:", error);
-      return 'fa-bullhorn';
-    }
+    } catch (error) { return 'fa-bullhorn'; }
   },
 
-  chat: async (userId: string, message: string, botName: string): Promise<string> => {
-    let context = "";
+  chat: async (userId: string, message: string, botName: string, sessionId: string): Promise<string> => {
     try {
-      const res = await fetch(`${API_URL}/documents/${userId}`);
-      if(res.ok) {
-        const docs: Document[] = await res.json();
-        context = docs.map(d => `[Tài liệu: ${d.name}]\n${d.content}`).join('\n\n');
-      } else { throw new Error("API Docs Error"); }
-    } catch (e) {
-       const db = getLocalDB();
-       context = db.documents.filter((d: any) => d.userId === userId)
-         .map((d: any) => `[Tài liệu: ${d.name}]\n${d.content}`).join('\n\n');
-    }
-
-    if (!process.env.API_KEY) return "Vui lòng cấu hình API_KEY.";
-
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const systemInstruction = `Bạn là trợ lý AI tên "${botName}". Hãy sử dụng kho kiến thức sau: \n${context}`;
-
-    try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: message,
-        config: { systemInstruction }
+      const res = await fetch(`${API_URL}/chat`, {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ userId, message, botName, sessionId })
       });
-      
-      const reply = response.text || "Tôi không thể trả lời.";
-      
-      const db = getLocalDB();
-      const newLog: ChatLog = {
-        id: Math.random().toString(36).substring(2, 9),
-        userId,
-        customerSessionId: 'anon-session',
-        query: message,
-        answer: reply,
-        timestamp: Date.now(),
-        tokens: message.length + (reply?.length || 0),
-        isSolved: !reply.includes("không có thông tin") && !reply.includes("Xin lỗi")
-      };
-      db.chatLogs.push(newLog);
-      saveLocalDB(db);
+      if(res.ok) {
+         const data = await res.json();
+         return data.text;
+      }
+    } catch (e) {}
 
-      return reply;
-    } catch (e) {
-      console.error(e);
-      return "Lỗi AI hoặc mất kết nối mạng.";
-    }
+    try {
+      if (!process.env.API_KEY) return "Lỗi cấu hình: Thiếu API Key.";
+      const db = getLocalDB();
+      const docs = db.documents.filter((d: any) => d.userId === userId);
+      const context = docs.map((d: any) => `[Tài liệu: ${d.name}]\n${d.content}`).join('\n\n');
+      const systemInstruction = `Bạn là trợ lý AI tên "${botName || 'BibiBot'}". Hãy sử dụng kiến thức sau để hỗ trợ khách hàng: ${context}`;
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: message, config: { systemInstruction } });
+      if (!db.chatLogs) db.chatLogs = [];
+      // Use the provided sessionId for grouping offline/fallback logs too
+      db.chatLogs.push({ id: Math.random().toString(36).substr(2, 9), userId, customerSessionId: sessionId || 'client-fallback', query: message, answer: response.text || '', timestamp: Date.now(), isSolved: true });
+      saveLocalDB(db);
+      return response.text || "Tôi không thể trả lời lúc này.";
+    } catch (clientError) { return "Lỗi kết nối. Vui lòng thử lại sau."; }
   }
 };

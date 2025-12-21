@@ -28,38 +28,49 @@ const LandingPage: React.FC<Props> = ({ onNavigate }) => {
 
   return (
     <div className="min-h-screen bg-white text-slate-800 font-sans selection:bg-pink-100 selection:text-pink-600 overflow-x-hidden">
-      {/* Navbar */}
-      <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-slate-100">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            <div className="w-10 h-10 bg-gradient-to-tr from-pink-400 to-violet-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-pink-200">
-              <i className="fa-solid fa-robot text-lg"></i>
+      {/* Navbar - Redesigned for better proportions */}
+      <nav className="fixed top-0 w-full z-50 bg-white/90 backdrop-blur-xl border-b border-slate-100 transition-all duration-300 supports-[backdrop-filter]:bg-white/60">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-20 sm:h-24 flex items-center justify-between">
+          {/* Logo - Increased Size by ~50% */}
+          <div className="flex items-center gap-3 sm:gap-4 cursor-pointer group" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-tr from-pink-400 to-violet-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-pink-200 group-hover:rotate-12 transition-transform duration-300">
+              <i className="fa-solid fa-comment-dots text-2xl sm:text-3xl"></i>
             </div>
-            <span className="text-xl font-black tracking-tight text-slate-800">Bibi<span className="text-pink-500">Chat</span></span>
+            <span className="text-3xl sm:text-4xl font-black tracking-tight text-slate-800 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-slate-800 group-hover:to-pink-600 transition-all">
+              Bibi<span className="text-pink-500 group-hover:text-current">Chat</span>
+            </span>
           </div>
           
           <div className="flex items-center gap-4">
-             {/* Hotline Badge - Cute & Visible */}
-            <a href="tel:0979116118" className="hidden lg:flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-full font-bold text-sm hover:bg-emerald-100 transition-colors border border-emerald-100 animate-in fade-in zoom-in duration-500">
-               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-               <i className="fa-solid fa-phone-volume"></i>
+             {/* Hotline Badge - Resized to match CTA button height */}
+            <a href="tel:0979116118" className="hidden lg:flex items-center gap-2 px-5 py-2.5 bg-emerald-50 text-emerald-700 rounded-full font-bold text-base hover:bg-emerald-100 transition-all border-2 border-emerald-100 hover:-translate-y-0.5 active:scale-95 group shadow-sm">
+               <i className="fa-solid fa-phone-volume animate-tada mr-1"></i>
                0979.116.118
             </a>
 
+            {/* Mobile: Simple Icon Button for Login */}
             <button 
               onClick={() => onNavigate('login')}
-              className="group relative px-6 py-2.5 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-full font-black shadow-lg shadow-pink-200 hover:shadow-pink-400/50 hover:-translate-y-0.5 transition-all active:scale-95 flex items-center gap-2 overflow-hidden"
+              className="sm:hidden w-10 h-10 flex items-center justify-center bg-slate-100 text-slate-600 rounded-full hover:bg-pink-50 hover:text-pink-500 transition-colors"
+            >
+              <i className="fa-solid fa-right-to-bracket text-lg"></i>
+            </button>
+
+            {/* Desktop: Sleek CTA Button (Resized) */}
+            <button 
+              onClick={() => onNavigate('login')}
+              className="hidden sm:flex group relative px-6 py-2.5 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-full font-bold text-base shadow-md hover:shadow-pink-400/40 hover:-translate-y-0.5 transition-all active:scale-95 items-center gap-2 overflow-hidden"
             >
               <div className="absolute inset-0 bg-white/20 group-hover:translate-x-full transition-transform duration-700 ease-out -skew-x-12 -translate-x-full"></div>
-              <i className="fa-solid fa-wand-magic-sparkles group-hover:rotate-12 transition-transform"></i>
               <span>Dùng thử ngay</span>
+              <i className="fa-solid fa-wand-magic-sparkles text-sm group-hover:rotate-12 transition-transform"></i>
             </button>
           </div>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="pt-32 pb-20 px-6 relative overflow-hidden">
+      {/* Hero Section - Adjusted padding top for new navbar height */}
+      <section className="pt-32 sm:pt-40 pb-20 px-4 sm:px-6 relative overflow-hidden">
         {/* Decor blobs */}
         <div className="absolute top-20 right-[-10%] w-[30rem] h-[30rem] bg-pink-200/40 rounded-full blur-3xl -z-10 animate-blob"></div>
         <div className="absolute top-40 left-[-10%] w-[25rem] h-[25rem] bg-violet-200/40 rounded-full blur-3xl -z-10 animate-blob animation-delay-2000"></div>
@@ -70,11 +81,11 @@ const LandingPage: React.FC<Props> = ({ onNavigate }) => {
               <span className="w-2 h-2 bg-pink-500 rounded-full mr-2 animate-pulse"></span>
               Trợ lý AI thế hệ mới #1
             </div>
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black leading-[1.1] tracking-tight text-slate-900">
+            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black leading-[1.1] tracking-tight text-slate-900">
               CSKH tự động <br/>
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500">Siêu đáng yêu</span>
             </h1>
-            <p className="text-lg sm:text-xl text-slate-500 font-medium leading-relaxed max-w-2xl mx-auto lg:mx-0">
+            <p className="text-base sm:text-xl text-slate-500 font-medium leading-relaxed max-w-2xl mx-auto lg:mx-0">
               Biến website của bạn trở nên sống động với BibiChat. Tự động trả lời, hỗ trợ 24/7 và cực kỳ thân thiện. Cài đặt chỉ trong 30 giây!
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
@@ -263,14 +274,17 @@ const LandingPage: React.FC<Props> = ({ onNavigate }) => {
       {/* Footer */}
       <footer className="bg-white border-t border-slate-100 py-12">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
-           <div className="flex flex-col gap-2 md:items-start items-center">
-              <div className="flex items-center gap-2">
-                 <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white text-sm">
-                   <i className="fa-solid fa-robot"></i>
+           <div className="flex flex-col gap-4 md:items-start items-center">
+              {/* Footer Logo - Updated to match Header style */}
+              <div className="flex items-center gap-3">
+                 <div className="w-10 h-10 bg-gradient-to-tr from-pink-400 to-violet-500 rounded-xl flex items-center justify-center text-white shadow-md">
+                   <i className="fa-solid fa-comment-dots text-xl"></i>
                  </div>
-                 <span className="font-bold text-slate-700">BibiChat &copy; 2024</span>
+                 <span className="text-2xl font-black tracking-tight text-slate-700">
+                    Bibi<span className="text-pink-500">Chat</span>
+                 </span>
               </div>
-              <a href="tel:0979116118" className="text-emerald-600 font-bold text-xs bg-emerald-50 px-3 py-1 rounded-full"><i className="fa-solid fa-phone mr-1"></i> 0979.116.118</a>
+              <p className="text-slate-400 text-sm font-bold ml-1">&copy; 2025 BibiChat. All rights reserved.</p>
            </div>
            
            <div className="flex gap-8 text-sm font-bold text-slate-500">

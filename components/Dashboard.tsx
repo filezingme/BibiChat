@@ -36,7 +36,10 @@ const Dashboard: React.FC<Props> = ({ user, initialSelectedUser = 'all' }) => {
 
   useEffect(() => {
     if (isMaster) {
-      apiService.getAllUsers().then(setCustomers);
+      apiService.getAllUsers().then(users => {
+        // Chỉ hiển thị tài khoản khách hàng (loại bỏ admin/master)
+        setCustomers(users.filter(u => u.role !== 'master'));
+      });
     }
     loadStats();
   }, [period, selectedUser, user.id]);
@@ -44,7 +47,7 @@ const Dashboard: React.FC<Props> = ({ user, initialSelectedUser = 'all' }) => {
   const loadStats = async () => {
     setIsLoading(true);
     const targetId = isMaster ? selectedUser : user.id;
-    await new Promise(r => setTimeout(r, 800)); // Cute delay
+    // Removed artificial delay
     const data = await apiService.getStats(targetId as any, period);
     setStats(data);
     setIsLoading(false);

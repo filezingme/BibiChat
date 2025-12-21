@@ -56,7 +56,7 @@ const PublicLayout: React.FC<{
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3 cursor-pointer group" onClick={() => onNavigate('landing')}>
             <div className="w-10 h-10 bg-gradient-to-tr from-pink-400 to-violet-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-pink-200 group-hover:rotate-12 transition-transform duration-300">
-              <i className="fa-solid fa-robot text-lg"></i>
+              <i className="fa-solid fa-comment-dots text-xl"></i>
             </div>
             <span className="text-xl font-black tracking-tight text-slate-800">Bibi<span className="text-pink-500">Chat</span></span>
           </div>

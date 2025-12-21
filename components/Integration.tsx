@@ -9,7 +9,8 @@ const Integration: React.FC<Props> = ({ userId }) => {
   const [copied, setCopied] = useState(false);
   
   // URL của Server Backend (Trong thực tế sẽ là domain thật: https://api.bibichat.io)
-  const SERVER_URL = "http://localhost:3001";
+  // Updated to 127.0.0.1 to avoid localhost lookup delay
+  const SERVER_URL = "http://127.0.0.1:3001";
   
   // Break script tag to prevent parsing issues
   const embedCode = `<!-- BibiChat Widget Embed Code -->

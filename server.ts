@@ -9,10 +9,9 @@ import multer from 'multer';
 const app = express();
 const PORT = 3001;
 
-// Cấu hình CORS để cho phép các website khác gọi API của bạn
 app.use(cors({
-  origin: '*', // Trong môi trường Production, hãy thay '*' bằng danh sách domain cụ thể của khách hàng
-  methods: ['GET', 'POST', 'OPTIONS'],
+  origin: '*', 
+  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }) as any);
 
@@ -33,12 +32,27 @@ app.use(express.json() as any);
 const DB_FILE = './db.json';
 const initDB = () => {
   if (!fs.existsSync(DB_FILE)) {
+    const now = Date.now();
+    
     fs.writeFileSync(DB_FILE, JSON.stringify({ 
       users: [
-        { id: 'admin', email: 'admin@bibichat.io', password: '123456', role: 'master', botSettings: { botName: 'BibiBot', primaryColor: '#ec4899', welcomeMessage: 'Xin chào! Mình là BibiBot đây.' } }
+        { 
+          id: 'admin', 
+          email: 'admin@bibichat.io', 
+          password: '123456', 
+          role: 'master', 
+          botSettings: { botName: 'BibiBot', primaryColor: '#ec4899', welcomeMessage: 'Xin chào! Mình là BibiBot đây.' },
+          plugins: {
+             autoOpen: { enabled: false, delay: 5 },
+             social: { enabled: true, zalo: '0979116118', phone: '0979116118' },
+             leadForm: { enabled: true, title: 'Để lại thông tin để được tư vấn kỹ hơn nha!', trigger: 'manual' }
+          }
+        }
       ], 
       documents: [],
+      // Clean initialization without sample logs to avoid confusion
       chatLogs: [],
+      leads: [],
       notifications: [
         { id: '1', userId: 'all', title: 'Bé AI đã học xong', desc: 'Dữ liệu "Chính sách đổi trả" đã được nạp thành công vào bộ nhớ.', time: Date.now() - 7200000, scheduledAt: Date.now() - 7200000, readBy: [], icon: 'fa-graduation-cap', color: 'text-pink-500', bg: 'bg-pink-100 dark:bg-pink-900/30' },
         { id: '2', userId: 'all', title: 'Hệ thống an toàn', desc: 'Dữ liệu của bạn được bảo vệ tuyệt đối an toàn với mã hóa 2 lớp.', time: Date.now() - 18000000, scheduledAt: Date.now() - 18000000, readBy: [], icon: 'fa-shield-heart', color: 'text-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-900/30' }
@@ -51,305 +65,316 @@ initDB();
 const getDB = () => JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
 const saveDB = (data: any) => fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
 
-// --- NOTIFICATION APIs ---
+// ... (Plugins, Leads, Notifications, Users APIs - Keep as is)
+app.get('/api/plugins/:userId', (req, res) => {
+    const db = getDB();
+    const user = db.users.find((u: any) => u.id === req.params.userId);
+    if (user) {
+        const plugins = user.plugins || {
+            autoOpen: { enabled: false, delay: 5 },
+            social: { enabled: false, zalo: '', phone: '' },
+            leadForm: { enabled: false, title: 'Nhập thông tin liên hệ', trigger: 'manual' }
+        };
+        res.json(plugins);
+    } else {
+        res.status(404).json({ success: false });
+    }
+});
+
+app.post('/api/plugins/:userId', (req, res) => {
+    const db = getDB();
+    const userIndex = db.users.findIndex((u: any) => u.id === req.params.userId);
+    if (userIndex !== -1) {
+        db.users[userIndex].plugins = req.body;
+        saveDB(db);
+        res.json({ success: true });
+    } else {
+        res.status(404).json({ success: false });
+    }
+});
+
+app.get('/api/leads/:userId', (req, res) => {
+    const db = getDB();
+    const { userId } = req.params;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const search = (req.query.search as string || '').toLowerCase().trim();
+    
+    let leads = (db.leads || []).filter((l: any) => l.userId === userId);
+    
+    if (search) {
+        leads = leads.filter((l: any) => 
+            (l.name && l.name.toLowerCase().includes(search)) || 
+            (l.phone && String(l.phone).includes(search)) || 
+            (l.email && l.email.toLowerCase().includes(search))
+        );
+    }
+    
+    leads.sort((a: any, b: any) => b.createdAt - a.createdAt);
+    const total = leads.length;
+    const startIndex = (page - 1) * limit;
+    res.json({
+        data: leads.slice(startIndex, startIndex + limit),
+        pagination: { total, page, limit, totalPages: Math.ceil(total / limit) }
+    });
+});
+
+app.post('/api/leads', (req, res) => {
+    const db = getDB();
+    const { userId, name, phone, email, isTest } = req.body;
+    if (!db.leads) db.leads = [];
+    const newLead = { id: Math.random().toString(36).substr(2, 9), userId, name, phone, email, source: 'chat_form', status: 'new', createdAt: Date.now(), isTest: !!isTest };
+    db.leads.push(newLead);
+    saveDB(db);
+    res.json(newLead);
+});
+
+app.post('/api/leads/:id/status', (req, res) => {
+    const db = getDB();
+    const idx = (db.leads || []).findIndex((l: any) => l.id === req.params.id);
+    if (idx !== -1) { db.leads[idx].status = req.body.status; saveDB(db); res.json({ success: true }); } 
+    else { res.status(404).json({ success: false }); }
+});
+
+app.delete('/api/leads/:id', (req, res) => {
+    const db = getDB();
+    const initialLength = (db.leads || []).length;
+    db.leads = (db.leads || []).filter((l: any) => l.id !== req.params.id);
+    if (db.leads.length < initialLength) { saveDB(db); res.json({ success: true }); } 
+    else { res.status(404).json({ success: false, message: 'Lead not found' }); }
+});
+
+// ... (Rest of Notification, User, Chat APIs remain the same)
 app.get('/api/notifications/:userId', (req, res) => {
   const { userId } = req.params;
   const db = getDB();
   const now = Date.now();
-  
-  // Logic:
-  // 1. Phải thuộc về user đó HOẶC là 'all'
-  // 2. NẾU là admin: Xem được hết (kể cả tương lai)
-  // 3. NẾU KHÔNG phải admin: Chỉ xem được cái đã đến giờ (scheduledAt <= now)
-  
   let notifs = (db.notifications || []).filter((n: any) => {
-    const isTargetUser = (n.userId === 'all' || n.userId === userId);
-    
-    if (!isTargetUser) return false;
-
-    if (userId === 'admin') {
-        return true; // Admin thấy hết
-    } else {
-        return n.scheduledAt ? n.scheduledAt <= now : n.time <= now; // User thường chỉ thấy quá khứ
-    }
+    const nUserId = String(n.userId || '').trim();
+    const reqUserId = String(userId || '').trim();
+    if (nUserId !== 'all' && nUserId !== reqUserId) return false;
+    if (reqUserId === 'admin') return true;
+    const scheduleTime = Number(n.scheduledAt || n.time || 0);
+    return scheduleTime <= (now + 60000); 
   });
-
-  // Map thêm trường isRead cho frontend dựa trên readBy array
-  notifs = notifs.map((n: any) => ({
-      ...n,
-      isRead: Array.isArray(n.readBy) ? n.readBy.includes(userId) : (n.isRead || false)
-  }));
-
-  // Sắp xếp mới nhất lên đầu (dựa vào scheduledAt hoặc time)
+  notifs = notifs.map((n: any) => ({ ...n, isRead: Array.isArray(n.readBy) ? n.readBy.includes(userId) : (n.isRead || false) }));
   notifs.sort((a: any, b: any) => (b.scheduledAt || b.time) - (a.scheduledAt || a.time));
   res.json(notifs);
 });
-
-// API lấy lịch sử thông báo đã tạo (Cho Admin) - Không lọc theo thời gian để Admin thấy cả thông báo tương lai
-app.get('/api/admin/notifications', (req, res) => {
-  const db = getDB();
-  const notifs = (db.notifications || []);
-  // Admin thì không cần tính isRead cá nhân, hoặc mặc định là false
-  notifs.sort((a: any, b: any) => (b.scheduledAt || b.time) - (a.scheduledAt || a.time));
-  res.json(notifs);
-});
-
-// API Đánh dấu 1 thông báo là đã đọc
 app.post('/api/notifications/:id/read', (req, res) => {
-  const { id } = req.params;
-  const { userId } = req.body; // Cần userId để biết ai đọc
-  
-  if (!userId) return res.status(400).json({ success: false, message: 'Missing userId' });
-
+  const { userId } = req.body; 
   const db = getDB();
-  const index = (db.notifications || []).findIndex((n: any) => n.id === id);
-  
-  if (index !== -1) {
-    const notif = db.notifications[index];
+  const notif = (db.notifications || []).find((n: any) => n.id === req.params.id);
+  if (notif) {
     if (!notif.readBy) notif.readBy = [];
-    
-    // Nếu chưa có userId trong mảng readBy thì push vào
-    if (!notif.readBy.includes(userId)) {
-        notif.readBy.push(userId);
-    }
-    
-    // Backward compatibility: vẫn giữ isRead cũ nếu cần, nhưng logic chính là readBy
-    // notif.isRead = true; // Xóa dòng này để không ảnh hưởng user khác
-    
+    if (!notif.readBy.includes(userId)) notif.readBy.push(userId);
     saveDB(db);
     res.json({ success: true });
-  } else {
-    res.status(404).json({ success: false });
-  }
+  } else res.status(404).json({ success: false });
 });
-
-// API Đánh dấu tất cả là đã đọc
 app.post('/api/notifications/read-all', (req, res) => {
   const { userId } = req.body;
-  if (!userId) return res.status(400).json({ success: false, message: 'Missing userId' });
-
   const db = getDB();
   const now = Date.now();
-  
   if (db.notifications) {
     db.notifications.forEach((n: any) => {
-        // Chỉ đánh dấu những thông báo thuộc về user này và ĐÃ được hiển thị
-        const isTargetUser = (n.userId === 'all' || n.userId === userId);
-        const isVisible = userId === 'admin' ? true : (n.scheduledAt ? n.scheduledAt <= now : n.time <= now);
-
-        if (isTargetUser && isVisible) {
+        const nUserId = String(n.userId || '').trim();
+        const reqUserId = String(userId || '').trim();
+        if ((nUserId === 'all' || nUserId === reqUserId) && (reqUserId === 'admin' || Number(n.scheduledAt || n.time) <= (now + 60000))) {
             if (!n.readBy) n.readBy = [];
-            if (!n.readBy.includes(userId)) {
-                n.readBy.push(userId);
-            }
+            if (!n.readBy.includes(userId)) n.readBy.push(userId);
         }
     });
     saveDB(db);
   }
   res.json({ success: true });
 });
-
-// API tạo thông báo mới (Có hỗ trợ hẹn giờ)
 app.post('/api/notifications/create', (req, res) => {
   const db = getDB();
-  const scheduledTime = req.body.scheduledAt || Date.now();
-  
+  const scheduledTime = Number(req.body.scheduledAt) || Date.now();
   const newNotif = {
     id: Math.random().toString(36).substr(2, 9),
     userId: req.body.userId || 'all',
     title: req.body.title,
     desc: req.body.desc,
-    time: scheduledTime, // Time dùng để hiển thị created time
-    scheduledAt: scheduledTime, // Time dùng để filter hiển thị
-    readBy: [], // Khởi tạo mảng rỗng
+    time: scheduledTime,
+    scheduledAt: scheduledTime, 
+    readBy: [], 
     icon: req.body.icon || 'fa-bell',
     color: req.body.color || 'text-blue-500',
     bg: req.body.bg || 'bg-blue-100 dark:bg-blue-900/30'
   };
-  
   if (!db.notifications) db.notifications = [];
   db.notifications.push(newNotif);
   saveDB(db);
   res.json(newNotif);
 });
 
-
-// API: Lấy danh sách Users (Cho Master)
 app.get('/api/users', (req, res) => {
   const db = getDB();
-  res.json(db.users);
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 10000;
+  const search = (req.query.search as string || '').toLowerCase();
+  let filteredUsers = db.users;
+  if (search) {
+    filteredUsers = filteredUsers.filter((u: any) => u.email.toLowerCase().includes(search) || (u.botSettings?.botName || '').toLowerCase().includes(search));
+  }
+  const total = filteredUsers.length;
+  if (!req.query.page && !req.query.limit) return res.json(filteredUsers);
+  const startIndex = (page - 1) * limit;
+  res.json({ data: filteredUsers.slice(startIndex, startIndex + limit), pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } });
 });
 
-// API: Đăng ký
+// 1. Get Paginated Sessions (Grouped logs)
+app.get('/api/chat-sessions/:userId', (req, res) => {
+    const { userId } = req.params; // 'all' (Admin) or specific user ID
+    const db = getDB();
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const filterUserId = req.query.filterUserId as string || 'all'; 
+
+    let allLogs = db.chatLogs || [];
+
+    if (userId !== 'all') {
+        allLogs = allLogs.filter((l: any) => l.userId === userId);
+    } else {
+        if (filterUserId !== 'all') {
+            allLogs = allLogs.filter((l: any) => l.userId === filterUserId);
+        }
+    }
+
+    const sessionsMap: Record<string, any> = {};
+    allLogs.forEach((log: any) => {
+        const sessId = log.customerSessionId || 'legacy_session';
+        const key = `${log.userId}_${sessId}`; 
+        
+        if (!sessionsMap[key]) {
+            sessionsMap[key] = {
+                uniqueKey: key,
+                sessionId: sessId,
+                userId: log.userId,
+                lastActive: log.timestamp,
+                preview: log.query,
+                messageCount: 0
+            };
+        }
+        sessionsMap[key].messageCount++;
+        if (log.timestamp > sessionsMap[key].lastActive) {
+            sessionsMap[key].lastActive = log.timestamp;
+            sessionsMap[key].preview = log.query;
+        }
+    });
+
+    const sessions = Object.values(sessionsMap).sort((a: any, b: any) => b.lastActive - a.lastActive);
+    const total = sessions.length;
+    const startIndex = (page - 1) * limit;
+    const paginatedSessions = sessions.slice(startIndex, startIndex + limit);
+
+    res.json({
+        data: paginatedSessions,
+        pagination: { total, page, limit, totalPages: Math.ceil(total / limit) }
+    });
+});
+
+app.get('/api/chat-messages/:userId/:sessionId', (req, res) => {
+    const { userId, sessionId } = req.params;
+    const db = getDB();
+    const messages = (db.chatLogs || []).filter((l: any) => 
+        (userId === 'all' || l.userId === userId) && 
+        (l.customerSessionId === sessionId || (sessionId === 'legacy_session' && !l.customerSessionId))
+    );
+    messages.sort((a: any, b: any) => a.timestamp - b.timestamp);
+    res.json(messages);
+});
+
+app.get('/api/chat-logs/:userId', (req, res) => {
+    const { userId } = req.params;
+    const db = getDB();
+    let logs = db.chatLogs || [];
+    if (userId !== 'all') logs = logs.filter((l: any) => l.userId === userId);
+    res.json(logs); 
+});
+
 app.post('/api/register', (req, res) => {
   const { email, password } = req.body;
   const db = getDB();
-  
-  if (db.users.find((u: any) => u.email === email)) {
-    return res.status(400).json({ success: false, message: 'Email đã tồn tại' });
-  }
-
-  const newUser = {
-    id: Math.random().toString(36).substr(2, 9),
-    email,
-    password,
-    role: 'user',
-    createdAt: Date.now(),
-    botSettings: {
-      botName: 'Trợ lý AI',
-      primaryColor: '#8b5cf6',
-      welcomeMessage: 'Chào mừng bạn đến với hỗ trợ trực tuyến!',
-      position: 'right',
-      avatarUrl: ''
-    }
-  };
-  
+  if (db.users.find((u: any) => u.email === email)) return res.status(400).json({ success: false, message: 'Email đã tồn tại' });
+  const newUser = { id: Math.random().toString(36).substr(2, 9), email, password, role: 'user', createdAt: Date.now(), botSettings: { botName: 'Trợ lý AI', primaryColor: '#8b5cf6', welcomeMessage: 'Chào mừng bạn đến với hỗ trợ trực tuyến!', position: 'right', avatarUrl: '' }, plugins: { autoOpen: { enabled: false, delay: 5 }, social: { enabled: false, zalo: '', phone: '' }, leadForm: { enabled: true, title: 'Nhập thông tin', trigger: 'manual' } } };
   db.users.push(newUser);
   saveDB(db);
   res.json({ success: true, user: newUser });
 });
-
-// API: Đăng nhập
 app.post('/api/login', (req, res) => {
   const { email, password } = req.body;
   const db = getDB();
   const user = db.users.find((u: any) => u.email === email && u.password === password);
-  
-  if (user) {
-    res.json({ success: true, user });
-  } else {
-    res.status(401).json({ success: false, message: 'Sai thông tin đăng nhập' });
-  }
+  if (user) res.json({ success: true, user });
+  else res.status(401).json({ success: false, message: 'Sai thông tin đăng nhập' });
 });
-
-// API: Đổi mật khẩu (User tự đổi)
 app.post('/api/user/change-password', (req, res) => {
   const { userId, oldPassword, newPassword } = req.body;
   const db = getDB();
-  const userIndex = db.users.findIndex((u: any) => u.id === userId);
-
-  if (userIndex === -1) return res.status(404).json({ success: false, message: 'User không tồn tại' });
-  
-  if (db.users[userIndex].password !== oldPassword) {
-    return res.status(400).json({ success: false, message: 'Mật khẩu cũ không đúng' });
-  }
-
-  db.users[userIndex].password = newPassword;
+  const idx = db.users.findIndex((u: any) => u.id === userId);
+  if (idx === -1) return res.status(404).json({ success: false, message: 'User không tồn tại' });
+  if (db.users[idx].password !== oldPassword) return res.status(400).json({ success: false, message: 'Mật khẩu cũ không đúng' });
+  db.users[idx].password = newPassword;
   saveDB(db);
   res.json({ success: true, message: 'Đổi mật khẩu thành công' });
 });
-
-// API: Reset mật khẩu (Admin thực hiện)
 app.post('/api/admin/reset-password', (req, res) => {
   const { targetUserId, newPassword } = req.body;
   const db = getDB();
-  const userIndex = db.users.findIndex((u: any) => u.id === targetUserId);
-
-  if (userIndex === -1) return res.status(404).json({ success: false, message: 'User không tồn tại' });
-
-  db.users[userIndex].password = newPassword;
+  const idx = db.users.findIndex((u: any) => u.id === targetUserId);
+  if (idx === -1) return res.status(404).json({ success: false, message: 'User không tồn tại' });
+  db.users[idx].password = newPassword;
   saveDB(db);
   res.json({ success: true, message: 'Reset mật khẩu thành công' });
 });
-
-// API: Xóa User (Admin thực hiện)
 app.delete('/api/admin/users/:id', (req, res) => {
   const db = getDB();
-  const targetId = req.params.id;
-
-  const initialUserCount = db.users.length;
-  db.users = db.users.filter((u: any) => u.id !== targetId);
-
-  if (db.users.length === initialUserCount) {
-    return res.status(404).json({ success: false, message: 'User không tồn tại' });
-  }
-
-  const userDocs = db.documents.filter((d: any) => d.userId === targetId);
-  userDocs.forEach((doc: any) => {
-    if (doc.path && fs.existsSync(doc.path)) {
-      try { fs.unlinkSync(doc.path); } catch(e) {}
-    }
-  });
-  db.documents = db.documents.filter((d: any) => d.userId !== targetId);
-  db.chatLogs = db.chatLogs.filter((l: any) => l.userId !== targetId);
-
+  const initialLen = db.users.length;
+  db.users = db.users.filter((u: any) => u.id !== req.params.id);
+  if (db.users.length === initialLen) return res.status(404).json({ success: false });
+  const userDocs = db.documents.filter((d: any) => d.userId === req.params.id);
+  userDocs.forEach((doc: any) => { if (doc.path && fs.existsSync(doc.path)) try { fs.unlinkSync(doc.path); } catch(e) {} });
+  db.documents = db.documents.filter((d: any) => d.userId !== req.params.id);
+  db.chatLogs = db.chatLogs.filter((l: any) => l.userId !== req.params.id);
+  db.leads = (db.leads || []).filter((l: any) => l.userId !== req.params.id);
   saveDB(db);
   res.json({ success: true, message: 'Xóa user thành công' });
 });
-
-// API: Lấy tài liệu của riêng User
 app.get('/api/documents/:userId', (req, res) => {
   const db = getDB();
-  const userDocs = db.documents.filter((d: any) => d.userId === req.params.userId);
-  res.json(userDocs);
+  res.json(db.documents.filter((d: any) => d.userId === req.params.userId));
 });
-
-// API: Lấy cấu hình Widget (Cho Widget nhúng) - QUAN TRỌNG
 app.get('/api/settings/:userId', (req, res) => {
   const db = getDB();
   const user = db.users.find((u: any) => u.id === req.params.userId);
-  if (user) {
-    res.json(user.botSettings);
-  } else {
-    res.status(404).json({ success: false, message: 'User not found' });
-  }
+  user ? res.json(user.botSettings) : res.status(404).json({ success: false });
 });
-
-// API: Lưu cấu hình Widget cho User
 app.post('/api/settings/:userId', (req, res) => {
   const db = getDB();
-  const userIndex = db.users.findIndex((u: any) => u.id === req.params.userId);
-  if (userIndex !== -1) {
-    db.users[userIndex].botSettings = req.body;
-    saveDB(db);
-    res.json({ success: true });
-  } else {
-    res.status(404).json({ success: false });
-  }
+  const idx = db.users.findIndex((u: any) => u.id === req.params.userId);
+  if (idx !== -1) { db.users[idx].botSettings = req.body; saveDB(db); res.json({ success: true }); } 
+  else res.status(404).json({ success: false });
 });
-
-// API: Thêm tài liệu văn bản
 app.post('/api/documents/text', (req, res) => {
   const { name, content, userId } = req.body;
   const db = getDB();
-  const newDoc = {
-    id: Math.random().toString(36).substr(2, 9),
-    userId,
-    name,
-    content,
-    type: 'text',
-    status: 'indexed',
-    createdAt: Date.now()
-  };
+  const newDoc = { id: Math.random().toString(36).substr(2, 9), userId, name, content, type: 'text', status: 'indexed', createdAt: Date.now() };
   db.documents.push(newDoc);
   saveDB(db);
   res.json(newDoc);
 });
-
-// API: Upload tệp
 app.post('/api/documents/upload', upload.single('file') as any, (req: any, res: any) => {
   const file = (req as any).file;
-  const { userId } = req.body;
-  if (!file || !userId) return res.status(400).send('Missing file or userId.');
-  
-  const content = fs.readFileSync(file.path, 'utf-8');
+  if (!file || !req.body.userId) return res.status(400).send('Missing file/userId');
   const db = getDB();
-  const newDoc = {
-    id: Math.random().toString(36).substr(2, 9),
-    userId,
-    name: file.originalname,
-    content: content,
-    path: file.path,
-    type: 'file',
-    status: 'indexed',
-    createdAt: Date.now()
-  };
+  const newDoc = { id: Math.random().toString(36).substr(2, 9), userId: req.body.userId, name: file.originalname, content: fs.readFileSync(file.path, 'utf-8'), path: file.path, type: 'file', status: 'indexed', createdAt: Date.now() };
   db.documents.push(newDoc);
   saveDB(db);
   res.json(newDoc);
 });
-
-// API: Xóa tài liệu
 app.delete('/api/documents/:id', (req, res) => {
   const db = getDB();
   const doc = db.documents.find((d: any) => d.id === req.params.id);
@@ -358,237 +383,30 @@ app.delete('/api/documents/:id', (req, res) => {
   saveDB(db);
   res.json({ success: true });
 });
-
-// API: Chat AI
 app.post('/api/chat', async (req, res) => {
-  const { message, userId, botName } = req.body;
+  const { message, userId, botName, sessionId } = req.body;
   const db = getDB();
-
   if (!process.env.API_KEY) return res.status(500).json({ error: "Missing API KEY" });
-
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const context = db.documents
-    .filter((d: any) => d.userId === userId)
-    .map((d: any) => `[Tài liệu: ${d.name}]\n${d.content}`)
-    .join('\n\n');
-
-  const systemInstruction = `Bạn là trợ lý AI tên "${botName || 'BibiBot'}". Hãy sử dụng kiến thức sau để hỗ trợ khách hàng: ${context}`;
-
+  const context = db.documents.filter((d: any) => d.userId === userId).map((d: any) => `[Tài liệu: ${d.name}]\n${d.content}`).join('\n\n');
+  const systemInstruction = `Bạn là trợ lý AI tên "${botName || 'BibiBot'}". Dữ liệu: ${context}`;
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: message,
-      config: { systemInstruction }
-    });
-    
+    const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: message, config: { systemInstruction } });
     const reply = response.text || "Tôi không thể trả lời.";
-
     if (!db.chatLogs) db.chatLogs = [];
-    const newLog = {
-      id: Math.random().toString(36).substr(2, 9),
-      userId,
-      customerSessionId: 'anon-session',
-      query: message,
-      answer: reply,
-      timestamp: Date.now(),
-      tokens: message.length + reply.length,
-      isSolved: !reply.includes("không có thông tin") && !reply.includes("Xin lỗi")
-    };
-    db.chatLogs.push(newLog);
+    db.chatLogs.push({ 
+        id: Math.random().toString(36).substr(2, 9), 
+        userId, 
+        customerSessionId: sessionId || 'anon', 
+        query: message, 
+        answer: reply, 
+        timestamp: Date.now(), 
+        tokens: message.length, 
+        isSolved: !reply.includes("không có thông tin") 
+    });
     saveDB(db);
-
     res.json({ text: reply });
-  } catch (error) {
-    res.status(500).json({ error: "AI Error" });
-  }
-});
-
-// --- SERVE WIDGET.JS (VANILLA JS IMPLEMENTATION) ---
-app.get('/widget.js', (req, res) => {
-  // ... (No changes to widget.js)
-  const script = `
-    (function() {
-      // 1. Get Config
-      var config = window.BibiChatConfig;
-      if (!config || !config.widgetId) {
-        console.error("BibiChat: widgetId not found");
-        return;
-      }
-
-      var API_BASE = "http://localhost:3001"; // Or your deployed domain
-      var userId = config.widgetId;
-      var settings = {
-        primaryColor: '#8b5cf6',
-        botName: 'Support Bot',
-        welcomeMessage: 'Hi there!',
-        position: 'right'
-      };
-
-      // 2. Load Settings from Server
-      fetch(API_BASE + '/api/settings/' + userId)
-        .then(response => {
-          if(response.ok) return response.json();
-          return settings;
-        })
-        .then(data => {
-          settings = { ...settings, ...data };
-          initWidget();
-        })
-        .catch(err => {
-          console.warn("BibiChat: Could not load settings, using defaults.");
-          initWidget();
-        });
-
-      function initWidget() {
-        // 3. Inject Styles
-        var style = document.createElement('style');
-        style.innerHTML = \`
-          #bibichat-container { font-family: 'Segoe UI', sans-serif; position: fixed; bottom: 20px; \${settings.position}: 20px; z-index: 99999; }
-          #bibichat-btn { 
-            width: 60px; height: 60px; border-radius: 50%; box-shadow: 0 4px 14px rgba(0,0,0,0.25); 
-            background: \${settings.primaryColor}; cursor: pointer; display: flex; align-items: center; justify-content: center; 
-            transition: transform 0.2s; border: none;
-          }
-          #bibichat-btn:hover { transform: scale(1.05); }
-          #bibichat-btn svg { width: 30px; height: 30px; fill: white; }
-          
-          #bibichat-box {
-            position: fixed; bottom: 90px; \${settings.position}: 20px; width: 350px; height: 500px; max-height: 80vh;
-            background: white; border-radius: 20px; box-shadow: 0 5px 25px rgba(0,0,0,0.15);
-            display: none; flex-direction: column; overflow: hidden; animation: bibiSlideUp 0.3s ease-out;
-            border: 1px solid #f0f0f0;
-          }
-          @keyframes bibiSlideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-          
-          #bibichat-header {
-            padding: 15px; background: \${settings.primaryColor}; color: white; display: flex; align-items: center; gap: 10px;
-          }
-          #bibichat-header-icon { width: 40px; height: 40px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-          #bibichat-header-text h3 { margin: 0; font-size: 16px; font-weight: 700; }
-          #bibichat-header-text span { font-size: 12px; opacity: 0.9; }
-
-          #bibichat-messages { flex: 1; overflow-y: auto; padding: 15px; background: #f9fafb; display: flex; flex-direction: column; gap: 10px; }
-          .bibi-msg { max-width: 80%; padding: 10px 14px; font-size: 14px; line-height: 1.4; border-radius: 12px; }
-          .bibi-msg.user { align-self: flex-end; background: \${settings.primaryColor}; color: white; border-bottom-right-radius: 2px; }
-          .bibi-msg.bot { align-self: flex-start; background: white; color: #333; border: 1px solid #e5e7eb; border-top-left-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-          
-          #bibichat-input-area { padding: 10px; background: white; border-top: 1px solid #f0f0f0; display: flex; gap: 8px; }
-          #bibichat-input { flex: 1; border: 1px solid #e5e7eb; border-radius: 20px; padding: 10px 15px; outline: none; font-size: 14px; }
-          #bibichat-input:focus { border-color: \${settings.primaryColor}; }
-          #bibichat-send { width: 40px; height: 40px; border-radius: 50%; background: \${settings.primaryColor}; border: none; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-          #bibichat-send svg { width: 16px; height: 16px; fill: white; }
-          .bibi-loading span { display: inline-block; width: 6px; height: 6px; background: #ccc; border-radius: 50%; margin: 0 2px; animation: bibiBounce 0.6s infinite alternate; }
-          .bibi-loading span:nth-child(2) { animation-delay: 0.2s; }
-          .bibi-loading span:nth-child(3) { animation-delay: 0.4s; }
-          @keyframes bibiBounce { from { transform: translateY(0); } to { transform: translateY(-5px); } }
-        \`;
-        document.head.appendChild(style);
-
-        // 4. Create DOM
-        var container = document.createElement('div');
-        container.id = 'bibichat-container';
-        
-        var btn = document.createElement('button');
-        btn.id = 'bibichat-btn';
-        btn.innerHTML = '<svg viewBox="0 0 512 512"><path d="M123.6 391.3c12.9-9.4 29.6-11.8 44.6-6.4c26.5 9.6 56.2 15.1 87.8 15.1c124.7 0 208-80.5 208-160s-83.3-160-208-160S48 160.5 48 240c0 32 12.4 62.8 35.7 89.2c8.6 9.7 12.8 22.5 11.8 35.5c-1.4 18.1-5.7 34.7-11.3 49.4c17-7.9 31.1-16.7 39.4-22.7zM21.2 431.9c1.8-2.7 3.5-5.4 5.1-8.1c10-16.6 19.5-38.4 21.4-62.9C17.4 326.8 0 285.1 0 240C0 125.1 114.6 32 256 32s256 93.1 256 208s-114.6 208-256 208c-37.1 0-72.3-6.4-104.1-17.9c-11.9 8.7-31.3 20.6-54.3 30.6c-15.1 6.6-32.3 12.6-50.1 16.1c-.8 .2-1.6 .3-2.4 .5c-4.4 .8-8.7 1.5-13.2 1.9c-.2 0-.5 .1-.7 .1c-5.1 .5-10.2 .8-15.3 .8c-6.5 0-12.3-3.9-14.8-9.9c-2.5-6-1.1-12.8 3.4-17.4c4.1-4.2 7.8-8.7 11.3-13.5z"/></svg>';
-        
-        var box = document.createElement('div');
-        box.id = 'bibichat-box';
-        box.innerHTML = \`
-          <div id="bibichat-header">
-            <div id="bibichat-header-icon"><svg viewBox="0 0 512 512" style="width:24px;height:24px;fill:white;"><path d="M256 48a208 208 0 1 1 0 416 208 208 0 1 1 0-416zm0 464A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM369 209c9.4-9.4 9.4-24.6 0-33.9s-24.6-9.4-33.9 0l-111 111-47-47c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9l64 64c9.4 9.4 24.6 9.4 33.9 0L369 209z"/></svg></div>
-            <div id="bibichat-header-text">
-              <h3>\${settings.botName}</h3>
-              <span>Online</span>
-            </div>
-            <div style="margin-left:auto;cursor:pointer;" id="bibichat-close">✕</div>
-          </div>
-          <div id="bibichat-messages">
-            <div class="bibi-msg bot">\${settings.welcomeMessage}</div>
-          </div>
-          <div id="bibichat-input-area">
-            <input type="text" id="bibichat-input" placeholder="Type a message..." />
-            <button id="bibichat-send"><svg viewBox="0 0 512 512"><path d="M498.1 5.6c10.1 7 15.4 19.1 13.5 31.2l-64 416c-1.5 9.7-7.4 18.2-16 23s-18.9 5.4-28 1.6L284 427.7l-68.5 74.1c-8.9 9.7-22.9 12.9-35.2 8.1S160 493.2 160 480V396.4c0-4 1.5-7.8 4.2-10.7L331.8 202.8c5.8-6.3 5.6-16-.4-22s-15.7-6.4-22-.7L106 360.8 17.7 316.6C7.1 311.3 .3 300.7 0 288.9s5.9-22.8 16.1-28.7l448-256c10.7-6.1 23.9-5.5 34 1.4z"/></svg></button>
-          </div>
-        \`;
-
-        container.appendChild(btn);
-        container.appendChild(box);
-        document.body.appendChild(container);
-
-        // 5. Logic
-        var isOpen = false;
-        var messagesDiv = document.getElementById('bibichat-messages');
-        var input = document.getElementById('bibichat-input');
-        var sendBtn = document.getElementById('bibichat-send');
-
-        btn.onclick = toggleChat;
-        document.getElementById('bibichat-close').onclick = toggleChat;
-
-        function toggleChat() {
-          isOpen = !isOpen;
-          box.style.display = isOpen ? 'flex' : 'none';
-          btn.style.display = isOpen ? 'none' : 'flex';
-          if(isOpen) input.focus();
-        }
-
-        function appendMsg(text, type) {
-          var div = document.createElement('div');
-          div.className = 'bibi-msg ' + type;
-          div.textContent = text;
-          messagesDiv.appendChild(div);
-          messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
-
-        function appendLoading() {
-          var div = document.createElement('div');
-          div.className = 'bibi-msg bot bibi-loading';
-          div.id = 'bibi-loading-msg';
-          div.innerHTML = '<span></span><span></span><span></span>';
-          messagesDiv.appendChild(div);
-          messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
-
-        function removeLoading() {
-          var el = document.getElementById('bibi-loading-msg');
-          if(el) el.remove();
-        }
-
-        async function sendMessage() {
-          var text = input.value.trim();
-          if(!text) return;
-          
-          appendMsg(text, 'user');
-          input.value = '';
-          appendLoading();
-
-          try {
-            var res = await fetch(API_BASE + '/api/chat', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                userId: userId,
-                message: text,
-                botName: settings.botName
-              })
-            });
-            var data = await res.json();
-            removeLoading();
-            if(data.text) appendMsg(data.text, 'bot');
-            else appendMsg("Sorry, I encountered an error.", 'bot');
-          } catch(e) {
-            removeLoading();
-            appendMsg("Connection error.", 'bot');
-          }
-        }
-
-        sendBtn.onclick = sendMessage;
-        input.onkeypress = function(e) { if(e.key === 'Enter') sendMessage(); }
-      }
-    })();
-  `;
-  res.set('Content-Type', 'application/javascript');
-  res.send(script);
+  } catch (error) { res.status(500).json({ error: "AI Error" }); }
 });
 
 app.listen(PORT, () => {

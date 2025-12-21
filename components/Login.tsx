@@ -61,7 +61,7 @@ const Login: React.FC<Props> = ({ onLogin }) => {
       <div className="max-w-[420px] w-full bg-white p-10 rounded-[3rem] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.15)] border-2 border-white/50 relative z-10 transition-all hover:scale-[1.01]">
         <div className="text-center mb-10">
           <div className="mx-auto w-24 h-24 bg-gradient-to-tr from-pink-400 to-violet-500 rounded-[2rem] flex items-center justify-center text-white text-4xl shadow-2xl shadow-pink-400/50 mb-6 transform -rotate-6 hover:rotate-6 transition-transform cursor-pointer border-[6px] border-white">
-            <i className="fa-solid fa-robot"></i>
+            <i className="fa-solid fa-comment-dots"></i>
           </div>
           <h2 className="text-3xl font-black text-slate-800 tracking-tight mb-2">
             {isRegister ? 'Tạo tài khoản' : 'Chào mừng trở lại!'}

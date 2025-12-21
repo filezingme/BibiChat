@@ -24,7 +24,8 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange, isOpen, onClose, 
     ] : [
       { id: View.CHAT_HISTORY, label: 'Lịch sử Chat', icon: 'fa-solid fa-comments' },
       { id: View.KNOWLEDGE_BASE, label: 'Kho tri thức', icon: 'fa-solid fa-book-open' },
-      { id: View.WIDGET_CONFIG, label: 'Làm đẹp Widget', icon: 'fa-solid fa-wand-magic-sparkles' },
+      { id: View.WIDGET_CONFIG, label: 'Cấu hình Widget', icon: 'fa-solid fa-sliders' }, // Renamed and merged
+      { id: View.LEADS, label: 'Danh sách Lead', icon: 'fa-solid fa-address-book' }, 
       { id: View.INTEGRATION, label: 'Mã nhúng', icon: 'fa-solid fa-code' },
     ]),
   ];
@@ -38,13 +39,15 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange, isOpen, onClose, 
       <div className="px-8 mb-10 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className={`w-14 h-14 ${isMaster ? 'bg-gradient-to-br from-indigo-500 to-purple-600' : 'bg-gradient-to-tr from-pink-400 to-violet-500'} rounded-[1.5rem] flex items-center justify-center text-white shadow-xl shadow-pink-300/50 dark:shadow-none transform hover:rotate-6 transition-transform cursor-pointer group`}>
-            <i className={`fa-solid ${isMaster ? 'fa-crown' : 'fa-robot'} text-2xl group-hover:scale-110 transition-transform`}></i>
+            {/* Updated Icon to Chat Bubble */}
+            <i className="fa-solid fa-comment-dots text-2xl group-hover:scale-110 transition-transform"></i>
           </div>
           <div>
             <span className="font-extrabold text-2xl tracking-tight text-slate-800 dark:text-white block leading-none mb-1 group cursor-pointer">
               Bibi<span className="text-pink-500">Chat</span>
             </span>
-            <span className={`block ${isMaster ? 'text-sm font-bold text-indigo-500 tracking-widest uppercase' : 'font-cute font-bold text-slate-500 text-[1.2rem]'}`}>
+            {/* Updated Typography for Master Admin */}
+            <span className={`block font-cute font-bold text-[1.2rem] ${isMaster ? 'text-indigo-500' : 'text-slate-500'}`}>
               {isMaster ? 'Master Admin' : 'Trợ lý AI siêu Cute'}
             </span>
           </div>

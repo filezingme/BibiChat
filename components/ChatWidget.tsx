@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { WidgetSettings, Message } from '../types';
+import { WidgetSettings, Message, User } from '../types';
 import { apiService } from '../services/apiService';
 
 interface Props {
@@ -16,16 +16,54 @@ const ChatWidget: React.FC<Props> = ({ settings, userId }) => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [sessionId, setSessionId] = useState('');
+  
+  // Plugin States
+  const [plugins, setPlugins] = useState<any>(null);
+  const [showLeadForm, setShowLeadForm] = useState(false);
+  const [leadForm, setLeadForm] = useState({ name: '', phone: '', email: '' });
+  const [leadSubmitted, setLeadSubmitted] = useState(false);
 
+  // Initialize Session ID & Fetch Plugins
+  useEffect(() => {
+    // 1. Session Logic
+    let storedSessionId = localStorage.getItem('bibichat_session_id');
+    if (!storedSessionId) {
+        storedSessionId = Math.random().toString(36).substring(2) + Date.now().toString(36);
+        localStorage.setItem('bibichat_session_id', storedSessionId);
+    }
+    setSessionId(storedSessionId);
+
+    // 2. Plugins Logic
+    const fetchPlugins = async () => {
+        const p = await apiService.getPlugins(userId);
+        setPlugins(p);
+        
+        // Auto Open Logic
+        if (p.autoOpen?.enabled) {
+            setTimeout(() => setIsOpen(true), p.autoOpen.delay * 1000);
+        }
+    };
+    fetchPlugins();
+  }, [userId]);
+
+  // Effect to scroll bottom
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, isLoading]);
+  }, [messages, isLoading, showLeadForm]);
 
   useEffect(() => {
     if (messages.length === 1 && messages[0].id === '1') {
       setMessages([{ ...messages[0], text: settings.welcomeMessage }]);
     }
   }, [settings.welcomeMessage]);
+  
+  // Handle Auto-show Lead Form when opened
+  useEffect(() => {
+      if (isOpen && plugins?.leadForm?.enabled && plugins?.leadForm?.trigger === 'on_open' && !leadSubmitted && !showLeadForm) {
+          setShowLeadForm(true);
+      }
+  }, [isOpen, plugins]);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -36,7 +74,8 @@ const ChatWidget: React.FC<Props> = ({ settings, userId }) => {
     setIsLoading(true);
 
     try {
-      const responseText = await apiService.chat(userId, input, settings.botName);
+      // Pass sessionId to the API
+      const responseText = await apiService.chat(userId, input, settings.botName, sessionId);
       const botMsg: Message = { id: (Date.now() + 1).toString(), role: 'model', text: responseText, timestamp: Date.now() };
       setMessages(prev => [...prev, botMsg]);
     } catch (e) {
@@ -44,6 +83,15 @@ const ChatWidget: React.FC<Props> = ({ settings, userId }) => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const submitLead = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!leadForm.name || !leadForm.phone) return;
+      await apiService.submitLead(userId, leadForm.name, leadForm.phone, leadForm.email);
+      setLeadSubmitted(true);
+      setShowLeadForm(false);
+      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: "Cảm ơn bạn! Chúng mình sẽ liên hệ sớm nha.", timestamp: Date.now() }]);
   };
 
   return (
@@ -60,26 +108,45 @@ const ChatWidget: React.FC<Props> = ({ settings, userId }) => {
       {isOpen && (
         <div className={`absolute bottom-24 ${settings.position === 'right' ? 'right-0' : 'left-0'} w-[calc(100vw-3rem)] sm:w-[380px] h-[550px] bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-10 duration-300 border border-slate-100/50`}>
           {/* Header */}
-          <div className="p-5 text-white relative overflow-hidden" style={{ backgroundColor: settings.primaryColor }}>
+          <div className="p-4 text-white relative overflow-hidden shrink-0" style={{ backgroundColor: settings.primaryColor }}>
             <div className="absolute top-0 right-0 p-4 opacity-10">
                <i className="fa-solid fa-robot text-6xl"></i>
             </div>
-            <div className="flex items-center space-x-3 relative z-10">
-              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center border-2 border-white/30 backdrop-blur-sm">
-                <i className="fa-solid fa-robot text-xl"></i>
-              </div>
-              <div>
-                <h3 className="font-bold text-lg">{settings.botName}</h3>
-                <div className="flex items-center text-xs opacity-90 font-medium bg-white/20 px-2 py-0.5 rounded-full w-fit mt-1">
-                  <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full mr-1.5 animate-pulse"></span>
-                  Trực tuyến
+            
+            <div className="flex justify-between items-center relative z-10">
+                <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center border-2 border-white/30 backdrop-blur-sm">
+                        <i className="fa-solid fa-robot text-lg"></i>
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-base">{settings.botName}</h3>
+                        <div className="flex items-center text-[10px] opacity-90 font-medium bg-white/20 px-2 py-0.5 rounded-full w-fit mt-0.5">
+                        <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full mr-1.5 animate-pulse"></span>
+                        Trực tuyến
+                        </div>
+                    </div>
                 </div>
-              </div>
+                
+                {/* Social Plugin Icons */}
+                {plugins?.social?.enabled && (
+                    <div className="flex gap-2">
+                         {plugins.social.phone && (
+                             <a href={`tel:${plugins.social.phone}`} className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center transition-colors border border-white/20" title="Gọi Hotline">
+                                 <i className="fa-solid fa-phone text-xs"></i>
+                             </a>
+                         )}
+                         {plugins.social.zalo && (
+                             <a href={`https://zalo.me/${plugins.social.zalo}`} target="_blank" rel="noreferrer" className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center transition-colors border border-white/20" title="Chat Zalo">
+                                 <div className="font-bold text-[8px]">Zalo</div>
+                             </a>
+                         )}
+                    </div>
+                )}
             </div>
           </div>
 
-          {/* Messages */}
-          <div ref={scrollRef} className="flex-1 p-5 bg-slate-50 space-y-4 overflow-y-auto">
+          {/* Messages Area */}
+          <div ref={scrollRef} className="flex-1 p-5 bg-slate-50 space-y-4 overflow-y-auto relative">
             {messages.map((msg) => (
               <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] px-4 py-3 text-sm font-medium shadow-sm leading-relaxed ${
@@ -91,6 +158,48 @@ const ChatWidget: React.FC<Props> = ({ settings, userId }) => {
                 </div>
               </div>
             ))}
+            
+            {/* Lead Form Plugin (Inline) */}
+            {showLeadForm && (
+                <div className="mx-4 my-4 bg-white p-5 rounded-2xl shadow-lg border-2 border-slate-100 animate-in zoom-in duration-300 relative z-10">
+                     <button onClick={() => setShowLeadForm(false)} className="absolute top-2 right-2 text-slate-400 hover:text-rose-500 p-1"><i className="fa-solid fa-xmark"></i></button>
+                     <div className="text-center mb-4">
+                        <div className="w-12 h-12 bg-pink-100 text-pink-500 rounded-full flex items-center justify-center mx-auto mb-2 text-xl">
+                            <i className="fa-solid fa-address-card"></i>
+                        </div>
+                        <h4 className="font-bold text-slate-800 text-sm">{plugins.leadForm.title || "Vui lòng để lại thông tin"}</h4>
+                     </div>
+                     <form onSubmit={submitLead} className="space-y-3">
+                         <input 
+                            required 
+                            type="text" 
+                            placeholder="Tên của bạn *" 
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-pink-400 font-bold"
+                            value={leadForm.name}
+                            onChange={e => setLeadForm({...leadForm, name: e.target.value})}
+                         />
+                         <input 
+                            required 
+                            type="tel" 
+                            placeholder="Số điện thoại *" 
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-pink-400 font-bold"
+                            value={leadForm.phone}
+                            onChange={e => setLeadForm({...leadForm, phone: e.target.value})}
+                         />
+                         <input 
+                            type="email" 
+                            placeholder="Email (không bắt buộc)" 
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-pink-400 font-bold"
+                            value={leadForm.email}
+                            onChange={e => setLeadForm({...leadForm, email: e.target.value})}
+                         />
+                         <button type="submit" className="w-full py-2.5 bg-pink-500 hover:bg-pink-600 text-white rounded-xl font-bold text-sm shadow-md transition-colors">
+                             Gửi thông tin
+                         </button>
+                     </form>
+                </div>
+            )}
+
             {isLoading && (
               <div className="flex justify-start">
                 <div className="bg-white px-4 py-3 rounded-2xl rounded-tl-none border border-slate-100 shadow-sm flex space-x-1.5 items-center">
@@ -102,8 +211,18 @@ const ChatWidget: React.FC<Props> = ({ settings, userId }) => {
             )}
           </div>
 
-          {/* Input */}
-          <div className="p-4 bg-white border-t border-slate-100">
+          {/* Input Area */}
+          <div className="p-4 bg-white border-t border-slate-100 relative z-20">
+            {/* Quick Actions if Plugin Lead Form Manual Trigger is enabled */}
+            {plugins?.leadForm?.enabled && plugins?.leadForm?.trigger === 'manual' && !leadSubmitted && !showLeadForm && (
+                <button 
+                    onClick={() => setShowLeadForm(true)}
+                    className="absolute -top-10 left-1/2 -translate-x-1/2 bg-white border border-pink-200 text-pink-500 px-4 py-1.5 rounded-full text-xs font-bold shadow-md hover:bg-pink-50 transition-colors flex items-center gap-1 whitespace-nowrap"
+                >
+                    <i className="fa-regular fa-hand-point-up"></i> Để lại SĐT tư vấn
+                </button>
+            )}
+
             <div className="flex items-center space-x-2 bg-slate-50 p-1.5 rounded-full border border-slate-200 focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-400 transition-all">
               <input 
                 type="text" 
