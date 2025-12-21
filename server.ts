@@ -3,23 +3,16 @@ import cors from 'cors';
 import mongoose from 'mongoose';
 import multer from 'multer';
 import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { GoogleGenAI } from "@google/genai";
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Fix for __dirname in ES Modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 const app = express();
 const PORT = process.env.PORT || 3001;
-
-// Auto-detect URL on Cloud Platforms (Render/Koyeb) or fallback to localhost
-// Nếu deploy monolith (1 server chạy cả 2), CLIENT_URL có thể để trống hoặc tự trỏ về chính nó
-const CLIENT_URL = process.env.CLIENT_URL || process.env.KOYEB_PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+// URL của Frontend (Vercel) để nhúng vào Iframe. Mặc định là localhost nếu chạy local.
+// Trên Koyeb, bạn cần set biến môi trường CLIENT_URL = https://your-frontend.vercel.app
+const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
 // Middleware
 app.use(cors({
@@ -141,9 +134,8 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 // --- WIDGET SCRIPT SERVING (SAAS CORE) ---
 app.get('/widget.js', (req, res) => {
-  // Determine URL dynamically if possible, or use env var
-  const targetUrl = CLIENT_URL.startsWith('http') ? CLIENT_URL : `https://${CLIENT_URL}`;
-  
+  // Script này sẽ được nhúng vào website khách hàng
+  // Nó tạo ra một iframe trỏ về Frontend App của chúng ta với tham số ?embed=true
   const scriptContent = `
 (function() {
   if (window.BibiChatLoaded) return;
@@ -172,7 +164,7 @@ app.get('/widget.js', (req, res) => {
   // Create Iframe pointing to Frontend
   var iframe = document.createElement('iframe');
   // Trỏ về Frontend URL với mode=embed
-  iframe.src = '${targetUrl}?mode=embed&userId=' + widgetId;
+  iframe.src = '${CLIENT_URL}?mode=embed&userId=' + widgetId;
   iframe.style.width = '100%';
   iframe.style.height = '100%';
   iframe.style.border = 'none';
@@ -489,7 +481,7 @@ app.post('/api/documents/text', async (req, res) => {
     res.json(newDoc);
 });
 
-app.post('/api/documents/upload', upload.single('file') as any, (async (req: any, res: any) => {
+app.post('/api/documents/upload', upload.single('file') as any, async (req: any, res: any) => {
     if (!req.file || !req.body.userId) return res.status(400).send('Missing file/userId');
     const content = req.file.buffer.toString('utf-8');
     const newDoc = await Document.create({
@@ -502,7 +494,7 @@ app.post('/api/documents/upload', upload.single('file') as any, (async (req: any
         createdAt: Date.now()
     });
     res.json(newDoc);
-}) as any);
+});
 
 app.delete('/api/documents/:id', async (req, res) => {
     await Document.findOneAndDelete({ id: req.params.id });
@@ -543,15 +535,6 @@ app.post('/api/chat', async (req, res) => {
         console.error(error);
         res.status(500).json({ error: "AI Error" });
     }
-});
-
-// --- SERVE STATIC FILES (MONOLITH SUPPORT) ---
-// Serve static files from the 'dist' directory (Vite build output)
-app.use(express.static(path.join(__dirname, 'dist')));
-
-// SPA Fallback: Serve index.html for any unknown routes
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 app.listen(PORT, () => {
