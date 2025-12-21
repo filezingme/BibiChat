@@ -10,15 +10,16 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+// URL của Frontend (Vercel) để nhúng vào Iframe. Mặc định là localhost nếu chạy local.
+// Trên Koyeb, bạn cần set biến môi trường CLIENT_URL = https://your-frontend.vercel.app
+const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
 // Middleware
-// Fix: Cast cors middleware to any to resolve type mismatch between @types/cors and express types
 app.use(cors({
-  origin: '*', // Trong production nên set domain cụ thể
+  origin: '*', 
   methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }) as any);
-// Fix: Cast express.json() to any to resolve overload mismatch
 app.use(express.json() as any);
 
 // --- MONGODB CONNECTION ---
@@ -30,7 +31,7 @@ mongoose.connect(MONGODB_URI)
 
 // --- SCHEMAS & MODELS ---
 const userSchema = new mongoose.Schema({
-  id: { type: String, unique: true }, // Custom ID for compatibility
+  id: { type: String, unique: true }, 
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   role: { type: String, default: 'user' },
@@ -128,8 +129,88 @@ const initDB = async () => {
 };
 initDB();
 
-// Multer for memory storage (Cloud compatible - we extract text immediately)
+// Multer for memory storage
 const upload = multer({ storage: multer.memoryStorage() });
+
+// --- WIDGET SCRIPT SERVING (SAAS CORE) ---
+app.get('/widget.js', (req, res) => {
+  // Script này sẽ được nhúng vào website khách hàng
+  // Nó tạo ra một iframe trỏ về Frontend App của chúng ta với tham số ?embed=true
+  const scriptContent = `
+(function() {
+  if (window.BibiChatLoaded) return;
+  window.BibiChatLoaded = true;
+
+  var config = window.BibiChatConfig || {};
+  var widgetId = config.widgetId;
+  
+  if (!widgetId) {
+    console.error("BibiChat: widgetId is missing!");
+    return;
+  }
+
+  // Create Container
+  var container = document.createElement('div');
+  container.id = 'bibichat-widget-container';
+  container.style.position = 'fixed';
+  container.style.zIndex = '2147483647'; // Max z-index
+  container.style.bottom = '20px';
+  container.style.right = '20px'; // Default right
+  container.style.width = '80px'; // Initial button size
+  container.style.height = '80px';
+  container.style.border = 'none';
+  container.style.transition = 'all 0.3s ease';
+  
+  // Create Iframe pointing to Frontend
+  var iframe = document.createElement('iframe');
+  // Trỏ về Frontend URL với mode=embed
+  iframe.src = '${CLIENT_URL}?mode=embed&userId=' + widgetId;
+  iframe.style.width = '100%';
+  iframe.style.height = '100%';
+  iframe.style.border = 'none';
+  iframe.style.borderRadius = '20px';
+  iframe.allow = "microphone"; // Cho phép voice chat nếu cần
+  
+  container.appendChild(iframe);
+  document.body.appendChild(container);
+
+  // Lắng nghe message từ Iframe để resize (Mở/Đóng chat)
+  window.addEventListener('message', function(event) {
+    if (event.data === 'bibichat-open') {
+       container.style.width = '380px';
+       container.style.height = '600px';
+       container.style.borderRadius = '24px';
+       container.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.25)';
+       if(window.innerWidth < 480) { // Mobile responsive
+         container.style.width = '100%';
+         container.style.height = '100%';
+         container.style.bottom = '0';
+         container.style.right = '0';
+         container.style.borderRadius = '0';
+       }
+    } else if (event.data === 'bibichat-close') {
+       container.style.width = '80px';
+       container.style.height = '80px';
+       container.style.borderRadius = '0';
+       container.style.boxShadow = 'none';
+       container.style.bottom = '20px';
+       container.style.right = '20px';
+    } else if (event.data && event.data.type === 'bibichat-position') {
+       // Cập nhật vị trí trái/phải nếu config thay đổi
+       if (event.data.position === 'left') {
+          container.style.left = '20px';
+          container.style.right = 'auto';
+       } else {
+          container.style.right = '20px';
+          container.style.left = 'auto';
+       }
+    }
+  });
+})();
+  `;
+  res.setHeader('Content-Type', 'application/javascript');
+  res.send(scriptContent);
+});
 
 // --- API ROUTES ---
 
@@ -201,7 +282,6 @@ app.get('/api/notifications/:userId', async (req, res) => {
         $or: [{ userId: 'all' }, { userId: userId }]
     };
     
-    // If not admin, hide future scheduled notifications
     if (userId !== 'admin') {
         query.$or.forEach((cond: any) => {
             cond.$or = [{ scheduledAt: { $lte: now + 60000 } }, { time: { $lte: now + 60000 } }];
@@ -227,7 +307,6 @@ app.post('/api/notifications/:id/read', async (req, res) => {
 });
 
 app.post('/api/notifications/read-all', async (req, res) => {
-    // Logic: Find all relevant notifications and add userId to readBy
     const { userId } = req.body;
     await Notification.updateMany(
         { $or: [{ userId: 'all' }, { userId: userId }] },
@@ -273,7 +352,7 @@ app.get('/api/users', async (req, res) => {
     res.json({ data: users, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } });
 });
 
-// CHAT SESSIONS (Aggregated)
+// CHAT SESSIONS
 app.get('/api/chat-sessions/:userId', async (req, res) => {
     const { userId } = req.params;
     const page = parseInt(req.query.page as string) || 1;
@@ -287,7 +366,6 @@ app.get('/api/chat-sessions/:userId', async (req, res) => {
         matchStage.userId = filterUserId;
     }
 
-    // Aggregation to group by session
     const sessions = await ChatLog.aggregate([
         { $match: matchStage },
         { $sort: { timestamp: -1 } },
@@ -306,10 +384,6 @@ app.get('/api/chat-sessions/:userId', async (req, res) => {
         { $limit: limit }
     ]);
 
-    // Need separate count for pagination (simplified for performance)
-    // For exact count, we'd need another aggregation or facet
-    const total = 100; // Placeholder or implement facet if needed strict
-
     const mappedSessions = sessions.map(s => ({
         uniqueKey: `${s.userId}_${s.sessionId}`,
         ...s
@@ -317,7 +391,7 @@ app.get('/api/chat-sessions/:userId', async (req, res) => {
 
     res.json({
         data: mappedSessions,
-        pagination: { total, page, limit, totalPages: 10 }
+        pagination: { total: 100, page, limit, totalPages: 10 }
     });
 });
 
@@ -361,7 +435,6 @@ app.post('/api/user/change-password', async (req, res) => {
     const user = await User.findOne({ id: userId });
     if (!user) return res.status(404).json({ success: false, message: 'User không tồn tại' });
     if (user.password !== oldPassword) return res.status(400).json({ success: false, message: 'Mật khẩu cũ không đúng' });
-    
     user.password = newPassword;
     await user.save();
     res.json({ success: true, message: 'Đổi mật khẩu thành công' });
@@ -382,7 +455,7 @@ app.delete('/api/admin/users/:id', async (req, res) => {
     res.json({ success: true, message: 'Xóa user thành công' });
 });
 
-// DOCS
+// DOCS & SETTINGS
 app.get('/api/documents/:userId', async (req, res) => {
     const docs = await Document.find({ userId: req.params.userId });
     res.json(docs);
@@ -410,7 +483,6 @@ app.post('/api/documents/text', async (req, res) => {
 
 app.post('/api/documents/upload', upload.single('file') as any, async (req: any, res: any) => {
     if (!req.file || !req.body.userId) return res.status(400).send('Missing file/userId');
-    // Store content directly in DB to avoid filesystem issues on cloud (M0 limit 512MB is plenty for text)
     const content = req.file.buffer.toString('utf-8');
     const newDoc = await Document.create({
         id: Math.random().toString(36).substr(2, 9),

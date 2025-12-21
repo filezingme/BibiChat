@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import KnowledgeBase from './components/KnowledgeBase';
-import WidgetConfig from './components/WidgetPreview'; // Renamed import to match usage, though file name is WidgetPreview.tsx, content is now WidgetConfig
+import WidgetConfig from './components/WidgetPreview'; 
 import ChatWidget from './components/ChatWidget';
 import Integration from './components/Integration';
 import DeploymentGuide from './components/DeploymentGuide';
@@ -20,6 +19,9 @@ import { apiService } from './services/apiService';
 type PublicViewType = 'landing' | 'login' | 'terms' | 'privacy' | 'contact' | 'demo';
 
 const App: React.FC = () => {
+  const [isEmbedMode, setIsEmbedMode] = useState(false); // New State for Embed Mode
+  const [embedUserId, setEmbedUserId] = useState<string | null>(null);
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [publicView, setPublicView] = useState<PublicViewType>('landing'); 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -72,6 +74,28 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
+    // Detect Embed Mode via URL params
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get('mode');
+    const userId = params.get('userId');
+
+    if (mode === 'embed' && userId) {
+        setIsEmbedMode(true);
+        setEmbedUserId(userId);
+        // Load settings for this user
+        apiService.getUsersPaginated(1, 1, userId).then(res => {
+             // We can't query specific user by ID easily with current API, 
+             // but assuming we fetch user settings via a public endpoint would be better.
+             // For now, we reuse the existing settings endpoint which is open enough.
+             fetch(`http://127.0.0.1:3001/api/settings/${userId}`)
+                .then(r => r.json())
+                .then(data => {
+                    if(data) setSettings(data);
+                });
+        });
+        return; // Stop further initialization
+    }
+
     if (darkMode) {
       document.documentElement.classList.add('dark');
       localStorage.setItem('omnichat_theme', 'dark');
@@ -81,16 +105,27 @@ const App: React.FC = () => {
     }
   }, [darkMode]);
 
+  // Embed Mode Render
+  if (isEmbedMode && embedUserId) {
+      return (
+          <div className="bg-transparent h-screen w-full flex items-end justify-end">
+             {/* We render a specialized ChatWidget that communicates with parent window via postMessage */}
+             <StandaloneChatWidget settings={settings} userId={embedUserId} />
+          </div>
+      );
+  }
+
+  // --- Normal App Logic continues ---
   useEffect(() => {
+    if(isEmbedMode) return; 
+
     // Check for Impersonation (Login As) Logic
     const params = new URLSearchParams(window.location.search);
     const impersonateId = params.get('impersonate');
     
     if (impersonateId) {
-       // Simulate login via impersonation
        localStorage.setItem('omnichat_user_id', impersonateId);
        localStorage.setItem('omnichat_user_role', 'user');
-       // Clean URL and reload to apply state fresh
        window.location.href = window.location.origin;
        return;
     }
@@ -138,14 +173,14 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (isLoggedIn && currentUser) {
+    if (isLoggedIn && currentUser && !isEmbedMode) {
       loadNotifications();
       const interval = setInterval(loadNotifications, 5000);
       return () => {
         clearInterval(interval);
       };
     }
-  }, [isLoggedIn, currentUser?.id]);
+  }, [isLoggedIn, currentUser?.id, isEmbedMode]);
 
   const handleDropdownScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -315,7 +350,6 @@ const App: React.FC = () => {
       />
       
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-10">
-        {/* Updated Header Z-Index to z-40 and added relative positioning to ensure it stays above content */}
         <header className="h-20 lg:h-24 flex items-center justify-between px-4 lg:px-8 relative z-40 shrink-0 transition-all duration-300">
           <div className="flex items-center gap-3 lg:gap-4 overflow-hidden">
             <button 
@@ -509,6 +543,41 @@ const App: React.FC = () => {
       )}
     </div>
   );
+};
+
+// Specialized Standalone Widget Component for Embed Mode
+const StandaloneChatWidget: React.FC<{ settings: WidgetSettings, userId: string }> = ({ settings, userId }) => {
+    // This is essentially a stripped down version of ChatWidget that communicates window size changes
+    // to the parent window via postMessage
+    const [isOpen, setIsOpen] = useState(false);
+    
+    useEffect(() => {
+        // Communicate state change to parent window (widget.js)
+        window.parent.postMessage(isOpen ? 'bibichat-open' : 'bibichat-close', '*');
+        
+        // Initial position sync (optional if we want to support left/right via config)
+        window.parent.postMessage({ type: 'bibichat-position', position: settings.position }, '*');
+    }, [isOpen, settings.position]);
+
+    return (
+        <div className="h-full w-full flex flex-col justify-end items-end p-2 sm:p-4 overflow-hidden">
+            {isOpen && (
+                <div className="w-full h-full flex flex-col relative z-20 animate-in slide-in-from-bottom-5 fade-in duration-300">
+                    <ChatWidget settings={settings} userId={userId} forceOpen={true} onClose={() => setIsOpen(false)} isEmbed={true} />
+                </div>
+            )}
+            {!isOpen && (
+                 <button 
+                    onClick={() => setIsOpen(true)} 
+                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-2xl flex items-center justify-center text-white text-2xl transition-all hover:scale-110 active:scale-95 duration-300 relative group z-20" 
+                    style={{ backgroundColor: settings.primaryColor }}
+                >
+                    <span className="absolute inset-0 rounded-full bg-white opacity-20 group-hover:animate-ping"></span>
+                    <i className="fa-solid fa-comment-dots"></i>
+                </button>
+            )}
+        </div>
+    );
 };
 
 export default App;
