@@ -6,7 +6,7 @@ import { User } from '../types';
 
 interface Props {
   onViewStats: (userId: string) => void;
-  onStartChat: (userId: string) => void; // New Prop
+  onStartChat: (userId: string) => void; 
 }
 
 const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
@@ -133,7 +133,9 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
                 </span>
                 Quản lý khách hàng
               </h2>
-              <p className="text-xs font-bold text-slate-400 dark:text-slate-500 ml-1 mt-1">Tổng cộng: {totalUsers} user</p>
+              {totalUsers > 0 && (
+                <p className="text-xs font-bold text-slate-400 dark:text-slate-500 ml-1 mt-1">Tổng cộng: {totalUsers} khách hàng</p>
+              )}
             </div>
             <button 
               onClick={() => loadCustomers(page, searchTerm)}
@@ -151,8 +153,17 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
             placeholder="Tìm theo email hoặc tên bot..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-11 pr-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-slate-50 dark:border-slate-700 rounded-full focus:border-indigo-300 dark:focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-900 outline-none text-sm font-bold transition-all text-slate-700 dark:text-slate-200 placeholder:text-slate-400"
+            className="w-full pl-11 pr-10 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-slate-50 dark:border-slate-700 rounded-full focus:border-indigo-300 dark:focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-900 outline-none text-sm font-bold transition-all text-slate-700 dark:text-slate-200 placeholder:text-slate-400"
           />
+          {searchTerm && (
+            <button 
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all"
+                title="Xóa tìm kiếm"
+            >
+                <i className="fa-solid fa-xmark text-xs"></i>
+            </button>
+          )}
         </div>
       </div>
 
@@ -174,7 +185,7 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
                   <i className="fa-regular fa-calendar-check mr-2 text-purple-400"></i>
                   Ngày tham gia
                 </th>
-                {/* Changed Alignment to Left as requested */}
+                {/* Updated Alignment: Header Left (as requested), Content Right (with pr-8) */}
                 <th className="px-6 py-5 text-sm font-black text-indigo-900/70 dark:text-indigo-200 rounded-r-2xl text-left whitespace-nowrap">
                   <i className="fa-solid fa-wand-magic-sparkles mr-2 text-amber-400"></i>
                   Hành động
@@ -219,9 +230,9 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
                         {new Date(customer.createdAt).toLocaleDateString('vi-VN')}
                       </p>
                     </td>
-                    {/* Updated Alignment to Left */}
-                    <td className="px-6 py-4 text-left rounded-r-2xl border-b border-slate-50 dark:border-slate-700/50">
-                      <div className="flex justify-start items-center gap-2">
+                    {/* Updated Alignment to Right and Padded with pr-8 to balance pl-8 */}
+                    <td className="px-6 py-4 rounded-r-2xl border-b border-slate-50 dark:border-slate-700/50 pr-8">
+                      <div className="flex justify-end items-center gap-2">
                         {/* New Chat Button */}
                         <button 
                           onClick={() => onStartChat(customer.id)}
