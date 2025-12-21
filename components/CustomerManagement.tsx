@@ -134,7 +134,9 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
                 </span>
                 Quản lý khách hàng
               </h2>
-              {/* Removed Total Count from here as requested */}
+              <p className="text-slate-500 dark:text-slate-400 font-bold ml-1 mt-1 text-sm">
+                  Tổng cộng: {totalUsers} tài khoản
+              </p>
             </div>
             <button 
               onClick={() => loadCustomers(page, searchTerm)}
