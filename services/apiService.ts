@@ -2,7 +2,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { User, Document, WidgetSettings, ChatLog, UserRole, Notification, Lead, PluginConfig } from "../types";
 
-const API_URL = 'http://127.0.0.1:3001/api';
+const API_URL = 'https://fuzzy-cosette-filezingme-org-64d51f5d.koyeb.app';
 const DB_KEY = 'omnichat_db_v1';
 
 const MASTER_USER: User = {
