@@ -300,6 +300,34 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
   return (
     <div className="h-[calc(100vh-8rem)] min-h-[600px] flex gap-6 animate-in fade-in duration-500 pb-2 relative">
+        <style>{`
+            .custom-scrollbar-hover {
+                scrollbar-width: thin;
+                scrollbar-color: transparent transparent;
+            }
+            .custom-scrollbar-hover:hover {
+                scrollbar-color: #cbd5e1 transparent;
+            }
+            .dark .custom-scrollbar-hover:hover {
+                scrollbar-color: #475569 transparent;
+            }
+            .custom-scrollbar-hover::-webkit-scrollbar {
+                width: 6px;
+            }
+            .custom-scrollbar-hover::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            .custom-scrollbar-hover::-webkit-scrollbar-thumb {
+                background-color: transparent;
+                border-radius: 20px;
+            }
+            .custom-scrollbar-hover:hover::-webkit-scrollbar-thumb {
+                background-color: #cbd5e1;
+            }
+            .dark .custom-scrollbar-hover:hover::-webkit-scrollbar-thumb {
+                background-color: #475569;
+            }
+        `}</style>
        {/* Sidebar List - Hidden on Mobile if Chat is Active */}
        <div className={`w-full md:w-80 bg-white dark:bg-slate-800 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 shadow-xl overflow-hidden flex-col shrink-0 ${activeChatUser ? 'hidden md:flex' : 'flex'}`}>
            <div className="p-6 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
@@ -328,7 +356,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                {searchError && <p className="text-xs text-rose-500 font-bold mt-2 ml-1">{searchError}</p>}
            </div>
 
-           <div className="flex-1 overflow-y-auto p-3 space-y-2">
+           <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar-hover">
                {conversations.map(conv => (
                    <div 
                       key={conv.id}
