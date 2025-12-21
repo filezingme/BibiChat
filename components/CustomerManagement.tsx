@@ -18,7 +18,7 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalUsers, setTotalUsers] = useState(0);
-  const LIMIT = 10; // Number of items per page
+  const LIMIT = 15; // Updated limit to 15 items per page
 
   // States for Modals
   const [resetModal, setResetModal] = useState<{ isOpen: boolean, userId: string | null, email: string }>({ isOpen: false, userId: null, email: '' });
@@ -134,10 +134,7 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
                 </span>
                 Quản lý khách hàng
               </h2>
-              {/* Correctly display total count */}
-              <p className="text-xs font-bold text-slate-400 dark:text-slate-500 ml-1 mt-1">
-                 Tổng cộng: {totalUsers} khách hàng
-              </p>
+              {/* Removed Total Count from here as requested */}
             </div>
             <button 
               onClick={() => loadCustomers(page, searchTerm)}
@@ -187,7 +184,6 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
                   <i className="fa-regular fa-calendar-check mr-2 text-purple-400"></i>
                   Ngày tham gia
                 </th>
-                {/* Updated Alignment: Changed to text-center to match request, keeping content right-aligned for buttons */}
                 <th className="px-6 py-5 text-sm font-black text-indigo-900/70 dark:text-indigo-200 rounded-r-2xl text-center pr-8 whitespace-nowrap">
                   <i className="fa-solid fa-wand-magic-sparkles mr-2 text-amber-400"></i>
                   Hành động
@@ -305,15 +301,19 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
         
         {/* Pagination Controls */}
         {totalUsers > 0 && (
-            <div className="flex items-center justify-between p-6 border-t border-slate-50 dark:border-slate-700/50">
-                <span className="text-xs font-bold text-slate-400 dark:text-slate-500">
-                    Hiển thị {((page - 1) * LIMIT) + 1} - {Math.min(page * LIMIT, totalUsers)} trong số {totalUsers}
-                </span>
+            <div className="flex flex-col sm:flex-row items-center justify-between p-6 border-t border-slate-50 dark:border-slate-700/50 gap-4">
+                <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 px-4 py-2.5 rounded-xl shadow-sm border border-slate-100 dark:border-slate-600">
+                        Đang xem <span className="text-indigo-600 dark:text-indigo-400 mx-1">{((page - 1) * LIMIT) + 1} - {Math.min(page * LIMIT, totalUsers)}</span> 
+                        trên tổng <span className="text-slate-800 dark:text-white mx-1">{totalUsers}</span>
+                    </span>
+                </div>
+                
                 <div className="flex gap-2">
                     <button 
                         onClick={() => handlePageChange(page - 1)} 
                         disabled={page === 1}
-                        className="px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-xs disabled:opacity-50 hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors"
+                        className="px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-xs disabled:opacity-50 hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors border border-transparent hover:border-indigo-100"
                     >
                         Trước
                     </button>
@@ -325,13 +325,13 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
                                     <button 
                                         key={p} 
                                         onClick={() => handlePageChange(p)}
-                                        className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${page === p ? 'bg-indigo-500 text-white shadow-md' : 'bg-transparent text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                                        className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold transition-all ${page === p ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-200 dark:shadow-none' : 'bg-transparent text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
                                     >
                                         {p}
                                     </button>
                                 );
                             } else if (p === page - 2 || p === page + 2) {
-                                return <span key={p} className="text-slate-300 text-xs">...</span>;
+                                return <span key={p} className="text-slate-300 text-xs px-1">...</span>;
                             }
                             return null;
                         })}
@@ -339,7 +339,7 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
                     <button 
                         onClick={() => handlePageChange(page + 1)} 
                         disabled={page === totalPages}
-                        className="px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-xs disabled:opacity-50 hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors"
+                        className="px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-xs disabled:opacity-50 hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors border border-transparent hover:border-indigo-100"
                     >
                         Sau
                     </button>
