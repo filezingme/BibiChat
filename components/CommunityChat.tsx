@@ -519,7 +519,11 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   };
 
   // Safe zone for padding (Admin does not need right padding for Widget Button)
-  const inputPadding = user.role === 'master' ? 'pr-4' : 'pr-16';
+  // Logic: 
+  // - Master: No extra padding (widget hidden).
+  // - User Mobile: No extra padding (widget does not obstruct full screen view or keyboard area significantly, prioritize space).
+  // - User Desktop: Large right padding (pr-28) to avoid overlap with fixed Widget button.
+  const inputPadding = user.role === 'master' ? '' : 'md:pr-28';
 
   return (
     // Reduced height as requested: h-[calc(100vh-10rem)] instead of -7rem, min-h reduced to 500px
