@@ -102,7 +102,7 @@ const PublicLayout: React.FC<{
 
       {/* Footer Simple */}
       <footer className="py-8 text-center text-slate-400 font-bold text-xs relative z-10">
-        <p>&copy; 2024 BibiChat. Made with <i className="fa-solid fa-heart text-pink-400 mx-1 animate-beat"></i> for you.</p>
+        <p>&copy; 2025 BibiChat. Made with <i className="fa-solid fa-heart text-pink-400 mx-1 animate-beat"></i> for you.</p>
         <div className="flex justify-center gap-4 mt-4">
             <a href="#" className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-slate-400 hover:text-blue-600 hover:scale-110 transition-all shadow-sm"><i className="fa-brands fa-facebook"></i></a>
             <a href="#" className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-slate-400 hover:text-blue-700 hover:scale-110 transition-all shadow-sm"><i className="fa-brands fa-linkedin"></i></a>

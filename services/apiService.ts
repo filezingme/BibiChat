@@ -97,7 +97,7 @@ export const apiService = {
       }
   },
 
-  sendDirectMessage: async (senderId: string, receiverId: string, content: string, type: 'text' | 'sticker' = 'text', replyToId?: string): Promise<DirectMessage> => {
+  sendDirectMessage: async (senderId: string, receiverId: string, content: string, type: 'text' | 'sticker' | 'image' = 'text', replyToId?: string): Promise<DirectMessage> => {
       try {
           const res = await fetch(`${API_URL}/api/dm/send`, {
               method: 'POST',

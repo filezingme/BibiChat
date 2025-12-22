@@ -46,12 +46,16 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null); // Ref for input field
+  const fileInputRef = useRef<HTMLInputElement>(null); // Ref for hidden file input
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
   // New UI States
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [replyingTo, setReplyingTo] = useState<DirectMessage | null>(null);
+  
+  // Image State
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
 
   // Refs for Click Outside
   const emojiPickerRef = useRef<HTMLDivElement>(null);
@@ -147,7 +151,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
     if (scrollRef.current) {
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages.length, activeChatUser, replyingTo]); // Scroll on reply change too to ensure view
+  }, [messages.length, activeChatUser, replyingTo, pendingImage]); // Scroll on reply change too to ensure view
 
   const loadConversations = async () => {
     try {
@@ -179,7 +183,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
           const linkedMsgs = msgs.map(m => {
               if (m.replyToId) {
                   const parent = msgs.find(p => p.id === m.replyToId);
-                  if (parent) m.replyToContent = parent.type === 'sticker' ? '[Sticker]' : parent.content;
+                  if (parent) m.replyToContent = parent.type === 'sticker' ? '[Sticker]' : (parent.type === 'image' ? '[Hình ảnh]' : parent.content);
               }
               return m;
           });
@@ -191,9 +195,26 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       }
   };
 
-  const handleSendMessage = async (content: string, type: 'text' | 'sticker' = 'text') => {
+  const handleSendMessage = async (content: string, type: 'text' | 'sticker' | 'image' = 'text') => {
       if (!activeChatUser) return;
 
+      // Logic to handle both image and text sending
+      // 1. Send Image first if pending
+      if (pendingImage) {
+          await executeSend(pendingImage, 'image');
+          setPendingImage(null);
+      }
+
+      // 2. Send Text if content exists (and we didn't just pass the image content in)
+      if (type === 'text' && content.trim()) {
+          await executeSend(content, 'text');
+      } else if (type === 'sticker') {
+          await executeSend(content, 'sticker');
+      }
+  };
+
+  const executeSend = async (msgContent: string, msgType: 'text' | 'sticker' | 'image') => {
+      if (!activeChatUser) return;
       const tempId = Date.now().toString();
       const replyId = replyingTo ? replyingTo.id : undefined;
 
@@ -201,12 +222,12 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
           id: tempId,
           senderId: user.id,
           receiverId: activeChatUser.id,
-          content: content,
+          content: msgContent,
           timestamp: Date.now(),
           isRead: false,
-          type: type,
+          type: msgType,
           replyToId: replyId,
-          replyToContent: replyingTo ? (replyingTo.type === 'sticker' ? '[Sticker]' : replyingTo.content) : undefined,
+          replyToContent: replyingTo ? (replyingTo.type === 'sticker' ? '[Sticker]' : (replyingTo.type === 'image' ? '[Hình ảnh]' : replyingTo.content)) : undefined,
           reactions: []
       };
       
@@ -217,7 +238,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       setShowEmojiPicker(false);
 
       try {
-          await apiService.sendDirectMessage(user.id, activeChatUser.id, content, type, replyId);
+          await apiService.sendDirectMessage(user.id, activeChatUser.id, msgContent, msgType, replyId);
           loadConversations(); 
       } catch (e) {
           console.error("Failed to send", e);
@@ -295,22 +316,54 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       }
   };
 
-  // Helper function to handle back button on mobile
   const handleBackToConversations = () => {
       setActiveChatUser(null);
   };
 
-  // Helper to handle reply click and focus
   const handleReplyClick = (msg: DirectMessage) => {
       setReplyingTo(msg);
-      // Immediately focus the input
       if (inputRef.current) {
           inputRef.current.focus();
       }
   };
 
+  // Image Handling: Paste
+  const handlePaste = (e: React.ClipboardEvent) => {
+      const items = e.clipboardData.items;
+      for (let i = 0; i < items.length; i++) {
+          if (items[i].type.indexOf('image') !== -1) {
+              const blob = items[i].getAsFile();
+              const reader = new FileReader();
+              reader.onload = (event) => {
+                  if (event.target?.result) {
+                      setPendingImage(event.target.result as string);
+                  }
+              };
+              if(blob) reader.readAsDataURL(blob);
+              e.preventDefault(); // Prevent pasting the image filename as text
+          }
+      }
+  };
+
+  // Image Handling: File Select
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files[0]) {
+          const file = e.target.files[0];
+          const reader = new FileReader();
+          reader.onload = (event) => {
+              if (event.target?.result) {
+                  setPendingImage(event.target.result as string);
+              }
+          };
+          reader.readAsDataURL(file);
+      }
+      // Reset input so same file can be selected again
+      if(fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   return (
-    <div className="h-[calc(100vh-8rem)] min-h-[600px] flex gap-6 animate-in fade-in duration-500 pb-2 relative">
+    // Adjusted height
+    <div className="h-[calc(100vh-12rem)] min-h-[500px] flex gap-6 animate-in fade-in duration-500 pb-2 relative">
         <style>{`
             .custom-scrollbar-hover {
                 scrollbar-width: thin;
@@ -493,6 +546,22 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                                     )}
                                                 </div>
                                            </div>
+                                       ) : msg.type === 'image' ? (
+                                            <div className="relative inline-block group">
+                                                <img src={msg.content} alt="Image" className="w-64 h-auto rounded-2xl border-2 border-slate-200 dark:border-slate-700" />
+                                                <div className={`absolute bottom-2 right-2 bg-black/40 backdrop-blur-sm text-white px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200`}>
+                                                    {new Date(msg.timestamp).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}
+                                                    {isMe && (
+                                                        <div title={msg.isRead ? "Đã xem" : "Đã gửi"}>
+                                                            {msg.isRead ? (
+                                                                <i className="fa-solid fa-check-double text-cyan-300"></i>
+                                                            ) : (
+                                                                <i className="fa-solid fa-check text-slate-300"></i>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
                                        ) : (
                                            <div className={`px-5 py-3 rounded-2xl text-sm font-medium leading-relaxed shadow-sm relative ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-tl-none'}`}>
                                                {msg.content}
@@ -541,7 +610,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                    {/* Input Area */}
                    <div className="bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700 relative z-20">
                        
-                       {/* Reply Banner - In Flow Design (Not Absolute anymore) */}
+                       {/* Reply Banner */}
                        {replyingTo && (
                            <div className="px-4 py-3 bg-slate-50 dark:bg-slate-700/50 flex justify-between items-center border-b border-slate-100 dark:border-slate-600 animate-in slide-in-from-bottom-2 fade-in duration-200">
                                <div className="flex items-center gap-3 truncate">
@@ -551,7 +620,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                            <i className="fa-solid fa-reply fa-flip-vertical"></i> Đang trả lời
                                        </span>
                                        <span className="text-xs text-slate-500 dark:text-slate-300 truncate max-w-[200px] font-medium">
-                                           {replyingTo.type === 'sticker' ? 'Đã gửi một nhãn dán' : replyingTo.content}
+                                           {replyingTo.type === 'sticker' ? 'Đã gửi một nhãn dán' : (replyingTo.type === 'image' ? 'Đã gửi một hình ảnh' : replyingTo.content)}
                                        </span>
                                    </div>
                                </div>
@@ -564,8 +633,30 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                            </div>
                        )}
 
-                       <div className="p-4 relative">
-                           {/* Sticker Picker - Anchored to bottom left of input area */}
+                       {/* Image Preview Banner */}
+                       {pendingImage && (
+                           <div className="px-4 py-3 bg-slate-50 dark:bg-slate-700/50 flex justify-between items-center border-b border-slate-100 dark:border-slate-600 animate-in slide-in-from-bottom-2 fade-in duration-200">
+                               <div className="flex items-center gap-3">
+                                   <img src={pendingImage} alt="Preview" className="w-12 h-12 object-cover rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm" />
+                                   <div className="flex flex-col">
+                                       <span className="font-bold text-xs text-indigo-500 flex items-center gap-1">
+                                           <i className="fa-solid fa-image"></i> Ảnh đã chọn
+                                       </span>
+                                       <span className="text-[10px] text-slate-400 font-bold">Sẵn sàng gửi...</span>
+                                   </div>
+                               </div>
+                               <button 
+                                   onClick={() => setPendingImage(null)} 
+                                   className="w-6 h-6 rounded-full bg-white dark:bg-slate-600 hover:bg-rose-50 dark:hover:bg-rose-900/50 hover:text-rose-500 text-slate-400 flex items-center justify-center transition-colors shadow-sm"
+                               >
+                                   <i className="fa-solid fa-xmark text-xs"></i>
+                               </button>
+                           </div>
+                       )}
+
+                       {/* Reduced padding-right from pr-24 to pr-16 for better proximity */}
+                       <div className="p-4 relative pr-16">
+                           {/* Sticker Picker */}
                            {showStickerPicker && (
                                <div ref={stickerPickerRef} className="absolute bottom-full left-4 mb-2 p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-600 grid grid-cols-3 gap-2 w-72 h-64 overflow-y-auto z-30 animate-in zoom-in duration-200">
                                    {STICKERS.map((url, i) => (
@@ -580,7 +671,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                </div>
                            )}
 
-                           {/* Emoji Picker - Anchored to bottom right of input area */}
+                           {/* Emoji Picker */}
                            {showEmojiPicker && (
                                <div ref={emojiPickerRef} className="absolute bottom-full right-4 mb-2 p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-600 grid grid-cols-5 gap-2 w-64 z-30 animate-in zoom-in duration-200">
                                    {EMOJIS.map((emoji) => (
@@ -600,8 +691,25 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                    ref={stickerBtnRef}
                                    onClick={() => { setShowStickerPicker(!showStickerPicker); setShowEmojiPicker(false); }}
                                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${showStickerPicker ? 'bg-pink-100 text-pink-500' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 hover:text-pink-500'}`}
+                                   title="Gửi Sticker"
                                >
                                    <i className="fa-solid fa-note-sticky text-lg"></i>
+                               </button>
+
+                               {/* Image Button & Hidden Input */}
+                               <input 
+                                   type="file" 
+                                   ref={fileInputRef} 
+                                   className="hidden" 
+                                   accept="image/*" 
+                                   onChange={handleFileSelect} 
+                               />
+                               <button 
+                                   onClick={() => fileInputRef.current?.click()}
+                                   className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors bg-slate-100 dark:bg-slate-700 text-slate-500 hover:text-emerald-500"
+                                   title="Gửi ảnh"
+                               >
+                                   <i className="fa-solid fa-image text-lg"></i>
                                </button>
                                
                                <div className="flex-1 bg-slate-100 dark:bg-slate-900 rounded-2xl flex items-center pr-2 relative transition-all focus-within:ring-2 focus-within:ring-indigo-100">
@@ -611,7 +719,8 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                       value={newMessage}
                                       onChange={(e) => setNewMessage(e.target.value)}
                                       onKeyDown={(e) => e.key === 'Enter' && handleSendMessage(newMessage, 'text')}
-                                      placeholder="Nhập tin nhắn..." 
+                                      onPaste={handlePaste}
+                                      placeholder="Nhập tin nhắn (hoặc dán ảnh)..." 
                                       className="flex-1 px-4 py-3 bg-transparent outline-none text-sm font-medium text-slate-800 dark:text-white"
                                    />
                                    <button 
@@ -625,7 +734,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
                                <button 
                                   onClick={() => handleSendMessage(newMessage, 'text')} 
-                                  disabled={!newMessage.trim()}
+                                  disabled={!newMessage.trim() && !pendingImage}
                                   className="w-12 h-12 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                                >
                                    <i className="fa-solid fa-paper-plane"></i>
