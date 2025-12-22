@@ -1,3 +1,4 @@
+
 import express, { RequestHandler } from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
@@ -232,6 +233,34 @@ app.get('/api/health', (req, res) => {
     dbState: dbState,
     message: dbState === 1 ? 'Đã kết nối cơ sở dữ liệu' : 'Mất kết nối cơ sở dữ liệu'
   });
+});
+
+// --- PROXY UPLOAD (Litterbox) ---
+app.post('/api/upload/proxy', upload.single('file') as any, async (req: any, res: any) => {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    try {
+        const formData = new FormData();
+        const blob = new Blob([req.file.buffer], { type: req.file.mimetype });
+        formData.append('fileToUpload', blob, req.file.originalname);
+        formData.append('reqtype', 'fileupload');
+        formData.append('time', '24h'); // Temporary storage for 24 hours
+
+        const response = await fetch('https://litterbox.catbox.moe/resources/internals/api.php', {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!response.ok) {
+            throw new Error(`Upload failed: ${response.statusText}`);
+        }
+
+        const url = await response.text();
+        res.json({ url: url.trim() });
+    } catch (error: any) {
+        console.error('Proxy upload error:', error);
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // --- API ROUTES ---

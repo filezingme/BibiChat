@@ -63,6 +63,22 @@ export const apiService = {
     }
   },
 
+  // --- UPLOAD ---
+  uploadFile: async (file: File): Promise<{ url: string }> => {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const res = await fetch(`${API_URL}/api/upload/proxy`, {
+          method: 'POST',
+          body: formData
+      });
+      
+      if (!res.ok) {
+          throw new Error('Upload failed');
+      }
+      return await res.json();
+  },
+
   // --- DIRECT MESSAGING ---
   findUserByEmail: async (email: string): Promise<{ success: boolean, user?: {id: string, email: string, role: string}, message?: string }> => {
       try {

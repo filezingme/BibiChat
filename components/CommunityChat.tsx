@@ -57,6 +57,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   
   // Image State
   const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [expandedImage, setExpandedImage] = useState<string | null>(null); // For Lightbox
 
   // Refs for Click Outside
@@ -71,55 +72,6 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       if (role === 'master') return true;
       if (!lastActiveTime) return false;
       return (Date.now() - lastActiveTime) < ONLINE_THRESHOLD;
-  };
-
-  // --- IMAGE COMPRESSION LOGIC ---
-  const compressImage = (file: File): Promise<string> => {
-      return new Promise((resolve, reject) => {
-          // Limit 3MB Check
-          if (file.size > 3 * 1024 * 1024) {
-              alert("Ảnh quá lớn! Vui lòng chọn ảnh dưới 3MB.");
-              reject("File too large");
-              return;
-          }
-
-          const maxWidth = 1024;
-          const maxHeight = 1024;
-          const reader = new FileReader();
-          reader.readAsDataURL(file);
-          reader.onload = (event) => {
-              const img = new Image();
-              img.src = event.target?.result as string;
-              img.onload = () => {
-                  let width = img.width;
-                  let height = img.height;
-
-                  if (width > height) {
-                      if (width > maxWidth) {
-                          height *= maxWidth / width;
-                          width = maxWidth;
-                      }
-                  } else {
-                      if (height > maxHeight) {
-                          width *= maxHeight / height;
-                          height = maxHeight;
-                      }
-                  }
-
-                  const canvas = document.createElement('canvas');
-                  canvas.width = width;
-                  canvas.height = height;
-                  const ctx = canvas.getContext('2d');
-                  ctx?.drawImage(img, 0, 0, width, height);
-                  
-                  // Output as JPEG with 70% quality to reduce size significantly
-                  const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                  resolve(dataUrl);
-              };
-              img.onerror = (err) => reject(err);
-          };
-          reader.onerror = (err) => reject(err);
-      });
   };
 
   // Handle Click Outside to Close Pickers
@@ -251,7 +203,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
       // Logic to handle both image and text sending
       // 1. Send Image first if pending
-      if (pendingImage) {
+      if (pendingImage && !isUploading) {
           await executeSend(pendingImage, 'image');
           setPendingImage(null);
       }
@@ -293,7 +245,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
           loadConversations(); 
       } catch (e) {
           console.error("Failed to send", e);
-          alert("Gửi tin nhắn thất bại. Có thể ảnh quá lớn hoặc mạng yếu.");
+          alert("Gửi tin nhắn thất bại. Vui lòng thử lại.");
           // remove failed message from state if needed or show error icon
       }
   };
@@ -379,6 +331,27 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       }
   };
 
+  // Centralized upload handler
+  const handleFileUpload = async (file: File) => {
+      if (!file) return;
+      
+      // Temporary local preview
+      const localPreviewUrl = URL.createObjectURL(file);
+      setPendingImage(localPreviewUrl);
+      setIsUploading(true);
+
+      try {
+          const result = await apiService.uploadFile(file);
+          setPendingImage(result.url); // Replace blob with real URL
+      } catch (e) {
+          console.error("Upload failed", e);
+          alert("Tải ảnh thất bại. Vui lòng thử lại.");
+          setPendingImage(null);
+      } finally {
+          setIsUploading(false);
+      }
+  };
+
   // Image Handling: Paste
   const handlePaste = async (e: React.ClipboardEvent) => {
       const items = e.clipboardData.items;
@@ -386,12 +359,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
           if (items[i].type.indexOf('image') !== -1) {
               const blob = items[i].getAsFile();
               if (blob) {
-                  try {
-                      const compressed = await compressImage(blob);
-                      setPendingImage(compressed);
-                  } catch(e) {
-                      // Already handled in compressImage
-                  }
+                  await handleFileUpload(blob);
               }
               e.preventDefault();
           }
@@ -401,13 +369,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   // Image Handling: File Select
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files[0]) {
-          const file = e.target.files[0];
-          try {
-              const compressed = await compressImage(file);
-              setPendingImage(compressed);
-          } catch (e) {
-              // Handled
-          }
+          await handleFileUpload(e.target.files[0]);
       }
       // Reset input so same file can be selected again
       if(fileInputRef.current) fileInputRef.current.value = '';
@@ -702,17 +664,25 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                        {pendingImage && (
                            <div className="px-4 py-3 bg-slate-50 dark:bg-slate-700/50 flex justify-between items-center border-b border-slate-100 dark:border-slate-600 animate-in slide-in-from-bottom-2 fade-in duration-200">
                                <div className="flex items-center gap-3">
-                                   <img src={pendingImage} alt="Preview" className="w-12 h-12 object-cover rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm" />
+                                   <div className="relative">
+                                      <img src={pendingImage} alt="Preview" className="w-12 h-12 object-cover rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm" />
+                                      {isUploading && (
+                                          <div className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center">
+                                              <i className="fa-solid fa-circle-notch animate-spin text-white text-xs"></i>
+                                          </div>
+                                      )}
+                                   </div>
                                    <div className="flex flex-col">
                                        <span className="font-bold text-xs text-indigo-500 flex items-center gap-1">
                                            <i className="fa-solid fa-image"></i> Ảnh đã chọn
                                        </span>
-                                       <span className="text-[10px] text-slate-400 font-bold">Sẵn sàng gửi (Đã nén tối ưu)</span>
+                                       <span className="text-[10px] text-slate-400 font-bold">{isUploading ? 'Đang tải lên server...' : 'Sẵn sàng gửi'}</span>
                                    </div>
                                </div>
                                <button 
                                    onClick={() => setPendingImage(null)} 
                                    className="w-6 h-6 rounded-full bg-white dark:bg-slate-600 hover:bg-rose-50 dark:hover:bg-rose-900/50 hover:text-rose-500 text-slate-400 flex items-center justify-center transition-colors shadow-sm"
+                                   disabled={isUploading}
                                >
                                    <i className="fa-solid fa-xmark text-xs"></i>
                                </button>
@@ -799,10 +769,10 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
                                <button 
                                   onClick={() => handleSendMessage(newMessage, 'text')} 
-                                  disabled={!newMessage.trim() && !pendingImage}
+                                  disabled={(!newMessage.trim() && !pendingImage) || isUploading}
                                   className="shrink-0 w-12 h-10 md:w-14 md:h-12 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                                >
-                                   <i className="fa-solid fa-paper-plane"></i>
+                                   {isUploading ? <i className="fa-solid fa-circle-notch animate-spin"></i> : <i className="fa-solid fa-paper-plane"></i>}
                                </button>
                            </div>
                        </div>
