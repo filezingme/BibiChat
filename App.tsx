@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import KnowledgeBase from './components/KnowledgeBase';
@@ -53,6 +54,7 @@ const App: React.FC = () => {
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+  const profileButtonRef = useRef<HTMLButtonElement>(null); // Ref for positioning portal
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ old: '', new: '', confirm: '' });
   const [passwordMsg, setPasswordMsg] = useState({ type: '', text: '' });
@@ -186,7 +188,7 @@ const App: React.FC = () => {
         setShowNotifications(false);
         setSelectedNotification(null);
       }
-      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node) && profileButtonRef.current && !profileButtonRef.current.contains(event.target as Node)) {
         setIsProfileOpen(false);
       }
     };
@@ -341,6 +343,18 @@ const App: React.FC = () => {
   const handleStartChat = (userId: string) => {
       setChatTargetId(userId);
       setCurrentView(View.DIRECT_MESSAGES);
+  };
+
+  // Calculate position for Profile Dropdown Portal
+  const getDropdownStyle = () => {
+      if (profileButtonRef.current) {
+          const rect = profileButtonRef.current.getBoundingClientRect();
+          return {
+              top: rect.bottom + 12 + window.scrollY,
+              right: window.innerWidth - rect.right,
+          };
+      }
+      return { top: 0, right: 0 };
   };
 
   if (!isLoggedIn) {
@@ -520,8 +534,9 @@ const App: React.FC = () => {
                )}
              </div>
 
-             <div className="relative" ref={profileRef}>
+             <div className="relative">
                 <button 
+                  ref={profileButtonRef}
                   onClick={() => setIsProfileOpen(!isProfileOpen)}
                   className="flex items-center gap-3 pl-1 pr-1 sm:pl-2 sm:pr-4 py-1 sm:py-2 bg-white/60 dark:bg-slate-800/80 rounded-full border border-white dark:border-slate-700 shadow-sm hover:shadow-md transition-all active:scale-95 group backdrop-blur-sm"
                 >
@@ -535,18 +550,28 @@ const App: React.FC = () => {
                    </div>
                    <i className={`fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform hidden sm:block ${isProfileOpen ? 'rotate-180' : ''}`}></i>
                 </button>
-                {isProfileOpen && (
-                  <div className="absolute top-full right-0 mt-3 w-64 bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden animate-in fade-in zoom-in duration-200 z-50">
-                     <div className="p-5 bg-gradient-to-r from-pink-50 to-indigo-50 dark:from-slate-700/50 dark:to-slate-700 border-b border-slate-100 dark:border-slate-600 relative overflow-hidden">
-                        <div className="absolute top-[-10px] right-[-10px] text-6xl text-white/40 dark:text-black/10 rotate-12"><i className="fa-solid fa-user-circle"></i></div>
-                        <p className="text-base font-black text-slate-800 dark:text-white truncate relative z-10">{currentUser?.role === 'master' ? 'Bibi Admin' : `Bibi ${currentUser?.email.split('@')[0]}`}</p>
-                        <p className="text-sm font-bold text-slate-500 dark:text-slate-400 truncate relative z-10">{currentUser?.email}</p>
-                     </div>
-                     <div className="p-2 space-y-1">
-                        <button onClick={() => { setIsProfileOpen(false); setShowPasswordModal(true); }} className="w-full text-left px-4 py-3 rounded-2xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-slate-600 hover:text-indigo-600 dark:hover:text-white transition-colors flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500 flex items-center justify-center"><i className="fa-solid fa-key"></i></div>Đổi mật khẩu</button>
-                        <button onClick={handleLogout} className="w-full text-left px-4 py-3 rounded-2xl text-sm font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:text-rose-600 transition-colors flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-rose-50 dark:bg-rose-900/30 text-rose-500 flex items-center justify-center"><i className="fa-solid fa-arrow-right-from-bracket"></i></div>Đăng xuất</button>
-                     </div>
-                  </div>
+                
+                {/* Portal Profile Dropdown to Body to avoid Z-Index Issues */}
+                {isProfileOpen && createPortal(
+                  <>
+                    <div className="fixed inset-0 z-[90] bg-transparent" onClick={() => setIsProfileOpen(false)}></div>
+                    <div 
+                        className="fixed w-64 bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden animate-in fade-in zoom-in duration-200 z-[100]"
+                        style={getDropdownStyle()}
+                        ref={profileRef}
+                    >
+                        <div className="p-5 bg-gradient-to-r from-pink-50 to-indigo-50 dark:from-slate-700/50 dark:to-slate-700 border-b border-slate-100 dark:border-slate-600 relative overflow-hidden">
+                            <div className="absolute top-[-10px] right-[-10px] text-6xl text-white/40 dark:text-black/10 rotate-12"><i className="fa-solid fa-user-circle"></i></div>
+                            <p className="text-base font-black text-slate-800 dark:text-white truncate relative z-10">{currentUser?.role === 'master' ? 'Bibi Admin' : `Bibi ${currentUser?.email.split('@')[0]}`}</p>
+                            <p className="text-sm font-bold text-slate-500 dark:text-slate-400 truncate relative z-10">{currentUser?.email}</p>
+                        </div>
+                        <div className="p-2 space-y-1">
+                            <button onClick={() => { setIsProfileOpen(false); setShowPasswordModal(true); }} className="w-full text-left px-4 py-3 rounded-2xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-slate-600 hover:text-indigo-600 dark:hover:text-white transition-colors flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500 flex items-center justify-center"><i className="fa-solid fa-key"></i></div>Đổi mật khẩu</button>
+                            <button onClick={handleLogout} className="w-full text-left px-4 py-3 rounded-2xl text-sm font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:text-rose-600 transition-colors flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-rose-50 dark:bg-rose-900/30 text-rose-500 flex items-center justify-center"><i className="fa-solid fa-arrow-right-from-bracket"></i></div>Đăng xuất</button>
+                        </div>
+                    </div>
+                  </>,
+                  document.body
                 )}
              </div>
           </div>

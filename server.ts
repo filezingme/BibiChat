@@ -1,4 +1,3 @@
-
 import express, { RequestHandler } from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
@@ -107,7 +106,7 @@ const directMessageSchema = new mongoose.Schema({
   content: String,
   timestamp: Number,
   isRead: { type: Boolean, default: false },
-  type: { type: String, default: 'text' }, // text, sticker
+  type: { type: String, default: 'text' }, // text, sticker, image
   replyToId: String,
   reactions: [{ userId: String, emoji: String }]
 });
@@ -125,6 +124,7 @@ const initDB = async () => {
   const count = await User.countDocuments();
   if (count === 0) {
     console.log("Initializing Admin User...");
+    // Fix: Cast object to any to avoid strict Mongoose type checking errors
     await User.create({
       id: 'admin',
       email: 'admin@bibichat.io',
@@ -136,12 +136,13 @@ const initDB = async () => {
          social: { enabled: true, zalo: '0979116118', phone: '0979116118' },
          leadForm: { enabled: true, title: 'Để lại thông tin nhé!', trigger: 'manual' }
       }
-    });
+    } as any);
     // Sample Notification - UPDATED TEXT
+    // Fix: Cast object to any to avoid strict Mongoose type checking errors
     await Notification.create({
       id: '1', userId: 'all', title: 'Hệ thống sẵn sàng', desc: 'BibiChat đã kết nối cơ sở dữ liệu thành công!', 
       time: Date.now(), scheduledAt: Date.now(), readBy: [], icon: 'fa-rocket', color: 'text-emerald-500', bg: 'bg-emerald-100'
-    });
+    } as any);
   }
 };
 initDB();
@@ -282,10 +283,11 @@ app.get('/api/leads/:userId', async (req, res) => {
 
 app.post('/api/leads', async (req, res) => {
     const { userId, name, phone, email, isTest } = req.body;
+    // Fix: Cast object to any to avoid strict Mongoose type checking errors
     const newLead = await Lead.create({
         id: Math.random().toString(36).substr(2, 9),
         userId, name, phone, email, source: 'chat_form', status: 'new', createdAt: Date.now(), isTest: !!isTest
-    });
+    } as any);
     res.json(newLead);
 });
 
@@ -356,6 +358,7 @@ app.post('/api/notifications/read-all', async (req, res) => {
 
 app.post('/api/notifications/create', async (req, res) => {
     const scheduledTime = Number(req.body.scheduledAt) || Date.now();
+    // Fix: Cast object to any to avoid strict Mongoose type checking errors
     const newNotif = await Notification.create({
         id: Math.random().toString(36).substr(2, 9),
         userId: req.body.userId || 'all',
@@ -367,7 +370,7 @@ app.post('/api/notifications/create', async (req, res) => {
         icon: req.body.icon || 'fa-bell',
         color: req.body.color || 'text-blue-500',
         bg: req.body.bg || 'bg-blue-100'
-    });
+    } as any);
     res.json(newNotif);
 });
 
@@ -438,11 +441,19 @@ app.get('/api/dm/conversations/:userId', async (req, res) => {
             isRead: false
         });
 
+        // Determine preview text based on type
+        let previewText = '';
+        if (lastMsg) {
+            if (lastMsg.type === 'sticker') previewText = '[Sticker]';
+            else if (lastMsg.type === 'image') previewText = '[Hình ảnh]';
+            else previewText = lastMsg.content || '';
+        }
+
         return {
             id: contact.id,
             email: contact.email,
             role: contact.role,
-            lastMessage: lastMsg?.type === 'sticker' ? '[Sticker]' : (lastMsg?.content || ''),
+            lastMessage: previewText,
             lastMessageTime: lastMsg?.timestamp || 0,
             unreadCount: unreadCount 
         };
@@ -490,6 +501,7 @@ app.get('/api/dm/history/:userId/:otherUserId', async (req, res) => {
 // Send Message
 app.post('/api/dm/send', async (req, res) => {
     const { senderId, receiverId, content, type, replyToId } = req.body;
+    // Fix: Cast object to any to avoid strict Mongoose type checking errors
     const newMessage = await DirectMessage.create({
         id: Math.random().toString(36).substr(2, 9),
         senderId,
@@ -500,7 +512,7 @@ app.post('/api/dm/send', async (req, res) => {
         type: type || 'text',
         replyToId: replyToId || null,
         reactions: []
-    });
+    } as any);
     res.json(newMessage);
 });
 
@@ -508,14 +520,15 @@ app.post('/api/dm/send', async (req, res) => {
 app.post('/api/dm/react', async (req, res) => {
     const { messageId, userId, emoji } = req.body;
     
-    const message = await DirectMessage.findOne({ id: messageId });
+    // Fix: Cast to any to prevent Typescript from misinterpreting the Mongoose document structure
+    const message: any = await DirectMessage.findOne({ id: messageId });
     if (!message) return res.status(404).json({ success: false });
 
     // Ensure reactions array exists
     if (!message.reactions) message.reactions = [];
 
     // Check if user already reacted
-    const existingIndex = message.reactions.findIndex(r => r.userId === userId);
+    const existingIndex = message.reactions.findIndex((r: any) => r.userId === userId);
     
     if (existingIndex > -1) {
         if (message.reactions[existingIndex].emoji === emoji) {
@@ -611,10 +624,11 @@ app.post('/api/register', async (req, res) => {
     const existing = await User.findOne({ email });
     if (existing) return res.status(400).json({ success: false, message: 'Email đã tồn tại' });
     
+    // Fix: Cast object to any to avoid strict Mongoose type checking errors
     const newUser = await User.create({
         id: Math.random().toString(36).substr(2, 9),
         email, password, role: 'user', createdAt: Date.now()
-    });
+    } as any);
     res.json({ success: true, user: newUser });
 });
 
@@ -673,16 +687,18 @@ app.post('/api/settings/:userId', async (req, res) => {
 
 app.post('/api/documents/text', async (req, res) => {
     const { name, content, userId } = req.body;
+    // Fix: Cast object to any to avoid strict Mongoose type checking errors
     const newDoc = await Document.create({
         id: Math.random().toString(36).substr(2, 9),
         userId, name, content, type: 'text', status: 'indexed', createdAt: Date.now()
-    });
+    } as any);
     res.json(newDoc);
 });
 
 app.post('/api/documents/upload', upload.single('file') as any, async (req: any, res: any) => {
     if (!req.file || !req.body.userId) return res.status(400).send('Missing file/userId');
     const content = req.file.buffer.toString('utf-8');
+    // Fix: Cast object to any to avoid strict Mongoose type checking errors
     const newDoc = await Document.create({
         id: Math.random().toString(36).substr(2, 9),
         userId: req.body.userId,
@@ -691,7 +707,7 @@ app.post('/api/documents/upload', upload.single('file') as any, async (req: any,
         type: 'file',
         status: 'indexed',
         createdAt: Date.now()
-    });
+    } as any);
     res.json(newDoc);
 });
 
@@ -718,6 +734,7 @@ app.post('/api/chat', async (req, res) => {
         });
         const reply = response.text || "Tôi không thể trả lời.";
         
+        // Fix: Cast object to any to avoid strict Mongoose type checking errors
         await ChatLog.create({
             id: Math.random().toString(36).substr(2, 9),
             userId,
@@ -727,7 +744,7 @@ app.post('/api/chat', async (req, res) => {
             timestamp: Date.now(),
             tokens: message.length,
             isSolved: !reply.includes("không có thông tin")
-        });
+        } as any);
         
         res.json({ text: reply });
     } catch (error) {

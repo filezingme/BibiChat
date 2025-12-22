@@ -76,6 +76,13 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   // --- IMAGE COMPRESSION LOGIC ---
   const compressImage = (file: File): Promise<string> => {
       return new Promise((resolve, reject) => {
+          // Limit 3MB Check
+          if (file.size > 3 * 1024 * 1024) {
+              alert("Ảnh quá lớn! Vui lòng chọn ảnh dưới 3MB.");
+              reject("File too large");
+              return;
+          }
+
           const maxWidth = 1024;
           const maxHeight = 1024;
           const reader = new FileReader();
@@ -379,8 +386,12 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
           if (items[i].type.indexOf('image') !== -1) {
               const blob = items[i].getAsFile();
               if (blob) {
-                  const compressed = await compressImage(blob);
-                  setPendingImage(compressed);
+                  try {
+                      const compressed = await compressImage(blob);
+                      setPendingImage(compressed);
+                  } catch(e) {
+                      // Already handled in compressImage
+                  }
               }
               e.preventDefault();
           }
@@ -391,12 +402,19 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files[0]) {
           const file = e.target.files[0];
-          const compressed = await compressImage(file);
-          setPendingImage(compressed);
+          try {
+              const compressed = await compressImage(file);
+              setPendingImage(compressed);
+          } catch (e) {
+              // Handled
+          }
       }
       // Reset input so same file can be selected again
       if(fileInputRef.current) fileInputRef.current.value = '';
   };
+
+  // Safe zone for padding (Admin does not need right padding for Widget Button)
+  const inputPadding = user.role === 'master' ? 'pr-4' : 'pr-16';
 
   return (
     // Adjusted height
@@ -487,7 +505,16 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                <h4 className="font-bold text-sm text-slate-700 dark:text-slate-200 truncate">{conv.role === 'master' ? 'Admin Hỗ Trợ' : conv.email}</h4>
                                <span className="text-[10px] text-slate-400 font-bold">{conv.lastMessageTime && conv.lastMessageTime > 0 ? new Date(conv.lastMessageTime).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}) : ''}</span>
                            </div>
-                           <p className={`text-xs truncate font-medium ${conv.unreadCount && conv.unreadCount > 0 ? 'text-slate-800 dark:text-white font-black' : 'text-slate-500 dark:text-slate-400'}`}>{conv.lastMessage || 'Chưa có tin nhắn'}</p>
+                           {/* Updated Message Preview with Icon logic */}
+                           <p className={`text-xs truncate font-medium ${conv.unreadCount && conv.unreadCount > 0 ? 'text-slate-800 dark:text-white font-black' : 'text-slate-500 dark:text-slate-400'}`}>
+                               {(conv.lastMessage === '[Hình ảnh]' || conv.lastMessage === '[Sticker]') ? (
+                                   <span className="flex items-center gap-1">
+                                       <i className="fa-regular fa-image"></i> {conv.lastMessage === '[Sticker]' ? 'Sticker' : 'Hình ảnh'}
+                                   </span>
+                               ) : (
+                                   conv.lastMessage || 'Chưa có tin nhắn'
+                               )}
+                           </p>
                        </div>
                    </div>
                    );
@@ -692,8 +719,8 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                            </div>
                        )}
 
-                       {/* Reduced padding-right from pr-24 to pr-16 for better proximity */}
-                       <div className="p-4 relative pr-16">
+                       {/* Updated Layout for Mobile and Admin Padding */}
+                       <div className={`p-3 md:p-4 relative ${inputPadding}`}>
                            {/* Sticker Picker */}
                            {showStickerPicker && (
                                <div ref={stickerPickerRef} className="absolute bottom-full left-4 mb-2 p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-600 grid grid-cols-3 gap-2 w-72 h-64 overflow-y-auto z-30 animate-in zoom-in duration-200">
@@ -724,11 +751,11 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                </div>
                            )}
 
-                           <div className="flex gap-3 items-end">
+                           <div className="flex gap-2 md:gap-3 items-end">
                                <button 
                                    ref={stickerBtnRef}
                                    onClick={() => { setShowStickerPicker(!showStickerPicker); setShowEmojiPicker(false); }}
-                                   className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${showStickerPicker ? 'bg-pink-100 text-pink-500' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 hover:text-pink-500'}`}
+                                   className={`shrink-0 w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center transition-colors ${showStickerPicker ? 'bg-pink-100 text-pink-500' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 hover:text-pink-500'}`}
                                    title="Gửi Sticker"
                                >
                                    <i className="fa-solid fa-note-sticky text-lg"></i>
@@ -744,13 +771,13 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                />
                                <button 
                                    onClick={() => fileInputRef.current?.click()}
-                                   className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors bg-slate-100 dark:bg-slate-700 text-slate-500 hover:text-emerald-500"
+                                   className="shrink-0 w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center transition-colors bg-slate-100 dark:bg-slate-700 text-slate-500 hover:text-emerald-500"
                                    title="Gửi ảnh"
                                >
                                    <i className="fa-solid fa-image text-lg"></i>
                                </button>
                                
-                               <div className="flex-1 bg-slate-100 dark:bg-slate-900 rounded-2xl flex items-center pr-2 relative transition-all focus-within:ring-2 focus-within:ring-indigo-100">
+                               <div className="flex-1 bg-slate-100 dark:bg-slate-900 rounded-2xl flex items-center pr-2 relative transition-all focus-within:ring-2 focus-within:ring-indigo-100 min-w-0">
                                    <input 
                                       ref={inputRef}
                                       type="text" 
@@ -758,13 +785,13 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                       onChange={(e) => setNewMessage(e.target.value)}
                                       onKeyDown={(e) => e.key === 'Enter' && handleSendMessage(newMessage, 'text')}
                                       onPaste={handlePaste}
-                                      placeholder="Nhập tin nhắn (hoặc dán ảnh)..." 
-                                      className="flex-1 px-4 py-3 bg-transparent outline-none text-sm font-medium text-slate-800 dark:text-white"
+                                      placeholder="Nhập tin nhắn..." 
+                                      className="flex-1 px-3 py-3 md:px-4 md:py-3 bg-transparent outline-none text-sm font-medium text-slate-800 dark:text-white min-w-0"
                                    />
                                    <button 
                                        ref={emojiBtnRef}
                                        onClick={() => { setShowEmojiPicker(!showEmojiPicker); setShowStickerPicker(false); }}
-                                       className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${showEmojiPicker ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
+                                       className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${showEmojiPicker ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
                                    >
                                        <i className="fa-solid fa-face-smile text-lg"></i>
                                    </button>
@@ -773,7 +800,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                <button 
                                   onClick={() => handleSendMessage(newMessage, 'text')} 
                                   disabled={!newMessage.trim() && !pendingImage}
-                                  className="w-12 h-12 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  className="shrink-0 w-12 h-10 md:w-14 md:h-12 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                                >
                                    <i className="fa-solid fa-paper-plane"></i>
                                </button>
@@ -796,7 +823,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
     {/* Lightbox for Expanded Image */}
     {expandedImage && createPortal(
         <div 
-            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300"
+            className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300"
             onClick={() => setExpandedImage(null)}
         >
             <button 
@@ -808,7 +835,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
             <img 
                 src={expandedImage} 
                 alt="Expanded View" 
-                className="max-w-full max-h-full rounded-xl shadow-2xl animate-in zoom-in duration-300"
+                className="max-w-full max-h-full rounded-xl shadow-2xl animate-in zoom-in duration-300 object-contain"
                 onClick={(e) => e.stopPropagation()} 
             />
         </div>,
