@@ -172,7 +172,7 @@ const Leads: React.FC<Props> = ({ user }) => {
         </div>
       </div>
 
-      <div className="bg-transparent md:bg-white md:dark:bg-slate-800 rounded-[2.5rem] md:shadow-xl md:shadow-slate-200/50 md:dark:shadow-none md:border border-slate-100 dark:border-slate-700 overflow-hidden md:p-2">
+      <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden p-2">
          
          {/* Combined Table View (Mobile + Desktop) */}
          <div className="overflow-x-auto min-h-[300px] w-full">
@@ -305,22 +305,26 @@ const Leads: React.FC<Props> = ({ user }) => {
          
          {/* Pagination Controls */}
          {totalLeads > 0 && (
-            <div className="flex items-center justify-between p-6 md:border-t md:border-slate-50 md:dark:border-slate-700/50 mt-4 md:mt-0 bg-white dark:bg-slate-800 md:bg-transparent rounded-[2rem] md:rounded-none shadow-xl md:shadow-none border border-slate-100 md:border-none">
-                <span className="text-xs font-bold text-slate-400 dark:text-slate-500">
-                    {((page - 1) * LIMIT) + 1} - {Math.min(page * LIMIT, totalLeads)} / {totalLeads}
-                </span>
+            <div className="flex flex-col sm:flex-row items-center justify-between p-6 border-t border-slate-50 dark:border-slate-700/50 gap-4">
+                <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 px-4 py-2.5 rounded-xl shadow-sm border border-slate-100 dark:border-slate-600">
+                        Đang xem <span className="text-indigo-600 dark:text-indigo-400 mx-1">{((page - 1) * LIMIT) + 1} - {Math.min(page * LIMIT, totalLeads)}</span> 
+                        trên tổng <span className="text-slate-800 dark:text-white mx-1">{totalLeads}</span>
+                    </span>
+                </div>
+                
                 <div className="flex gap-2">
                     <button 
                         onClick={() => handlePageChange(page - 1)} 
                         disabled={page === 1}
-                        className="px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 md:dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-xs disabled:opacity-50 hover:bg-pink-50 dark:hover:bg-slate-700 transition-colors"
+                        className="px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-xs disabled:opacity-50 hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors border border-transparent hover:border-indigo-100"
                     >
                         Trước
                     </button>
                     <button 
                         onClick={() => handlePageChange(page + 1)} 
                         disabled={page === totalPages}
-                        className="px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 md:dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-xs disabled:opacity-50 hover:bg-pink-50 dark:hover:bg-slate-700 transition-colors"
+                        className="px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-xs disabled:opacity-50 hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors border border-transparent hover:border-indigo-100"
                     >
                         Sau
                     </button>
