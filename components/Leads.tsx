@@ -123,6 +123,24 @@ const Leads: React.FC<Props> = ({ user }) => {
       }
   };
 
+  // Helper component for Status Dropdown Content to reuse in both Mobile and Desktop
+  const StatusDropdownContent: React.FC<{ leadId: string }> = ({ leadId }) => (
+      <>
+        <button onClick={() => updateStatus(leadId, 'new')} className="w-full text-left px-4 py-3 text-xs font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 flex items-center gap-2">
+            <i className="fa-solid fa-star w-4"></i> Mới tinh
+        </button>
+        <button onClick={() => updateStatus(leadId, 'contacted')} className="w-full text-left px-4 py-3 text-xs font-bold text-amber-600 hover:bg-amber-50 dark:hover:bg-slate-700 flex items-center gap-2 border-t border-slate-50 dark:border-slate-700">
+            <i className="fa-solid fa-comments w-4"></i> Đang chat
+        </button>
+        <button onClick={() => updateStatus(leadId, 'converted')} className="w-full text-left px-4 py-3 text-xs font-bold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-slate-700 flex items-center gap-2 border-t border-slate-50 dark:border-slate-700">
+            <i className="fa-solid fa-check-circle w-4"></i> Chốt đơn
+        </button>
+        <button onClick={() => updateStatus(leadId, 'test')} className="w-full text-left px-4 py-3 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 border-t border-slate-50 dark:border-slate-700">
+            <i className="fa-solid fa-flask w-4"></i> Dữ liệu Test
+        </button>
+      </>
+  );
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-12" ref={dropdownRef}>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-800 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-700 shadow-xl shadow-slate-200/50 dark:shadow-none">
@@ -154,10 +172,10 @@ const Leads: React.FC<Props> = ({ user }) => {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden p-2">
+      <div className="bg-transparent md:bg-white md:dark:bg-slate-800 rounded-[2.5rem] md:shadow-xl md:shadow-slate-200/50 md:dark:shadow-none md:border border-slate-100 dark:border-slate-700 overflow-hidden md:p-2">
          
-         {/* Unified Table View with Horizontal Scroll */}
-         <div className="overflow-x-auto min-h-[300px] w-full">
+         {/* Desktop Table View */}
+         <div className="hidden md:block overflow-x-auto min-h-[300px] w-full">
             <table className="w-full text-left border-separate border-spacing-y-2 min-w-[900px]">
                <thead>
                   <tr className="bg-indigo-50/50 dark:bg-slate-700/50">
@@ -250,18 +268,7 @@ const Leads: React.FC<Props> = ({ user }) => {
 
                                         {openDropdownId === lead.id && (
                                             <div className="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border-2 border-slate-100 dark:border-slate-600 z-50 overflow-hidden animate-in fade-in zoom-in duration-200">
-                                                <button onClick={() => updateStatus(lead.id, 'new')} className="w-full text-left px-4 py-3 text-xs font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 flex items-center gap-2">
-                                                    <i className="fa-solid fa-star w-4"></i> Mới tinh
-                                                </button>
-                                                <button onClick={() => updateStatus(lead.id, 'contacted')} className="w-full text-left px-4 py-3 text-xs font-bold text-amber-600 hover:bg-amber-50 dark:hover:bg-slate-700 flex items-center gap-2 border-t border-slate-50 dark:border-slate-700">
-                                                    <i className="fa-solid fa-comments w-4"></i> Đang chat
-                                                </button>
-                                                <button onClick={() => updateStatus(lead.id, 'converted')} className="w-full text-left px-4 py-3 text-xs font-bold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-slate-700 flex items-center gap-2 border-t border-slate-50 dark:border-slate-700">
-                                                    <i className="fa-solid fa-check-circle w-4"></i> Chốt đơn
-                                                </button>
-                                                <button onClick={() => updateStatus(lead.id, 'test')} className="w-full text-left px-4 py-3 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 border-t border-slate-50 dark:border-slate-700">
-                                                    <i className="fa-solid fa-flask w-4"></i> Dữ liệu Test
-                                                </button>
+                                                <StatusDropdownContent leadId={lead.id} />
                                             </div>
                                         )}
                                     </div>
@@ -295,28 +302,131 @@ const Leads: React.FC<Props> = ({ user }) => {
                </tbody>
             </table>
          </div>
+
+         {/* Mobile Card View (New) */}
+         <div className="md:hidden space-y-4">
+            {isLoading ? (
+               [...Array(3)].map((_, i) => (
+                  <div key={i} className="bg-white dark:bg-slate-800 p-4 rounded-2xl animate-pulse shadow-sm">
+                     <div className="flex gap-3 mb-3">
+                        <div className="w-10 h-10 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+                        <div className="flex-1 space-y-2">
+                           <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/2"></div>
+                           <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded w-1/3"></div>
+                        </div>
+                     </div>
+                     <div className="h-10 bg-slate-100 dark:bg-slate-800 rounded-xl"></div>
+                  </div>
+               ))
+            ) : leads.length === 0 ? (
+               <div className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] text-center border-2 border-slate-100 dark:border-slate-700 border-dashed">
+                  <div className="w-16 h-16 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-300 mx-auto mb-3">
+                     <i className="fa-solid fa-inbox text-2xl"></i>
+                  </div>
+                  <p className="font-bold text-slate-400 text-sm">Chưa có dữ liệu</p>
+               </div>
+            ) : (
+               leads.map(lead => {
+                  const statusStyle = getStatusBadge(lead.status);
+                  const isConfirming = confirmDeleteId === lead.id;
+                  
+                  return (
+                     <div key={lead.id} className="bg-white dark:bg-slate-800 p-5 rounded-[1.5rem] shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden">
+                        {/* Header: Avatar + Name + Date */}
+                        <div className="flex justify-between items-start mb-4">
+                           <div className="flex gap-3 items-center">
+                              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-pink-400 to-rose-400 text-white flex items-center justify-center font-bold text-lg shadow-md shrink-0">
+                                 {lead.name.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                 <h3 className="font-bold text-slate-800 dark:text-white text-base leading-tight mb-1">{lead.name}</h3>
+                                 <span className="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full inline-flex items-center">
+                                    <i className="fa-solid fa-share-nodes mr-1"></i> {lead.source}
+                                 </span>
+                              </div>
+                           </div>
+                           <div className="text-[10px] font-bold text-slate-400 text-right">
+                              <p>{new Date(lead.createdAt).toLocaleDateString('vi-VN')}</p>
+                              <p>{new Date(lead.createdAt).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}</p>
+                           </div>
+                        </div>
+
+                        {/* Body: Contact Info */}
+                        <div className="space-y-2 mb-5">
+                           <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                              <div className="w-8 h-8 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center text-indigo-500 shadow-sm shrink-0">
+                                 <i className="fa-solid fa-phone text-xs"></i>
+                              </div>
+                              <span className="text-sm font-bold text-slate-700 dark:text-slate-200 break-all">{lead.phone}</span>
+                              <a href={`tel:${lead.phone}`} className="ml-auto w-8 h-8 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-colors">
+                                 <i className="fa-solid fa-phone-volume text-xs"></i>
+                              </a>
+                           </div>
+                           
+                           {lead.email && (
+                              <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                                 <div className="w-8 h-8 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center text-pink-500 shadow-sm shrink-0">
+                                    <i className="fa-solid fa-envelope text-xs"></i>
+                                 </div>
+                                 <span className="text-sm font-bold text-slate-700 dark:text-slate-200 break-all">{lead.email}</span>
+                              </div>
+                           )}
+                        </div>
+
+                        {/* Footer: Actions */}
+                        <div className="flex gap-2">
+                           <div className="relative flex-1">
+                              <button 
+                                 onClick={(e) => { e.stopPropagation(); setOpenDropdownId(openDropdownId === lead.id ? null : lead.id); }}
+                                 className={`w-full py-3 rounded-xl border-2 text-xs font-bold transition-all flex items-center justify-center gap-2 ${statusStyle.color}`}
+                              >
+                                 <i className={`fa-solid ${statusStyle.icon}`}></i>
+                                 {statusStyle.label}
+                                 <i className="fa-solid fa-chevron-down opacity-50"></i>
+                              </button>
+                              
+                              {openDropdownId === lead.id && (
+                                 <div className="absolute bottom-full left-0 mb-2 w-full bg-white dark:bg-slate-800 rounded-2xl shadow-xl border-2 border-slate-100 dark:border-slate-600 z-50 overflow-hidden animate-in fade-in zoom-in duration-200">
+                                    <StatusDropdownContent leadId={lead.id} />
+                                 </div>
+                              )}
+                           </div>
+
+                           <button 
+                              onClick={(e) => handleDeleteClick(e, lead.id)}
+                              className={`rounded-xl flex items-center justify-center transition-all font-bold text-xs border-2 shadow-sm ${
+                                 isConfirming 
+                                 ? 'flex-1 bg-red-500 text-white border-red-600 hover:bg-red-600' 
+                                 : 'w-12 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-400 hover:text-rose-500 hover:border-rose-200'
+                              }`}
+                           >
+                              {isConfirming ? 'Xác nhận xóa' : <i className="fa-solid fa-trash-can text-sm"></i>}
+                           </button>
+                        </div>
+                     </div>
+                  );
+               })
+            )}
+         </div>
          
          {/* Pagination Controls */}
          {totalLeads > 0 && (
-            <div className="flex items-center justify-between p-6 border-t border-slate-50 dark:border-slate-700/50">
+            <div className="flex items-center justify-between p-6 md:border-t md:border-slate-50 md:dark:border-slate-700/50 mt-4 md:mt-0 bg-white dark:bg-slate-800 md:bg-transparent rounded-[2rem] md:rounded-none shadow-xl md:shadow-none border border-slate-100 md:border-none">
                 <span className="text-xs font-bold text-slate-400 dark:text-slate-500">
-                    Hiển thị {((page - 1) * LIMIT) + 1} - {Math.min(page * LIMIT, totalLeads)} trong số {totalLeads}
+                    {((page - 1) * LIMIT) + 1} - {Math.min(page * LIMIT, totalLeads)} / {totalLeads}
                 </span>
                 <div className="flex gap-2">
                     <button 
                         onClick={() => handlePageChange(page - 1)} 
                         disabled={page === 1}
-                        className="px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-xs disabled:opacity-50 hover:bg-pink-50 dark:hover:bg-slate-700 transition-colors"
+                        className="px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 md:dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-xs disabled:opacity-50 hover:bg-pink-50 dark:hover:bg-slate-700 transition-colors"
                     >
                         Trước
                     </button>
-                    <span className="px-4 py-2 text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center">
-                        Trang {page} / {totalPages}
-                    </span>
                     <button 
                         onClick={() => handlePageChange(page + 1)} 
                         disabled={page === totalPages}
-                        className="px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-xs disabled:opacity-50 hover:bg-pink-50 dark:hover:bg-slate-700 transition-colors"
+                        className="px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 md:dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-xs disabled:opacity-50 hover:bg-pink-50 dark:hover:bg-slate-700 transition-colors"
                     >
                         Sau
                     </button>
