@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { apiService } from '../services/apiService';
 import { User, ConversationUser, DirectMessage } from '../types';
 
@@ -56,6 +57,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   
   // Image State
   const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [expandedImage, setExpandedImage] = useState<string | null>(null); // For Lightbox
 
   // Refs for Click Outside
   const emojiPickerRef = useRef<HTMLDivElement>(null);
@@ -69,6 +71,48 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       if (role === 'master') return true;
       if (!lastActiveTime) return false;
       return (Date.now() - lastActiveTime) < ONLINE_THRESHOLD;
+  };
+
+  // --- IMAGE COMPRESSION LOGIC ---
+  const compressImage = (file: File): Promise<string> => {
+      return new Promise((resolve, reject) => {
+          const maxWidth = 1024;
+          const maxHeight = 1024;
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = (event) => {
+              const img = new Image();
+              img.src = event.target?.result as string;
+              img.onload = () => {
+                  let width = img.width;
+                  let height = img.height;
+
+                  if (width > height) {
+                      if (width > maxWidth) {
+                          height *= maxWidth / width;
+                          width = maxWidth;
+                      }
+                  } else {
+                      if (height > maxHeight) {
+                          width *= maxHeight / height;
+                          height = maxHeight;
+                      }
+                  }
+
+                  const canvas = document.createElement('canvas');
+                  canvas.width = width;
+                  canvas.height = height;
+                  const ctx = canvas.getContext('2d');
+                  ctx?.drawImage(img, 0, 0, width, height);
+                  
+                  // Output as JPEG with 70% quality to reduce size significantly
+                  const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                  resolve(dataUrl);
+              };
+              img.onerror = (err) => reject(err);
+          };
+          reader.onerror = (err) => reject(err);
+      });
   };
 
   // Handle Click Outside to Close Pickers
@@ -242,7 +286,8 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
           loadConversations(); 
       } catch (e) {
           console.error("Failed to send", e);
-          alert("Gửi tin nhắn thất bại");
+          alert("Gửi tin nhắn thất bại. Có thể ảnh quá lớn hoặc mạng yếu.");
+          // remove failed message from state if needed or show error icon
       }
   };
 
@@ -328,34 +373,26 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   };
 
   // Image Handling: Paste
-  const handlePaste = (e: React.ClipboardEvent) => {
+  const handlePaste = async (e: React.ClipboardEvent) => {
       const items = e.clipboardData.items;
       for (let i = 0; i < items.length; i++) {
           if (items[i].type.indexOf('image') !== -1) {
               const blob = items[i].getAsFile();
-              const reader = new FileReader();
-              reader.onload = (event) => {
-                  if (event.target?.result) {
-                      setPendingImage(event.target.result as string);
-                  }
-              };
-              if(blob) reader.readAsDataURL(blob);
-              e.preventDefault(); // Prevent pasting the image filename as text
+              if (blob) {
+                  const compressed = await compressImage(blob);
+                  setPendingImage(compressed);
+              }
+              e.preventDefault();
           }
       }
   };
 
   // Image Handling: File Select
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files[0]) {
           const file = e.target.files[0];
-          const reader = new FileReader();
-          reader.onload = (event) => {
-              if (event.target?.result) {
-                  setPendingImage(event.target.result as string);
-              }
-          };
-          reader.readAsDataURL(file);
+          const compressed = await compressImage(file);
+          setPendingImage(compressed);
       }
       // Reset input so same file can be selected again
       if(fileInputRef.current) fileInputRef.current.value = '';
@@ -363,6 +400,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
   return (
     // Adjusted height
+    <>
     <div className="h-[calc(100vh-12rem)] min-h-[500px] flex gap-6 animate-in fade-in duration-500 pb-2 relative">
         <style>{`
             .custom-scrollbar-hover {
@@ -547,9 +585,9 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                                 </div>
                                            </div>
                                        ) : msg.type === 'image' ? (
-                                            <div className="relative inline-block group">
-                                                <img src={msg.content} alt="Image" className="w-64 h-auto rounded-2xl border-2 border-slate-200 dark:border-slate-700" />
-                                                <div className={`absolute bottom-2 right-2 bg-black/40 backdrop-blur-sm text-white px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200`}>
+                                            <div className="relative inline-block group cursor-pointer" onClick={() => setExpandedImage(msg.content)}>
+                                                <img src={msg.content} alt="Image" className="w-64 h-auto rounded-2xl border-2 border-slate-200 dark:border-slate-700 hover:opacity-90 transition-opacity" />
+                                                <div className={`absolute bottom-2 right-2 bg-black/40 backdrop-blur-sm text-white px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none`}>
                                                     {new Date(msg.timestamp).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}
                                                     {isMe && (
                                                         <div title={msg.isRead ? "Đã xem" : "Đã gửi"}>
@@ -642,7 +680,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                        <span className="font-bold text-xs text-indigo-500 flex items-center gap-1">
                                            <i className="fa-solid fa-image"></i> Ảnh đã chọn
                                        </span>
-                                       <span className="text-[10px] text-slate-400 font-bold">Sẵn sàng gửi...</span>
+                                       <span className="text-[10px] text-slate-400 font-bold">Sẵn sàng gửi (Đã nén tối ưu)</span>
                                    </div>
                                </div>
                                <button 
@@ -754,6 +792,29 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
            )}
        </div>
     </div>
+
+    {/* Lightbox for Expanded Image */}
+    {expandedImage && createPortal(
+        <div 
+            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300"
+            onClick={() => setExpandedImage(null)}
+        >
+            <button 
+                onClick={() => setExpandedImage(null)}
+                className="absolute top-6 right-6 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+            >
+                <i className="fa-solid fa-xmark text-xl"></i>
+            </button>
+            <img 
+                src={expandedImage} 
+                alt="Expanded View" 
+                className="max-w-full max-h-full rounded-xl shadow-2xl animate-in zoom-in duration-300"
+                onClick={(e) => e.stopPropagation()} 
+            />
+        </div>,
+        document.body
+    )}
+    </>
   );
 };
 

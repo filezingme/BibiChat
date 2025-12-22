@@ -21,7 +21,10 @@ app.use(cors({
   methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }) as any);
-app.use(express.json() as any);
+
+// INCREASED LIMIT FOR IMAGES
+app.use(express.json({ limit: '50mb' }) as any);
+app.use(express.urlencoded({ limit: '50mb', extended: true }) as any);
 
 // --- MONGODB CONNECTION ---
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/bibichat_local";
