@@ -80,10 +80,20 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       const clean = text.replace(/\s/g, ''); // Remove whitespace
       if (!clean) return false;
       // Regex check: Contains Emoji-like characters AND NO alphanumeric characters
-      // Also limit length to avoid massive blocks
       const hasEmoji = /\p{Extended_Pictographic}/u.test(clean);
       const hasText = /[a-zA-Z0-9]/.test(clean);
-      return hasEmoji && !hasText && clean.length < 12;
+      // Increased length limit to support multiple emojis (was 12)
+      return hasEmoji && !hasText && clean.length < 200;
+  };
+
+  // Helper to estimate emoji size based on count
+  const getEmojiSizeClass = (text: string) => {
+      // Simple count approximation
+      const length = Array.from(text).length;
+      if (length <= 2) return 'text-6xl';
+      if (length <= 6) return 'text-5xl';
+      if (length <= 12) return 'text-4xl';
+      return 'text-3xl';
   };
 
   // Handle Click Outside to Close Pickers
@@ -542,6 +552,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                            const isMe = msg.senderId === user.id;
                            const hasReactions = msg.reactions && msg.reactions.length > 0;
                            const isEmoji = msg.type === 'text' && isEmojiOnly(msg.content);
+                           const emojiSizeClass = isEmoji ? getEmojiSizeClass(msg.content) : '';
                            
                            return (
                                <div key={msg.id} className={`flex w-full group ${isMe ? 'justify-end' : 'justify-start'} ${hasReactions ? 'mb-5' : 'mb-1'}`}>
@@ -604,7 +615,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                             </div>
                                        ) : isEmoji ? (
                                            <div className={`relative inline-block group px-2 ${isMe ? 'text-right' : 'text-left'}`}>
-                                                <span className="text-5xl leading-tight drop-shadow-sm hover:scale-110 transition-transform cursor-default inline-block">{msg.content}</span>
+                                                <span className={`${emojiSizeClass} leading-tight drop-shadow-sm hover:scale-110 transition-transform cursor-default inline-block break-words whitespace-pre-wrap max-w-full`}>{msg.content}</span>
                                                 {/* Timestamp & Status Overlay for Emoji (Pill style on hover) */}
                                                 <div className={`absolute -bottom-6 ${isMe ? 'right-0' : 'left-0'} bg-black/40 backdrop-blur-sm text-white px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 whitespace-nowrap`}>
                                                     {new Date(msg.timestamp).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}
