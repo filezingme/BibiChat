@@ -36,6 +36,73 @@ const REACTIONS = ['❤️', '😆', '😮', '😢', '😡', '👍'];
 // Threshold for "Online" status in milliseconds (e.g., 5 minutes)
 const ONLINE_THRESHOLD = 5 * 60 * 1000;
 
+// Separate Lightbox Component to manage hooks correctly
+const ImageLightbox: React.FC<{
+    src: string;
+    onClose: () => void;
+    onPrev: () => void;
+    onNext: () => void;
+    hasPrev: boolean;
+    hasNext: boolean;
+    current: number;
+    total: number;
+}> = ({ src, onClose, onPrev, onNext, hasPrev, hasNext, current, total }) => {
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'ArrowLeft' && hasPrev) onPrev();
+            if (e.key === 'ArrowRight' && hasNext) onNext();
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [hasPrev, hasNext, onPrev, onNext, onClose]);
+
+    return createPortal(
+        <div 
+            className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300 group"
+            onClick={onClose}
+        >
+            <button 
+                onClick={onClose}
+                className="absolute top-6 right-6 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors z-50"
+            >
+                <i className="fa-solid fa-xmark text-xl"></i>
+            </button>
+
+            {hasPrev && (
+                <button 
+                    onClick={(e) => { e.stopPropagation(); onPrev(); }}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors z-50 backdrop-blur-md opacity-0 group-hover:opacity-100 duration-300"
+                >
+                    <i className="fa-solid fa-chevron-left text-xl"></i>
+                </button>
+            )}
+            
+            <img 
+                src={src} 
+                alt="Expanded View" 
+                className="max-w-full max-h-full rounded-xl shadow-2xl animate-in zoom-in duration-300 object-contain"
+                onClick={(e) => e.stopPropagation()} 
+            />
+
+            {hasNext && (
+                <button 
+                    onClick={(e) => { e.stopPropagation(); onNext(); }}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors z-50 backdrop-blur-md opacity-0 group-hover:opacity-100 duration-300"
+                >
+                    <i className="fa-solid fa-chevron-right text-xl"></i>
+                </button>
+            )}
+
+            {/* Image Counter */}
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/50 px-4 py-1.5 rounded-full text-white text-xs font-bold backdrop-blur-md pointer-events-none opacity-0 group-hover:opacity-100 duration-300 transition-opacity">
+                {current + 1} / {total}
+            </div>
+        </div>,
+        document.body
+    );
+};
+
 const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTargetUser }) => {
   const [conversations, setConversations] = useState<ConversationUser[]>([]);
   const [activeChatUser, setActiveChatUser] = useState<ConversationUser | null>(null);
@@ -397,32 +464,21 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       if(fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Lightbox Navigation Logic
-  const handleImageNav = (direction: 'next' | 'prev', e?: React.MouseEvent) => {
-      e?.stopPropagation();
-      const images = messages.filter(m => m.type === 'image');
-      const currentIndex = images.findIndex(m => m.content === expandedImage);
-      
-      if (currentIndex === -1) return;
+  // Prepare images for lightbox
+  const images = messages.filter(m => m.type === 'image');
+  const currentIndex = expandedImage ? images.findIndex(m => m.content === expandedImage) : -1;
 
-      if (direction === 'prev' && currentIndex > 0) {
-          setExpandedImage(images[currentIndex - 1].content);
-      } else if (direction === 'next' && currentIndex < images.length - 1) {
+  const handleNextImage = () => {
+      if (currentIndex < images.length - 1) {
           setExpandedImage(images[currentIndex + 1].content);
       }
   };
 
-  // Keyboard support for Lightbox
-  useEffect(() => {
-      if (!expandedImage) return;
-      const handleKeyDown = (e: KeyboardEvent) => {
-          if (e.key === 'ArrowLeft') handleImageNav('prev');
-          if (e.key === 'ArrowRight') handleImageNav('next');
-          if (e.key === 'Escape') setExpandedImage(null);
-      };
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [expandedImage, messages]);
+  const handlePrevImage = () => {
+      if (currentIndex > 0) {
+          setExpandedImage(images[currentIndex - 1].content);
+      }
+  };
 
   // Safe zone for padding (Admin does not need right padding for Widget Button)
   const inputPadding = user.role === 'master' ? 'pr-4' : 'pr-16';
@@ -539,7 +595,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
            </div>
        </div>
 
-       {/* Chat Area - Full screen on mobile if Active, else hidden on mobile */}
+       {/* Chat Area */}
        <div className={`flex-1 bg-white dark:bg-slate-800 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 shadow-xl overflow-hidden flex-col relative ${activeChatUser ? 'flex fixed inset-0 z-50 md:static md:inset-auto md:z-0' : 'hidden md:flex'}`}>
            {activeChatUser ? (
                <>
@@ -858,85 +914,17 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
        </div>
     </div>
 
-    {/* Lightbox for Expanded Image */}
-    {expandedImage && createPortal(
-        <div 
-            className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300 group"
-            onClick={() => setExpandedImage(null)}
-        >
-            <button 
-                onClick={() => setExpandedImage(null)}
-                className="absolute top-6 right-6 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors z-50"
-            >
-                <i className="fa-solid fa-xmark text-xl"></i>
-            </button>
-
-            {/* Navigation Buttons */}
-            {/* Logic to find prev/next images */}
-            {(() => {
-                const images = messages.filter(m => m.type === 'image');
-                const currentIndex = images.findIndex(m => m.content === expandedImage);
-                
-                const handleNav = (e: React.MouseEvent, direction: 'prev' | 'next') => {
-                    e.stopPropagation();
-                    if (direction === 'prev' && currentIndex > 0) {
-                        setExpandedImage(images[currentIndex - 1].content);
-                    } else if (direction === 'next' && currentIndex < images.length - 1) {
-                        setExpandedImage(images[currentIndex + 1].content);
-                    }
-                };
-
-                // Add keyboard event listener for navigation
-                useEffect(() => {
-                    const handleKeyDown = (e: KeyboardEvent) => {
-                        if (e.key === 'ArrowLeft' && currentIndex > 0) {
-                            setExpandedImage(images[currentIndex - 1].content);
-                        } else if (e.key === 'ArrowRight' && currentIndex < images.length - 1) {
-                            setExpandedImage(images[currentIndex + 1].content);
-                        } else if (e.key === 'Escape') {
-                            setExpandedImage(null);
-                        }
-                    };
-                    window.addEventListener('keydown', handleKeyDown);
-                    return () => window.removeEventListener('keydown', handleKeyDown);
-                }, [currentIndex, images]);
-
-                return (
-                    <>
-                        {currentIndex > 0 && (
-                            <button 
-                                onClick={(e) => handleNav(e, 'prev')}
-                                className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors z-50 backdrop-blur-md opacity-0 group-hover:opacity-100 duration-300"
-                            >
-                                <i className="fa-solid fa-chevron-left text-xl"></i>
-                            </button>
-                        )}
-                        
-                        <img 
-                            src={expandedImage} 
-                            alt="Expanded View" 
-                            className="max-w-full max-h-full rounded-xl shadow-2xl animate-in zoom-in duration-300 object-contain"
-                            onClick={(e) => e.stopPropagation()} 
-                        />
-
-                        {currentIndex < images.length - 1 && (
-                            <button 
-                                onClick={(e) => handleNav(e, 'next')}
-                                className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors z-50 backdrop-blur-md opacity-0 group-hover:opacity-100 duration-300"
-                            >
-                                <i className="fa-solid fa-chevron-right text-xl"></i>
-                            </button>
-                        )}
-
-                        {/* Image Counter */}
-                        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/50 px-4 py-1.5 rounded-full text-white text-xs font-bold backdrop-blur-md pointer-events-none opacity-0 group-hover:opacity-100 duration-300 transition-opacity">
-                            {currentIndex + 1} / {images.length}
-                        </div>
-                    </>
-                );
-            })()}
-        </div>,
-        document.body
+    {expandedImage && (
+        <ImageLightbox 
+            src={expandedImage}
+            onClose={() => setExpandedImage(null)}
+            onPrev={handlePrevImage}
+            onNext={handleNextImage}
+            hasPrev={currentIndex > 0}
+            hasNext={currentIndex < images.length - 1}
+            current={currentIndex}
+            total={images.length}
+        />
     )}
     </>
   );

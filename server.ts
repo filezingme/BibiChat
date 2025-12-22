@@ -289,7 +289,13 @@ app.get('/api/leads/:userId', async (req, res) => {
     const limit = parseInt(req.query.limit as string) || 10;
     const search = (req.query.search as string || '').toLowerCase();
     
-    const query: any = { userId };
+    // START CHANGE: Handle 'all' userId for Master/Admin
+    const query: any = {};
+    if (userId !== 'all') {
+        query.userId = userId;
+    }
+    // END CHANGE
+    
     if (search) {
         query.$or = [
             { name: { $regex: search, $options: 'i' } },
