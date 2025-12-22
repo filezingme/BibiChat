@@ -47,6 +47,35 @@ const ImageLightbox: React.FC<{
     current: number;
     total: number;
 }> = ({ src, onClose, onPrev, onNext, hasPrev, hasNext, current, total }) => {
+    // Touch state for swipe detection
+    const [touchStart, setTouchStart] = useState<number | null>(null);
+    const [touchEnd, setTouchEnd] = useState<number | null>(null);
+    const minSwipeDistance = 50; // Minimum distance to trigger swipe
+
+    const onTouchStart = (e: React.TouchEvent) => {
+        setTouchEnd(null); // Reset touch end
+        setTouchStart(e.targetTouches[0].clientX);
+    };
+
+    const onTouchMove = (e: React.TouchEvent) => {
+        setTouchEnd(e.targetTouches[0].clientX);
+    };
+
+    const onTouchEnd = () => {
+        if (!touchStart || !touchEnd) return;
+        
+        const distance = touchStart - touchEnd;
+        const isLeftSwipe = distance > minSwipeDistance;
+        const isRightSwipe = distance < -minSwipeDistance;
+
+        if (isLeftSwipe && hasNext) {
+            onNext();
+        }
+        if (isRightSwipe && hasPrev) {
+            onPrev();
+        }
+    };
+
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'ArrowLeft' && hasPrev) onPrev();
@@ -59,8 +88,11 @@ const ImageLightbox: React.FC<{
 
     return createPortal(
         <div 
-            className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300 group"
+            className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300 group touch-none"
             onClick={onClose}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
         >
             <button 
                 onClick={onClose}
@@ -72,7 +104,7 @@ const ImageLightbox: React.FC<{
             {hasPrev && (
                 <button 
                     onClick={(e) => { e.stopPropagation(); onPrev(); }}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors z-50 backdrop-blur-md opacity-0 group-hover:opacity-100 duration-300"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 hidden md:flex items-center justify-center text-white transition-colors z-50 backdrop-blur-md opacity-0 group-hover:opacity-100 duration-300"
                 >
                     <i className="fa-solid fa-chevron-left text-xl"></i>
                 </button>
@@ -81,22 +113,28 @@ const ImageLightbox: React.FC<{
             <img 
                 src={src} 
                 alt="Expanded View" 
-                className="max-w-full max-h-full rounded-xl shadow-2xl animate-in zoom-in duration-300 object-contain"
+                className="max-w-full max-h-full rounded-xl shadow-2xl animate-in zoom-in duration-300 object-contain select-none"
                 onClick={(e) => e.stopPropagation()} 
+                draggable={false}
             />
 
             {hasNext && (
                 <button 
                     onClick={(e) => { e.stopPropagation(); onNext(); }}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors z-50 backdrop-blur-md opacity-0 group-hover:opacity-100 duration-300"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 hidden md:flex items-center justify-center text-white transition-colors z-50 backdrop-blur-md opacity-0 group-hover:opacity-100 duration-300"
                 >
                     <i className="fa-solid fa-chevron-right text-xl"></i>
                 </button>
             )}
 
-            {/* Image Counter */}
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/50 px-4 py-1.5 rounded-full text-white text-xs font-bold backdrop-blur-md pointer-events-none opacity-0 group-hover:opacity-100 duration-300 transition-opacity">
-                {current + 1} / {total}
+            {/* Image Counter & Mobile Hint */}
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none opacity-0 group-hover:opacity-100 duration-300 transition-opacity">
+                <div className="bg-black/50 px-4 py-1.5 rounded-full text-white text-xs font-bold backdrop-blur-md">
+                    {current + 1} / {total}
+                </div>
+                <div className="md:hidden text-white/50 text-[10px] font-medium">
+                    Vuốt để xem ảnh khác
+                </div>
             </div>
         </div>,
         document.body
