@@ -74,6 +74,18 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       return (Date.now() - lastActiveTime) < ONLINE_THRESHOLD;
   };
 
+  // Helper to detect if a message is ONLY emojis (to remove background bubble)
+  const isEmojiOnly = (text: string) => {
+      if (!text) return false;
+      const clean = text.replace(/\s/g, ''); // Remove whitespace
+      if (!clean) return false;
+      // Regex check: Contains Emoji-like characters AND NO alphanumeric characters
+      // Also limit length to avoid massive blocks
+      const hasEmoji = /\p{Extended_Pictographic}/u.test(clean);
+      const hasText = /[a-zA-Z0-9]/.test(clean);
+      return hasEmoji && !hasText && clean.length < 12;
+  };
+
   // Handle Click Outside to Close Pickers
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -529,6 +541,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                        {messages.map((msg) => {
                            const isMe = msg.senderId === user.id;
                            const hasReactions = msg.reactions && msg.reactions.length > 0;
+                           const isEmoji = msg.type === 'text' && isEmojiOnly(msg.content);
                            
                            return (
                                <div key={msg.id} className={`flex w-full group ${isMe ? 'justify-end' : 'justify-start'} ${hasReactions ? 'mb-5' : 'mb-1'}`}>
@@ -589,6 +602,23 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                                     )}
                                                 </div>
                                             </div>
+                                       ) : isEmoji ? (
+                                           <div className={`relative inline-block group px-2 ${isMe ? 'text-right' : 'text-left'}`}>
+                                                <span className="text-5xl leading-tight drop-shadow-sm hover:scale-110 transition-transform cursor-default inline-block">{msg.content}</span>
+                                                {/* Timestamp & Status Overlay for Emoji (Pill style on hover) */}
+                                                <div className={`absolute -bottom-6 ${isMe ? 'right-0' : 'left-0'} bg-black/40 backdrop-blur-sm text-white px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 whitespace-nowrap`}>
+                                                    {new Date(msg.timestamp).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}
+                                                    {isMe && (
+                                                        <div title={msg.isRead ? "Đã xem" : "Đã gửi"}>
+                                                            {msg.isRead ? (
+                                                                <i className="fa-solid fa-check-double text-cyan-300"></i>
+                                                            ) : (
+                                                                <i className="fa-solid fa-check text-slate-300"></i>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                           </div>
                                        ) : (
                                            <div className={`px-5 py-3 rounded-2xl text-sm font-medium leading-relaxed shadow-sm relative ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-tl-none'}`}>
                                                {msg.content}
