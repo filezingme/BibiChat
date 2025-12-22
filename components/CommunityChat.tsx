@@ -526,9 +526,10 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   const inputPadding = user.role === 'master' ? '' : 'md:pr-28';
 
   return (
-    // Reduced height as requested: h-[calc(100vh-10rem)] instead of -7rem, min-h reduced to 500px
+    // Height adjusted for Mobile: h-[calc(100vh-14rem)] and min-h-[350px]
+    // Desktop maintains previous height: md:h-[calc(100vh-10rem)] md:min-h-[500px]
     <>
-    <div className="h-[calc(100vh-10rem)] min-h-[500px] flex gap-6 animate-in fade-in duration-500 pb-2 relative">
+    <div className="h-[calc(100vh-14rem)] md:h-[calc(100vh-10rem)] min-h-[350px] md:min-h-[500px] flex gap-6 animate-in fade-in duration-500 pb-2 relative">
         <style>{`
             .custom-scrollbar-hover {
                 scrollbar-width: thin;

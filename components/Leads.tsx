@@ -229,8 +229,8 @@ const Leads: React.FC<Props> = ({ user }) => {
                          const isConfirming = confirmDeleteId === lead.id;
                          
                          return (
-                            <tr key={lead.id} className="bg-slate-50 dark:bg-slate-700/30 hover:bg-pink-50 dark:hover:bg-slate-700 transition-colors group">
-                                <td className="px-4 py-4 md:px-6 md:py-5 rounded-l-2xl pl-8 font-bold text-slate-800 dark:text-white border-b border-transparent whitespace-nowrap">
+                            <tr key={lead.id} className="bg-white dark:bg-slate-800/50 hover:bg-indigo-50/50 dark:hover:bg-slate-700/50 transition-colors group rounded-2xl">
+                                <td className="px-4 py-4 md:px-6 md:py-5 rounded-l-2xl pl-8 font-bold text-slate-800 dark:text-white border-b border-slate-50 dark:border-slate-700/50 whitespace-nowrap">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-pink-400 to-rose-400 text-white flex items-center justify-center font-bold text-sm shadow-md">
                                         {lead.name.charAt(0).toUpperCase()}
@@ -240,21 +240,21 @@ const Leads: React.FC<Props> = ({ user }) => {
                                     </div>
                                 </div>
                                 </td>
-                                <td className="px-4 py-4 md:px-6 md:py-5 border-b border-transparent whitespace-nowrap">
+                                <td className="px-4 py-4 md:px-6 md:py-5 border-b border-slate-50 dark:border-slate-700/50 whitespace-nowrap">
                                 <div className="flex flex-col gap-1">
                                     <span className="text-sm font-bold text-slate-700 dark:text-slate-200"><i className="fa-solid fa-phone text-xs text-slate-400 mr-1.5"></i>{lead.phone}</span>
                                     {lead.email && <span className="text-xs font-bold text-slate-500"><i className="fa-solid fa-envelope text-xs text-slate-400 mr-1.5"></i>{lead.email}</span>}
                                 </div>
                                 </td>
-                                <td className="px-4 py-4 md:px-6 md:py-5 border-b border-transparent whitespace-nowrap">
+                                <td className="px-4 py-4 md:px-6 md:py-5 border-b border-slate-50 dark:border-slate-700/50 whitespace-nowrap">
                                 <span className="text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 px-2 py-1 rounded-lg text-slate-500 uppercase tracking-wider">
                                     {lead.source}
                                 </span>
                                 </td>
-                                <td className="px-4 py-4 md:px-6 md:py-5 border-b border-transparent text-sm font-bold text-slate-500 whitespace-nowrap">
+                                <td className="px-4 py-4 md:px-6 md:py-5 border-b border-slate-50 dark:border-slate-700/50 text-sm font-bold text-slate-500 whitespace-nowrap">
                                 {new Date(lead.createdAt).toLocaleString('vi-VN')}
                                 </td>
-                                <td className="px-4 py-4 md:px-6 md:py-5 text-left border-b border-transparent relative whitespace-nowrap">
+                                <td className="px-4 py-4 md:px-6 md:py-5 text-left border-b border-slate-50 dark:border-slate-700/50 relative whitespace-nowrap">
                                     {/* Cute Custom Dropdown */}
                                     <div className="relative">
                                         <button 
@@ -273,7 +273,7 @@ const Leads: React.FC<Props> = ({ user }) => {
                                         )}
                                     </div>
                                 </td>
-                                <td className="px-4 py-4 md:px-6 md:py-5 rounded-r-2xl pr-8 text-right border-b border-transparent whitespace-nowrap">
+                                <td className="px-4 py-4 md:px-6 md:py-5 rounded-r-2xl pr-8 text-right border-b border-slate-50 dark:border-slate-700/50 whitespace-nowrap">
                                     <div className="flex items-center justify-end gap-4">
                                         <button 
                                             type="button"
