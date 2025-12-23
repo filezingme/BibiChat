@@ -47,6 +47,7 @@ const App: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const notifRef = useRef<HTMLDivElement>(null);
+  const notifButtonRef = useRef<HTMLButtonElement>(null); // Added ref for portal positioning
   const [visibleNotifCount, setVisibleNotifCount] = useState(5);
   
   // Unread Direct Messages Count
@@ -184,10 +185,7 @@ const App: React.FC = () => {
     }
 
     const handleClickOutside = (event: MouseEvent) => {
-      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
-        setShowNotifications(false);
-        setSelectedNotification(null);
-      }
+      // Logic for outside click is now handled by Portals backdrop
       if (profileRef.current && !profileRef.current.contains(event.target as Node) && profileButtonRef.current && !profileButtonRef.current.contains(event.target as Node)) {
         setIsProfileOpen(false);
       }
@@ -357,6 +355,18 @@ const App: React.FC = () => {
       return { top: 0, right: 0 };
   };
 
+  // Calculate position for Notification Dropdown Portal
+  const getNotifDropdownStyle = () => {
+      if (notifButtonRef.current) {
+          const rect = notifButtonRef.current.getBoundingClientRect();
+          return {
+              top: rect.bottom + 12 + window.scrollY,
+              right: window.innerWidth - rect.right, // align right edge
+          };
+      }
+      return { top: 60, right: 10 };
+  };
+
   if (!isLoggedIn) {
     if (publicView === 'terms') return <TermsPage onNavigate={setPublicView} />;
     if (publicView === 'privacy') return <PrivacyPage onNavigate={setPublicView} />;
@@ -443,8 +453,9 @@ const App: React.FC = () => {
                 <i className={`fa-solid ${darkMode ? 'fa-sun' : 'fa-moon'} text-lg lg:text-xl`}></i>
              </button>
              
-             <div className="relative" ref={notifRef}>
+             <div className="relative">
                <button 
+                ref={notifButtonRef}
                 onClick={toggleNotifications}
                 className={`w-10 h-10 lg:w-12 lg:h-12 bg-white/60 dark:bg-slate-800 rounded-full shadow-sm flex items-center justify-center transition-all relative active:scale-95 group border border-white dark:border-slate-700 backdrop-blur-sm ${showNotifications ? 'bg-pink-100 text-pink-500 dark:bg-pink-900/30' : 'text-slate-500 dark:text-slate-300 hover:text-pink-500'}`}
                >
@@ -456,8 +467,15 @@ const App: React.FC = () => {
                  )}
                </button>
 
-               {showNotifications && (
-                 <div className="absolute right-0 mt-3 w-[280px] sm:w-[320px] bg-white/90 dark:bg-slate-900/95 backdrop-blur-2xl rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border-[3px] border-white/60 dark:border-slate-700 overflow-hidden animate-in fade-in zoom-in-95 duration-200 z-50 ring-4 ring-pink-100/50 dark:ring-pink-900/20 origin-top-right">
+               {/* Notification Dropdown via Portal - Fix for z-index issues on mobile */}
+               {showNotifications && createPortal(
+                 <>
+                 <div className="fixed inset-0 z-[9999] bg-transparent" onClick={() => setShowNotifications(false)}></div>
+                 <div 
+                    className="fixed w-[280px] sm:w-[320px] bg-white/90 dark:bg-slate-900/95 backdrop-blur-2xl rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border-[3px] border-white/60 dark:border-slate-700 overflow-hidden animate-in fade-in zoom-in-95 duration-200 z-[10000] ring-4 ring-pink-100/50 dark:ring-pink-900/20 origin-top-right"
+                    style={getNotifDropdownStyle()}
+                    ref={notifRef}
+                 >
                     <div className="px-5 py-3 border-b border-slate-100/50 dark:border-slate-700/50 flex justify-between items-center bg-gradient-to-r from-white/50 to-pink-50/50 dark:from-slate-800/50 dark:to-slate-800/30 relative z-20">
                        <h3 className="font-black text-base text-slate-800 dark:text-white flex items-center gap-2">
                           <span className="w-7 h-7 bg-pink-500 text-white rounded-lg flex items-center justify-center shadow-lg shadow-pink-200 dark:shadow-none text-xs"><i className="fa-solid fa-bell"></i></span>
@@ -531,6 +549,8 @@ const App: React.FC = () => {
                         </div>
                     </div>
                  </div>
+                 </>,
+                 document.body
                )}
              </div>
 

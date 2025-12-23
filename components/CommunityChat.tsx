@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { apiService } from '../services/apiService';
@@ -246,9 +245,14 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [replyingTo, setReplyingTo] = useState<DirectMessage | null>(null);
   
-  // Image State
-  const [pendingImage, setPendingImage] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
+  // Multi-Image State
+  const [pendingImages, setPendingImages] = useState<Array<{
+      id: string;
+      localUrl: string;
+      serverUrl?: string;
+      uploading: boolean;
+      file: File;
+  }>>([]);
   
   // Trạng thái trigger Lightbox: lưu URL ảnh đang xem
   const [expandedImage, setExpandedImage] = useState<string | null>(null); 
@@ -369,7 +373,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
     if (scrollRef.current) {
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages.length, activeChatUser, replyingTo, pendingImage]); // Scroll on reply change too to ensure view
+  }, [messages.length, activeChatUser, replyingTo, pendingImages.length]); // Scroll on image add too
 
   const loadConversations = async () => {
     try {
@@ -416,24 +420,31 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   const handleSendMessage = async (content: string, type: 'text' | 'sticker' | 'image' = 'text') => {
       if (!activeChatUser) return;
 
-      // Logic to handle both image and text sending
-      // 1. Send Image first if pending
-      if (pendingImage && !isUploading) {
-          await executeSend(pendingImage, 'image');
-          setPendingImage(null);
-      }
-
-      // 2. Send Text if content exists (and we didn't just pass the image content in)
+      // 1. Send Text if content exists (and we didn't just pass the image content in as 'text')
       if (type === 'text' && content.trim()) {
           await executeSend(content, 'text');
       } else if (type === 'sticker') {
           await executeSend(content, 'sticker');
       }
+
+      // 2. Send Pending Images
+      if (pendingImages.length > 0) {
+          // Filter successfully uploaded images
+          const readyImages = pendingImages.filter(img => img.serverUrl && !img.uploading);
+          
+          for (const img of readyImages) {
+              if (img.serverUrl) {
+                  await executeSend(img.serverUrl, 'image');
+              }
+          }
+          // Clear all pending images after attempting to send
+          setPendingImages([]);
+      }
   };
 
   const executeSend = async (msgContent: string, msgType: 'text' | 'sticker' | 'image') => {
       if (!activeChatUser) return;
-      const tempId = Date.now().toString();
+      const tempId = Date.now().toString() + Math.random().toString(); // Ensure unique
       const replyId = replyingTo ? replyingTo.id : undefined;
 
       const tempMsg: DirectMessage = {
@@ -546,51 +557,62 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       }
   };
 
-  // Centralized upload handler
-  const handleFileUpload = async (file: File) => {
-      if (!file) return;
-      
-      // Temporary local preview
-      const localPreviewUrl = URL.createObjectURL(file);
-      setPendingImage(localPreviewUrl);
-      setIsUploading(true);
-
-      try {
-          const result = await apiService.uploadFile(file);
-          setPendingImage(result.url); // Replace blob with real URL
-      } catch (e) {
-          console.error("Upload failed", e);
-          alert("Tải ảnh thất bại. Vui lòng thử lại.");
-          setPendingImage(null);
-      } finally {
-          setIsUploading(false);
-      }
-  };
-
-  // Image Handling: Paste
-  const handlePaste = async (e: React.ClipboardEvent) => {
-      const items = e.clipboardData.items;
-      for (let i = 0; i < items.length; i++) {
-          if (items[i].type.indexOf('image') !== -1) {
-              const blob = items[i].getAsFile();
-              if (blob) {
-                  await handleFileUpload(blob);
-              }
-              e.preventDefault();
-          }
-      }
-  };
-
-  // Image Handling: File Select
+  // Improved Image Handling: Process multiple files
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files && e.target.files[0]) {
-          await handleFileUpload(e.target.files[0]);
+      if (e.target.files && e.target.files.length > 0) {
+          const files = Array.from(e.target.files);
+          processFiles(files);
       }
       // Reset input so same file can be selected again
       if(fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Chuẩn bị dữ liệu cho Lightbox: Lấy toàn bộ ảnh trong cuộc hội thoại
+  const handlePaste = async (e: React.ClipboardEvent) => {
+      const items = e.clipboardData.items;
+      const files: File[] = [];
+      for (let i = 0; i < items.length; i++) {
+          if (items[i].type.indexOf('image') !== -1) {
+              const blob = items[i].getAsFile();
+              if (blob) files.push(blob);
+          }
+      }
+      if (files.length > 0) {
+          e.preventDefault();
+          processFiles(files);
+      }
+  };
+
+  const processFiles = (files: File[]) => {
+      const newImages = files.map(file => ({
+          id: Math.random().toString(36).substr(2, 9),
+          localUrl: URL.createObjectURL(file),
+          uploading: true,
+          file: file
+      }));
+
+      setPendingImages(prev => [...prev, ...newImages]);
+
+      // Trigger upload for each new image
+      newImages.forEach(async (img) => {
+          try {
+              const result = await apiService.uploadFile(img.file);
+              setPendingImages(prev => prev.map(p => 
+                  p.id === img.id ? { ...p, serverUrl: result.url, uploading: false } : p
+              ));
+          } catch (e) {
+              console.error("Upload failed", e);
+              // Mark as error or remove? Let's remove for simplicity or alert
+              setPendingImages(prev => prev.filter(p => p.id !== img.id));
+              alert(`Không thể tải ảnh ${img.file.name}`);
+          }
+      });
+  };
+
+  const removePendingImage = (id: string) => {
+      setPendingImages(prev => prev.filter(img => img.id !== id));
+  };
+
+  // Prepare images for lightbox
   const allImages = messages.filter(m => m.type === 'image');
   const imageUrls = allImages.map(m => m.content);
   // Tìm index của ảnh hiện tại đang được click
@@ -598,6 +620,9 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
   // Safe zone for padding (Admin does not need right padding for Widget Button)
   const inputPadding = user.role === 'master' ? '' : 'md:pr-28';
+
+  const isUploading = pendingImages.some(img => img.uploading);
+  const isSendingDisabled = (newMessage.trim() === '' && pendingImages.length === 0) || isUploading;
 
   return (
     <>
@@ -899,32 +924,51 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                            </div>
                        )}
 
-                       {/* Image Preview Banner */}
-                       {pendingImage && (
-                           <div className="px-4 py-3 bg-slate-50 dark:bg-slate-700/50 flex justify-between items-center border-b border-slate-100 dark:border-slate-600 animate-in slide-in-from-bottom-2 fade-in duration-200">
-                               <div className="flex items-center gap-3">
-                                   <div className="relative">
-                                      <img src={pendingImage} alt="Preview" className="w-12 h-12 object-cover rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm" />
-                                      {isUploading && (
-                                          <div className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center">
-                                              <i className="fa-solid fa-circle-notch animate-spin text-white text-xs"></i>
-                                          </div>
-                                      )}
-                                   </div>
-                                   <div className="flex flex-col">
-                                       <span className="font-bold text-xs text-indigo-500 flex items-center gap-1">
-                                           <i className="fa-solid fa-image"></i> Ảnh đã chọn
-                                       </span>
-                                       <span className="text-[10px] text-slate-400 font-bold">{isUploading ? 'Đang tải lên server...' : 'Sẵn sàng gửi'}</span>
-                                   </div>
+                       {/* Updated Image Preview Banner (Scrollable List) */}
+                       {pendingImages.length > 0 && (
+                           <div className="px-4 py-3 bg-slate-50 dark:bg-slate-700/50 flex flex-col gap-2 border-b border-slate-100 dark:border-slate-600 animate-in slide-in-from-bottom-2 fade-in duration-200">
+                               <div className="flex justify-between items-center">
+                                   <span className="font-bold text-xs text-indigo-500 flex items-center gap-1">
+                                       <i className="fa-solid fa-images"></i> {pendingImages.length} Ảnh đã chọn
+                                   </span>
+                                   <button 
+                                       onClick={() => setPendingImages([])} 
+                                       className="text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors"
+                                   >
+                                       Xóa tất cả
+                                   </button>
                                </div>
-                               <button 
-                                   onClick={() => setPendingImage(null)} 
-                                   className="w-6 h-6 rounded-full bg-white dark:bg-slate-600 hover:bg-rose-50 dark:hover:bg-rose-900/50 hover:text-rose-500 text-slate-400 flex items-center justify-center transition-colors shadow-sm"
-                                   disabled={isUploading}
-                               >
-                                   <i className="fa-solid fa-xmark text-xs"></i>
-                               </button>
+                               <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar-hover">
+                                   {pendingImages.map((img) => (
+                                       <div key={img.id} className="relative group shrink-0 w-16 h-16">
+                                           <img src={img.localUrl} alt="Preview" className="w-full h-full object-cover rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm" />
+                                           
+                                           {/* Loading Overlay */}
+                                           {img.uploading && (
+                                              <div className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center">
+                                                  <i className="fa-solid fa-circle-notch animate-spin text-white text-xs"></i>
+                                              </div>
+                                           )}
+
+                                           {/* Remove Button */}
+                                           <button 
+                                               onClick={() => removePendingImage(img.id)} 
+                                               className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity scale-90 hover:scale-110"
+                                               disabled={img.uploading}
+                                           >
+                                               <i className="fa-solid fa-xmark text-[10px]"></i>
+                                           </button>
+                                       </div>
+                                   ))}
+                                   
+                                   {/* Add more button */}
+                                   <button 
+                                       onClick={() => fileInputRef.current?.click()}
+                                       className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center text-slate-400 hover:border-indigo-400 hover:text-indigo-500 transition-colors shrink-0"
+                                   >
+                                       <i className="fa-solid fa-plus text-lg"></i>
+                                   </button>
+                               </div>
                            </div>
                        )}
 
@@ -973,6 +1017,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                {/* Image Button & Hidden Input */}
                                <input 
                                    type="file" 
+                                   multiple // Enable multiple files
                                    ref={fileInputRef} 
                                    className="hidden" 
                                    accept="image/*" 
@@ -1008,7 +1053,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
                                <button 
                                   onClick={() => handleSendMessage(newMessage, 'text')} 
-                                  disabled={(!newMessage.trim() && !pendingImage) || isUploading}
+                                  disabled={isSendingDisabled}
                                   className="shrink-0 w-12 h-10 md:w-14 md:h-12 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                                >
                                    {isUploading ? <i className="fa-solid fa-circle-notch animate-spin"></i> : <i className="fa-solid fa-paper-plane"></i>}
