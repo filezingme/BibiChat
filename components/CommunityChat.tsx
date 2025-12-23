@@ -36,8 +36,9 @@ const ONLINE_THRESHOLD = 5 * 60 * 1000;
 
 // === UTILS ===
 
+// Tối ưu hóa nén ảnh mạnh hơn
 const compressImage = async (file: File): Promise<File> => {
-    if (file.type === 'image/gif') return file;
+    if (file.type === 'image/gif') return file; // Giữ nguyên GIF
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -46,22 +47,26 @@ const compressImage = async (file: File): Promise<File> => {
             img.src = event.target?.result as string;
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const maxWidth = 1280;
+                const maxWidth = 1024; // Giảm xuống 1024px để nhẹ hơn
                 let width = img.width;
                 let height = img.height;
+                
                 if (width > maxWidth) {
                     height = (height * maxWidth) / width;
                     width = maxWidth;
                 }
+
                 canvas.width = width;
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx?.drawImage(img, 0, 0, width, height);
+                
+                // Nén JPEG chất lượng 0.6
                 canvas.toBlob((blob) => {
                     if (blob) {
                         resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() }));
                     } else reject(new Error('Compression failed'));
-                }, 'image/jpeg', 0.7);
+                }, 'image/jpeg', 0.6);
             };
             img.onerror = (err) => reject(err);
         };
@@ -97,6 +102,7 @@ const SafeImage: React.FC<{ src: string; alt: string; className?: string; onClic
     );
 };
 
+// Lightbox với hiệu ứng Slide mượt mà (Đã khôi phục)
 const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose: () => void; }> = ({ images, initialIndex, onClose }) => {
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -122,6 +128,8 @@ const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose:
         if (!isDragging || !touchStart.current) return;
         const dx = e.touches[0].clientX - touchStart.current.x;
         const dy = e.touches[0].clientY - touchStart.current.y;
+        
+        // Kéo dọc để đóng, kéo ngang để chuyển ảnh
         if (Math.abs(dy) > Math.abs(dx) * 1.5 && Math.abs(dy) > 10) setOffset({ x: 0, y: dy });
         else if (Math.abs(offset.y) < 10) setOffset({ x: dx, y: 0 });
     };
@@ -131,52 +139,81 @@ const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose:
         setIsAnimating(true);
         if (!touchStart.current) return;
         const { x, y } = offset;
+        
+        // Đóng nếu kéo dọc quá 150px
         if (Math.abs(y) > 150) { onClose(); return; }
+        
+        // Chuyển ảnh nếu kéo ngang quá 25% màn hình
         if (Math.abs(x) > viewportWidth * 0.25 && y === 0) {
             if (x < 0 && currentIndex < images.length - 1) {
-                setOffset({ x: -viewportWidth - 20, y: 0 });
+                setOffset({ x: -viewportWidth - 20, y: 0 }); // Slide out left
                 setTimeout(() => { setIsAnimating(false); setCurrentIndex(c => c + 1); setOffset({x:0, y:0})}, 300);
                 return;
             } else if (x > 0 && currentIndex > 0) {
-                setOffset({ x: viewportWidth + 20, y: 0 });
+                setOffset({ x: viewportWidth + 20, y: 0 }); // Slide out right
                 setTimeout(() => { setIsAnimating(false); setCurrentIndex(c => c - 1); setOffset({x:0, y:0})}, 300);
                 return;
             }
         }
+        // Reset về vị trí cũ
         setOffset({ x: 0, y: 0 });
         touchStart.current = null;
     };
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'ArrowLeft' && currentIndex > 0) setCurrentIndex(c => c - 1);
-            if (e.key === 'ArrowRight' && currentIndex < images.length - 1) setCurrentIndex(c => c + 1);
+            if (e.key === 'ArrowLeft' && currentIndex > 0) {
+                setIsAnimating(true);
+                setOffset({ x: viewportWidth, y: 0 });
+                setTimeout(() => { setIsAnimating(false); setCurrentIndex(c => c - 1); setOffset({x:0, y:0})}, 300);
+            }
+            if (e.key === 'ArrowRight' && currentIndex < images.length - 1) {
+                setIsAnimating(true);
+                setOffset({ x: -viewportWidth, y: 0 });
+                setTimeout(() => { setIsAnimating(false); setCurrentIndex(c => c + 1); setOffset({x:0, y:0})}, 300);
+            }
             if (e.key === 'Escape') onClose();
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [currentIndex, images.length]);
+    }, [currentIndex, images.length, viewportWidth]);
 
     const bgOpacity = Math.max(0, 1 - Math.abs(offset.y) / (window.innerHeight * 0.7));
     const scale = Math.max(0.7, 1 - Math.abs(offset.y) / 1000);
     const transition = isAnimating ? 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none';
+    const GAP = 20;
 
     return createPortal(
         <div 
             className="fixed inset-0 z-[9999] flex items-center justify-center touch-none overflow-hidden"
-            style={{ backgroundColor: `rgba(0, 0, 0, ${isDragging ? bgOpacity * 0.95 : 0.95})` }}
+            style={{ backgroundColor: `rgba(0, 0, 0, ${isDragging ? bgOpacity * 0.95 : 0.95})`, transition: isDragging ? 'none' : 'background-color 0.3s' }}
             onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} onClick={onClose}
         >
-            <button onClick={onClose} className="absolute top-6 right-6 z-50 w-10 h-10 flex items-center justify-center bg-white/10 rounded-full text-white"><i className="fa-solid fa-xmark"></i></button>
-            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 text-white font-bold text-xs bg-white/10 px-4 py-1.5 rounded-full">{currentIndex + 1} / {images.length}</div>
+            <button onClick={onClose} className="absolute top-6 right-6 z-50 w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-md"><i className="fa-solid fa-xmark"></i></button>
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 text-white font-bold text-xs bg-white/10 px-4 py-1.5 rounded-full backdrop-blur-md">{currentIndex + 1} / {images.length}</div>
             
-            {currentIndex > 0 && <button onClick={(e) => { e.stopPropagation(); setCurrentIndex(c => c - 1); }} className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 rounded-full items-center justify-center text-white z-50"><i className="fa-solid fa-chevron-left"></i></button>}
-            {currentIndex < images.length - 1 && <button onClick={(e) => { e.stopPropagation(); setCurrentIndex(c => c + 1); }} className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 rounded-full items-center justify-center text-white z-50"><i className="fa-solid fa-chevron-right"></i></button>}
+            {currentIndex > 0 && <button onClick={(e) => { e.stopPropagation(); setIsAnimating(true); setOffset({ x: viewportWidth, y: 0 }); setTimeout(() => { setIsAnimating(false); setCurrentIndex(c => c - 1); setOffset({x:0, y:0})}, 300); }} className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full items-center justify-center text-white z-50 backdrop-blur-md"><i className="fa-solid fa-chevron-left"></i></button>}
+            {currentIndex < images.length - 1 && <button onClick={(e) => { e.stopPropagation(); setIsAnimating(true); setOffset({ x: -viewportWidth, y: 0 }); setTimeout(() => { setIsAnimating(false); setCurrentIndex(c => c + 1); setOffset({x:0, y:0})}, 300); }} className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full items-center justify-center text-white z-50 backdrop-blur-md"><i className="fa-solid fa-chevron-right"></i></button>}
 
             <div className="relative w-full h-full" onClick={e => e.stopPropagation()}>
+                {/* Previous Image (Preload) */}
+                {currentIndex > 0 && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ transform: `translateX(${offset.x - viewportWidth - GAP}px) scale(${scale})`, transition }}>
+                        <img src={images[currentIndex - 1]} className="max-w-full max-h-full object-contain opacity-50" alt="Prev" draggable={false} />
+                    </div>
+                )}
+
+                {/* Current Image */}
                 <div className="absolute inset-0 flex items-center justify-center" style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`, transition }}>
                     <img src={images[currentIndex]} className="max-w-full max-h-full object-contain shadow-2xl select-none" draggable={false} alt="Current" />
                 </div>
+
+                {/* Next Image (Preload) */}
+                {currentIndex < images.length - 1 && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ transform: `translateX(${offset.x + viewportWidth + GAP}px) scale(${scale})`, transition }}>
+                        <img src={images[currentIndex + 1]} className="max-w-full max-h-full object-contain opacity-50" alt="Next" draggable={false} />
+                    </div>
+                )}
             </div>
         </div>, document.body
     );
@@ -304,7 +341,6 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   // --- UPLOAD LOGIC (SMART QUEUE) ---
   const MAX_CONCURRENT_UPLOADS = 3;
 
-  // Effect to process queue whenever pendingImages changes
   useEffect(() => {
       if (pendingImages.some(img => img.uploading && !img.serverUrl && !img.error) && !uploadQueueRunning) {
           processUploadQueue();
@@ -313,33 +349,22 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
   const processUploadQueue = async () => {
       setUploadQueueRunning(true);
-      
       const imagesToUpload = pendingImages.filter(img => img.uploading && !img.serverUrl && !img.error);
-      
       if (imagesToUpload.length === 0) {
           setUploadQueueRunning(false);
           return;
       }
-
-      // Process in chunks
       const chunk = imagesToUpload.slice(0, MAX_CONCURRENT_UPLOADS);
-      
       await Promise.all(chunk.map(async (img) => {
           try {
               const compressed = await compressImage(img.file);
               const result = await apiService.uploadFile(compressed);
-              
-              setPendingImages(prev => prev.map(p => 
-                  p.id === img.id ? { ...p, serverUrl: result.url, uploading: false } : p
-              ));
+              setPendingImages(prev => prev.map(p => p.id === img.id ? { ...p, serverUrl: result.url, uploading: false } : p));
           } catch (e) {
               console.error("Upload failed", e);
-              setPendingImages(prev => prev.map(p => 
-                  p.id === img.id ? { ...p, uploading: false, error: true } : p
-              ));
+              setPendingImages(prev => prev.map(p => p.id === img.id ? { ...p, uploading: false, error: true } : p));
           }
       }));
-
       setUploadQueueRunning(false);
   };
 
@@ -368,17 +393,20 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       if (type === 'text' && content.trim()) await executeSend(content, 'text');
       else if (type === 'sticker') await executeSend(content, 'sticker');
 
-      // Send uploaded images as a batch
+      // Gửi ảnh đã upload
       const readyImages = pendingImages.filter(img => !img.uploading && img.serverUrl);
       
       if (readyImages.length > 0) {
           const batchGroupId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-          
+          // Gửi từng ảnh một, nhưng không cập nhật giao diện ngay lập tức để tránh duplicate
           for (const img of readyImages) {
               if (img.serverUrl) {
-                  await executeSend(img.serverUrl, 'image', undefined, batchGroupId);
+                  // Gọi API gửi, nhưng KHÔNG gọi setMessages (tránh optimistic duplicate)
+                  // Socket sẽ trả về tin nhắn và tự động render
+                  await apiService.sendDirectMessage(user.id, activeChatUser.id, img.serverUrl, 'image', undefined, batchGroupId);
               }
           }
+          // Xóa ảnh đã gửi khỏi danh sách chờ
           const sentIds = new Set(readyImages.map(i => i.id));
           setPendingImages(prev => prev.filter(img => !sentIds.has(img.id)));
       }
@@ -386,30 +414,39 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
   const executeSend = async (msgContent: string, msgType: 'text' | 'sticker' | 'image', replyId?: string, groupId?: string) => {
       if (!activeChatUser) return;
-      const tempId = Date.now().toString() + Math.random().toString();
-      const actualReplyId = replyId || (replyingTo ? replyingTo.id : undefined);
-
-      const tempMsg: DirectMessage = {
-          id: tempId,
-          senderId: user.id,
-          receiverId: activeChatUser.id,
-          content: msgContent,
-          timestamp: Date.now(),
-          isRead: false,
-          type: msgType,
-          replyToId: actualReplyId,
-          replyToContent: replyingTo ? (replyingTo.type === 'sticker' ? '[Sticker]' : (replyingTo.type === 'image' ? '[Hình ảnh]' : replyingTo.content)) : undefined,
-          reactions: [],
-          groupId: groupId
-      };
       
-      setMessages(prev => [...prev, tempMsg]);
+      // Chỉ cập nhật Optimistic UI cho Text và Sticker
+      // Ảnh sẽ được cập nhật thông qua Socket để tránh duplicate
+      if (msgType !== 'image') {
+          const tempId = Date.now().toString() + Math.random().toString();
+          const actualReplyId = replyId || (replyingTo ? replyingTo.id : undefined);
+
+          const tempMsg: DirectMessage = {
+              id: tempId,
+              senderId: user.id,
+              receiverId: activeChatUser.id,
+              content: msgContent,
+              timestamp: Date.now(),
+              isRead: false,
+              type: msgType,
+              replyToId: actualReplyId,
+              replyToContent: replyingTo ? (replyingTo.type === 'sticker' ? '[Sticker]' : (replyingTo.type === 'image' ? '[Hình ảnh]' : replyingTo.content)) : undefined,
+              reactions: [],
+              groupId: groupId
+          };
+          
+          setMessages(prev => [...prev, tempMsg]);
+      }
+      
+      // Reset input
       setNewMessage('');
       setReplyingTo(null);
       setShowStickerPicker(false);
       setShowEmojiPicker(false);
 
       try {
+          // Gọi API (Server sẽ emit socket event trả về tin nhắn thật)
+          const actualReplyId = replyId || (replyingTo ? replyingTo.id : undefined);
           await apiService.sendDirectMessage(user.id, activeChatUser.id, msgContent, msgType, actualReplyId, groupId);
       } catch (e) {
           console.error("Failed to send", e);
@@ -428,6 +465,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
               if (currentGroup.length === 0) {
                   currentGroup.push(msg);
               } else {
+                  // Chỉ gom nhóm nếu cùng groupId chính xác
                   if (currentGroup[0].groupId === msg.groupId) {
                       currentGroup.push(msg);
                   } else {
@@ -442,6 +480,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                   }
               }
           } else {
+              // Nếu gặp tin nhắn không phải ảnh group, xả nhóm cũ
               if (currentGroup.length > 0) {
                   groups.push({
                       type: 'image-group',
@@ -455,6 +494,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
               groups.push(msg);
           }
       }
+      // Xả nhóm cuối cùng
       if (currentGroup.length > 0) {
           groups.push({
               type: 'image-group',
@@ -462,27 +502,56 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
               senderId: currentGroup[0].senderId,
               timestamp: currentGroup[currentGroup.length-1].timestamp,
               msgs: [...currentGroup]
-          });
+                  });
       }
       return groups;
   }, [messages]);
 
-  // --- BOILERPLATE & SIDE EFFECTS ---
+  // --- SOCKET LISTENERS ---
   useEffect(() => {
     loadConversations();
+    
+    // Khi nhận tin nhắn mới từ người khác
     socketService.on('direct_message', (msg: DirectMessage) => {
         if (activeChatUser && msg.senderId === activeChatUser.id) setMessages(prev => [...prev, msg]);
         loadConversations();
     });
+    
+    // Khi tin nhắn CỦA MÌNH được server xác nhận (gửi từ thiết bị này hoặc thiết bị khác)
     socketService.on('message_sent', (msg: DirectMessage) => {
          if (activeChatUser && msg.receiverId === activeChatUser.id) {
              setMessages(prev => {
+                 // Nếu là Text/Sticker -> Đã có Optimistic Update -> Bỏ qua (hoặc replace nếu cần ID thật)
+                 // Nếu là Image -> Chưa có Optimistic Update -> Thêm vào
+                 // Logic đơn giản: Kiểm tra xem ID này đã có chưa (để tránh duplicate từ các nguồn khác)
                  if(prev.find(m => m.id === msg.id)) return prev;
+                 
+                 // Với Text, check xem có tin nhắn nào nội dung y hệt + timestamp gần đây không để de-duplicate?
+                 // Tạm thời chỉ áp dụng logic chặt chẽ cho Image (vì Text đã handle optimistic riêng)
+                 if (msg.type === 'image') {
+                     return [...prev, msg];
+                 }
+                 
+                 // Với Text, nếu optimistic update đã chạy, ta có tempId. 
+                 // Socket trả về realId. 
+                 // Vì UI không cần chính xác realId ngay lập tức, ta có thể bỏ qua socket event cho Text 
+                 // TRỪ KHI ta muốn replace tempId bằng realId (phức tạp).
+                 // Hiện tại code cũ đang return prev nếu tìm thấy ID. 
+                 // Do ta dùng tempId cho text, nên find(id) sẽ false -> Add thêm -> Duplicate Text.
+                 // FIX: Lọc duplicate text dựa trên content + timestamp gần nhau.
+                 const isDuplicateText = prev.some(m => 
+                     m.content === msg.content && 
+                     m.type === msg.type && 
+                     Math.abs(m.timestamp - msg.timestamp) < 2000
+                 );
+                 if(isDuplicateText) return prev;
+
                  return [...prev, msg];
              });
          }
          loadConversations();
     });
+
     socketService.on('message_reaction', (data: { messageId: string, reactions: any[] }) => {
         setMessages(prev => prev.map(m => m.id === data.messageId ? { ...m, reactions: data.reactions } : m));
     });
@@ -510,6 +579,28 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages.length, activeChatUser, replyingTo, pendingImages.length]);
+
+  const handleReaction = async (messageId: string, emoji: string) => {
+      setMessages(prev => prev.map(m => {
+          if (m.id === messageId) {
+              const currentReactions = m.reactions || [];
+              const existingIndex = currentReactions.findIndex(r => r.userId === user.id);
+              let newReactions = [...currentReactions];
+              if (existingIndex > -1) {
+                  if (currentReactions[existingIndex].emoji === emoji) newReactions.splice(existingIndex, 1);
+                  else newReactions[existingIndex].emoji = emoji;
+              } else newReactions.push({ userId: user.id, emoji });
+              return { ...m, reactions: newReactions };
+          }
+          return m;
+      }));
+      try { await apiService.reactToMessage(messageId, user.id, emoji); } catch (e) {}
+  };
+
+  const handleReplyClick = (msg: DirectMessage) => {
+      setReplyingTo(msg);
+      if (inputRef.current) inputRef.current.focus();
+  };
 
   return (
     <>
@@ -608,6 +699,27 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                            return (
                                <div key={msg.id} className={`flex w-full group ${isMe ? 'justify-end' : 'justify-start'} ${msg.reactions && msg.reactions.length > 0 ? 'mb-5' : 'mb-1'}`}>
                                    <div className={`relative max-w-[70%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                                       {/* Hover Toolbar */}
+                                       <div className={`absolute -top-8 ${isMe ? 'right-0' : 'left-0'} hidden group-hover:flex items-center gap-1 bg-white dark:bg-slate-800 p-1 rounded-full shadow-lg border border-slate-100 dark:border-slate-700 z-20 animate-in fade-in zoom-in duration-200`}>
+                                            <button onClick={() => handleReplyClick(msg)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors" title="Trả lời">
+                                                <i className="fa-solid fa-reply text-xs"></i>
+                                            </button>
+                                            <div className="w-[1px] h-4 bg-slate-200 dark:bg-slate-600 mx-1"></div>
+                                            {REACTIONS.map(emoji => (
+                                                <button key={emoji} onClick={() => handleReaction(msg.id, emoji)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-sm transition-transform hover:scale-125">
+                                                    {emoji}
+                                                </button>
+                                            ))}
+                                       </div>
+
+                                       {/* Reply */}
+                                       {msg.replyToId && (
+                                           <div className={`text-[10px] text-slate-500 mb-1 px-2 flex items-center gap-1 ${isMe ? 'flex-row-reverse' : ''}`}>
+                                               <i className="fa-solid fa-reply fa-flip-vertical text-slate-400"></i> 
+                                               <span className="bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded-lg opacity-80 truncate max-w-[150px]">{msg.replyToContent || 'Tin nhắn đã xóa'}</span>
+                                           </div>
+                                       )}
+
                                        {msg.type === 'sticker' ? (
                                            <div className="relative inline-block group hover:scale-105 transition-transform"><img src={msg.content} alt="Sticker" className="w-32 h-32 object-contain" /></div>
                                        ) : msg.type === 'image' ? (
@@ -641,6 +753,29 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
                    {/* Footer */}
                    <div className="bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700 relative z-20">
+                       {/* Reply Banner */}
+                       {replyingTo && (
+                           <div className="px-4 py-3 bg-slate-50 dark:bg-slate-700/50 flex justify-between items-center border-b border-slate-100 dark:border-slate-600 animate-in slide-in-from-bottom-2 fade-in duration-200">
+                               <div className="flex items-center gap-3 truncate">
+                                   <div className="w-1 h-8 bg-indigo-500 rounded-full shrink-0"></div>
+                                   <div className="flex flex-col truncate">
+                                       <span className="font-bold text-xs text-indigo-500 flex items-center gap-1">
+                                           <i className="fa-solid fa-reply fa-flip-vertical"></i> Đang trả lời
+                                       </span>
+                                       <span className="text-xs text-slate-500 dark:text-slate-300 truncate max-w-[200px] font-medium">
+                                           {replyingTo.type === 'sticker' ? 'Đã gửi một nhãn dán' : (replyingTo.type === 'image' ? 'Đã gửi một hình ảnh' : replyingTo.content)}
+                                       </span>
+                                   </div>
+                               </div>
+                               <button 
+                                   onClick={() => setReplyingTo(null)} 
+                                   className="w-6 h-6 rounded-full bg-white dark:bg-slate-600 hover:bg-rose-50 dark:hover:bg-rose-900/50 hover:text-rose-500 text-slate-400 flex items-center justify-center transition-colors shadow-sm"
+                               >
+                                   <i className="fa-solid fa-xmark text-xs"></i>
+                               </button>
+                           </div>
+                       )}
+
                        {pendingImages.length > 0 && (
                            <div className="px-4 py-3 bg-slate-50 dark:bg-slate-700/50 flex flex-col gap-2 border-b border-slate-100 dark:border-slate-600">
                                <div className="flex justify-between items-center"><span className="font-bold text-xs text-indigo-500"><i className="fa-solid fa-images"></i> {pendingImages.length} Ảnh</span><button onClick={() => setPendingImages([])} className="text-xs font-bold text-slate-400 hover:text-rose-500">Xóa hết</button></div>
