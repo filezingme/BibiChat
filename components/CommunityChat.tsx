@@ -384,8 +384,8 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       file: File;
   }>>([]);
   
-  // Trạng thái trigger Lightbox: lưu URL ảnh đang xem
-  const [expandedImage, setExpandedImage] = useState<string | null>(null); 
+  // Lightbox State: Stores the list of images to show and the starting index
+  const [lightboxData, setLightboxData] = useState<{ images: string[], index: number } | null>(null);
 
   // Refs for Click Outside
   const emojiPickerRef = useRef<HTMLDivElement>(null);
@@ -655,7 +655,8 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       // 2. Send Pending Images with Batch Grouping
       if (pendingImages.length > 0) {
           // Filter successfully uploaded images
-          const readyImages = pendingImages.filter(img => !img.uploading); 
+          const readyImages = pendingImages.filter(img => !img.uploading && img.serverUrl); 
+          const failedImages = pendingImages.filter(img => !img.uploading && !img.serverUrl);
           
           if (readyImages.length > 0) {
               // Create a unique groupId for this batch
@@ -669,9 +670,9 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                       await executeSend(img.serverUrl, 'image', undefined, batchGroupId);
                   }
               }
+              // Only remove successful images. Keep failed ones.
+              setPendingImages(failedImages);
           }
-          // Clear all pending images after attempting to send
-          setPendingImages([]);
       }
   };
 
@@ -851,17 +852,24 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       setPendingImages(prev => prev.filter(img => img.id !== id));
   };
 
-  // Prepare images for lightbox
-  const allImages = messages.filter(m => m.type === 'image');
-  const imageUrls = allImages.map(m => m.content);
-  // Tìm index của ảnh hiện tại đang được click
-  const initialIndex = expandedImage ? imageUrls.indexOf(expandedImage) : -1;
-
   // Safe zone for padding (Admin does not need right padding for Widget Button)
   const inputPadding = user.role === 'master' ? '' : 'md:pr-28';
 
   const isUploading = pendingImages.some(img => img.uploading);
   const isSendingDisabled = (newMessage.trim() === '' && pendingImages.length === 0) || isUploading;
+
+  // New: Handle opening lightbox for a specific group or single image
+  const openLightbox = (groupImages: string[], index: number = 0) => {
+      setLightboxData({ images: groupImages, index });
+  };
+
+  // Horizontal scroll for image preview
+  const handlePreviewWheel = (e: React.WheelEvent) => {
+      if (e.deltaY !== 0) {
+          e.currentTarget.scrollLeft += e.deltaY;
+          e.preventDefault();
+      }
+  };
 
   return (
     <>
@@ -1021,6 +1029,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                const group = item as { type: 'image-group'; id: string; senderId: string; timestamp: number; msgs: DirectMessage[] };
                                const images = group.msgs;
                                const count = images.length;
+                               const groupImageUrls = images.map(img => img.content); // Pre-calculate for lightbox
                                
                                return (
                                    <div key={group.id} className={`flex w-full group ${isMe ? 'justify-end' : 'justify-start'} mb-1`}>
@@ -1034,7 +1043,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                                    else spanClass = 'aspect-square';
 
                                                    return (
-                                                       <div key={img.id} className={`relative cursor-pointer group/img ${spanClass}`} onClick={() => setExpandedImage(img.content)}>
+                                                       <div key={img.id} className={`relative cursor-pointer group/img ${spanClass}`} onClick={() => openLightbox(groupImageUrls, idx)}>
                                                            <SafeImage src={img.content} alt="img" className="w-full h-full object-cover hover:opacity-90 transition-opacity" />
                                                            {isOverlay && (
                                                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-bold text-xl backdrop-blur-[2px]">
@@ -1103,7 +1112,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                                 </div>
                                            </div>
                                        ) : msg.type === 'image' ? (
-                                            <div className="relative inline-block group cursor-pointer" onClick={() => setExpandedImage(msg.content)}>
+                                            <div className="relative inline-block group cursor-pointer" onClick={() => openLightbox([msg.content], 0)}>
                                                 <SafeImage src={msg.content} alt="Image" className="w-64 h-auto rounded-2xl border-2 border-slate-200 dark:border-slate-700 hover:opacity-90 transition-opacity" />
                                                 <div className={`absolute bottom-2 right-2 bg-black/40 backdrop-blur-sm text-white px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none`}>
                                                     {new Date(msg.timestamp).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}
@@ -1206,7 +1215,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                            </div>
                        )}
 
-                       {/* Updated Image Preview Banner (Scrollable List) */}
+                       {/* Updated Image Preview Banner (Scrollable List with Wheel Support) */}
                        {pendingImages.length > 0 && (
                            <div className="px-4 py-3 bg-slate-50 dark:bg-slate-700/50 flex flex-col gap-2 border-b border-slate-100 dark:border-slate-600 animate-in slide-in-from-bottom-2 fade-in duration-200">
                                <div className="flex justify-between items-center">
@@ -1220,10 +1229,13 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                        Xóa tất cả
                                    </button>
                                </div>
-                               <div className="flex gap-3 overflow-x-auto pb-2 pt-2 custom-scrollbar-hover px-1 scroll-smooth snap-x">
+                               <div 
+                                   className="flex gap-3 overflow-x-auto pb-2 pt-2 custom-scrollbar-hover px-1 scroll-smooth snap-x"
+                                   onWheel={handlePreviewWheel}
+                               >
                                    {pendingImages.map((img) => (
                                        <div key={img.id} className="relative group shrink-0 w-20 h-20 snap-start">
-                                           <img src={img.localUrl} alt="Preview" className="w-full h-full object-cover rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm" />
+                                           <img src={img.localUrl} alt="Preview" className={`w-full h-full object-cover rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm ${!img.uploading && !img.serverUrl ? 'border-rose-500 opacity-50 grayscale' : ''}`} />
                                            
                                            {/* Loading Overlay */}
                                            {img.uploading && (
@@ -1231,12 +1243,18 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                                   <i className="fa-solid fa-circle-notch animate-spin text-white text-xs"></i>
                                               </div>
                                            )}
+                                           
+                                           {/* Error Indication */}
+                                           {!img.uploading && !img.serverUrl && (
+                                               <div className="absolute inset-0 flex items-center justify-center">
+                                                   <i className="fa-solid fa-triangle-exclamation text-rose-500 text-xl drop-shadow-sm"></i>
+                                               </div>
+                                           )}
 
                                            {/* Remove Button - Fixed Clipping & Mobile Hover Issue */}
                                            <button 
                                                onClick={() => removePendingImage(img.id)} 
                                                className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-sm hover:scale-110 transition-transform z-10"
-                                               // disabled={img.uploading}
                                            >
                                                <i className="fa-solid fa-xmark text-[10px]"></i>
                                            </button>
@@ -1356,11 +1374,11 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
        </div>
     </div>
 
-    {expandedImage && initialIndex !== -1 && (
+    {lightboxData && (
         <ImageLightbox 
-            images={imageUrls}
-            initialIndex={initialIndex}
-            onClose={() => setExpandedImage(null)}
+            images={lightboxData.images}
+            initialIndex={lightboxData.index}
+            onClose={() => setLightboxData(null)}
         />
     )}
     </>
