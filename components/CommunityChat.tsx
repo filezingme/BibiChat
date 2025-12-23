@@ -76,8 +76,8 @@ const compressImage = async (file: File): Promise<File> => {
 
 // === COMPONENTS ===
 
-// SafeImage với cơ chế Retry thông minh
-const SafeImage: React.FC<{ src: string; alt: string; className?: string; onClick?: () => void; }> = ({ src, alt, className, onClick }) => {
+// SafeImage với cơ chế Retry thông minh và Callback khi load xong
+const SafeImage: React.FC<{ src: string; alt: string; className?: string; onClick?: () => void; onImageLoaded?: () => void }> = ({ src, alt, className, onClick, onImageLoaded }) => {
     const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
     const [retryCount, setRetryCount] = useState(0);
     
@@ -98,6 +98,11 @@ const SafeImage: React.FC<{ src: string; alt: string; className?: string; onClic
         } else {
             setStatus('error');
         }
+    };
+
+    const handleLoad = () => {
+        setStatus('loaded');
+        if (onImageLoaded) onImageLoaded();
     };
 
     // Thêm timestamp vào src để force reload nếu đang retry
@@ -122,7 +127,7 @@ const SafeImage: React.FC<{ src: string; alt: string; className?: string; onClic
                 loading="lazy"
                 decoding="async"
                 className={`w-full h-full object-cover transition-opacity duration-300 ${status === 'loaded' ? 'opacity-100' : 'opacity-0'}`} 
-                onLoad={() => setStatus('loaded')} 
+                onLoad={handleLoad} 
                 onError={handleError} 
                 draggable={false}
             />
@@ -202,14 +207,10 @@ const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose:
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [currentIndex, images.length, viewportWidth]);
 
-    // CHỈ thay đổi opacity nền khi kéo dọc (để đóng), KHÔNG đổi khi chuyển ảnh ngang
     const bgOpacity = Math.max(0, 1 - Math.abs(offset.y) / (window.innerHeight * 0.7));
-    
-    // Scale chỉ áp dụng khi đóng, không áp dụng khi slide ngang để mượt mà
     const scale = offset.y !== 0 ? Math.max(0.7, 1 - Math.abs(offset.y) / 1000) : 1;
-    
     const transition = isAnimating ? 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none';
-    const GAP = 40; // Tăng khoảng cách giữa các ảnh
+    const GAP = 40; 
 
     return createPortal(
         <div 
@@ -604,20 +605,32 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   }, [activeChatUser]);
 
   // Scroll to bottom on updates with slight delay to ensure rendering
-  useEffect(() => {
-    const scrollToBottom = () => {
+  const scrollToBottom = () => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
-    };
-    
+  };
+
+  useEffect(() => {
     // Immediate scroll
     scrollToBottom();
-    
-    // Delayed scroll for image loading or layout shifts
+    // Delayed scroll for safety
     const timer = setTimeout(scrollToBottom, 100);
     return () => clearTimeout(timer);
   }, [messages.length, activeChatUser, replyingTo, pendingImages.length]);
+
+  // Handle auto-scroll when image loads
+  const handleImageLoad = () => {
+      if (scrollRef.current) {
+          const { scrollHeight, scrollTop, clientHeight } = scrollRef.current;
+          // Nếu người dùng đang ở gần cuối (khoảng 800px) thì tự động cuộn xuống tiếp khi ảnh bung ra
+          // Hoặc nếu tin nhắn ít (mới mở chat) cũng cuộn
+          const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+          if (distanceFromBottom < 800 || scrollHeight < 1500) {
+              scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+          }
+      }
+  };
 
   const handleReaction = async (messageId: string, emoji: string) => {
       setMessages(prev => prev.map(m => {
@@ -718,7 +731,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
                                                    return (
                                                        <div key={img.id} className={`relative cursor-pointer group/img overflow-hidden ${spanClass}`} onClick={() => openLightbox(groupImageUrls, idx)}>
-                                                           <SafeImage src={img.content} alt="img" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                                                           <SafeImage onImageLoaded={handleImageLoad} src={img.content} alt="img" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
                                                            {isOverlay && (
                                                                <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-xl backdrop-blur-[2px] pointer-events-none">
                                                                    +{count - 3}
@@ -764,7 +777,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                            <div className="relative inline-block group hover:scale-105 transition-transform"><img src={msg.content} alt="Sticker" className="w-32 h-32 object-contain" /></div>
                                        ) : msg.type === 'image' ? (
                                             <div className="relative inline-block group cursor-pointer" onClick={() => openLightbox([msg.content], 0)}>
-                                                <SafeImage src={msg.content} alt="Image" className="w-64 h-auto rounded-2xl border-2 border-slate-200 dark:border-slate-700 hover:opacity-90 transition-opacity" />
+                                                <SafeImage onImageLoaded={handleImageLoad} src={msg.content} alt="Image" className="w-64 h-auto rounded-2xl border-2 border-slate-200 dark:border-slate-700 hover:opacity-90 transition-opacity" />
                                             </div>
                                        ) : isEmojiOnly(msg.content) ? (
                                            <div className={`px-2 ${isMe ? 'text-right' : 'text-left'} text-5xl`}>{msg.content}</div>
