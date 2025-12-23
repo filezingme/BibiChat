@@ -83,10 +83,10 @@ const Dashboard: React.FC<Props> = ({ user, initialSelectedUser = 'all' }) => {
   // Helper text for period
   const getPeriodLabel = () => {
       switch(period) {
-          case 'hour': return '24 giờ qua';
-          case 'day': return '30 ngày qua';
-          case 'week': return '3 tháng qua';
-          case 'month': return '1 năm qua';
+          case 'hour': return '60 phút qua';
+          case 'day': return '24 giờ qua';
+          case 'week': return '7 ngày qua';
+          case 'month': return '30 ngày qua';
           default: return '';
       }
   };

@@ -378,10 +378,11 @@ export const apiService = {
         const now = Date.now();
         let startTime = 0;
         
-        if (period === 'hour') startTime = now - 24 * 60 * 60 * 1000;
-        else if (period === 'day') startTime = now - 30 * 24 * 60 * 60 * 1000;
-        else if (period === 'week') startTime = now - 90 * 24 * 60 * 60 * 1000;
-        else startTime = now - 365 * 24 * 60 * 60 * 1000;
+        // Updated logic based on specific durations
+        if (period === 'hour') startTime = now - 60 * 60 * 1000; // 60 minutes
+        else if (period === 'day') startTime = now - 24 * 60 * 60 * 1000; // 24 hours
+        else if (period === 'week') startTime = now - 7 * 24 * 60 * 60 * 1000; // 7 days
+        else startTime = now - 30 * 24 * 60 * 60 * 1000; // 30 days
 
         return leads.filter(l => l.createdAt >= startTime).length;
       } catch (e) {
@@ -580,10 +581,12 @@ export const apiService = {
           
           const now = Date.now();
           let startTime = 0;
-          if (period === 'hour') startTime = now - 24 * 60 * 60 * 1000; // Last 24h
-          else if (period === 'day') startTime = now - 30 * 24 * 60 * 60 * 1000; // Last 30d
-          else if (period === 'week') startTime = now - 90 * 24 * 60 * 60 * 1000; // Last 3 months
-          else startTime = now - 365 * 24 * 60 * 60 * 1000; // Last year
+          
+          // Updated logic based on user request
+          if (period === 'hour') startTime = now - 60 * 60 * 1000; // 60 minutes
+          else if (period === 'day') startTime = now - 24 * 60 * 60 * 1000; // 24 hours
+          else if (period === 'week') startTime = now - 7 * 24 * 60 * 60 * 1000; // 7 days
+          else startTime = now - 30 * 24 * 60 * 60 * 1000; // 30 days
 
           const filteredLogs = logs.filter(l => l.timestamp >= startTime);
           
@@ -595,20 +598,31 @@ export const apiService = {
               let sortKey = 0;
 
               if (period === 'hour') {
+                  // Group by 5 minutes
+                  const minutes = Math.floor(date.getMinutes() / 5) * 5;
+                  const d = new Date(date);
+                  d.setMinutes(minutes, 0, 0);
+                  label = `${d.getHours().toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                  sortKey = d.getTime();
+              } else if (period === 'day') {
+                  // Group by hour
                   const h = date.getHours();
                   label = `${h.toString().padStart(2, '0')}:00`;
-                  sortKey = new Date(date.getFullYear(), date.getMonth(), date.getDate(), h).getTime();
-              } else if (period === 'day') {
-                  label = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-                  sortKey = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+                  const d = new Date(date);
+                  d.setMinutes(0, 0, 0);
+                  sortKey = d.getTime();
               } else if (period === 'week') {
-                   const startOfYear = new Date(date.getFullYear(), 0, 1);
-                   const week = Math.ceil((((date.getTime() - startOfYear.getTime()) / 86400000) + startOfYear.getDay() + 1) / 7);
-                   label = `W${week}`;
-                   sortKey = week;
+                   // Group by day
+                  label = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+                  const d = new Date(date);
+                  d.setHours(0, 0, 0, 0);
+                  sortKey = d.getTime();
               } else {
-                  label = `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
-                  sortKey = new Date(date.getFullYear(), date.getMonth(), 1).getTime();
+                  // Group by day for month view
+                  label = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+                  const d = new Date(date);
+                  d.setHours(0, 0, 0, 0);
+                  sortKey = d.getTime();
               }
               
               if (!groups[label]) {
