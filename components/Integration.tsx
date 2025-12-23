@@ -8,9 +8,8 @@ interface Props {
 const Integration: React.FC<Props> = ({ userId }) => {
   const [copied, setCopied] = useState(false);
   
-  // URL của Server Backend (Trong thực tế sẽ là domain thật: https://api.bibichat.io)
-  // Updated to 127.0.0.1 to avoid localhost lookup delay
-  const SERVER_URL = "http://127.0.0.1:3001";
+  // URL của Server Backend (Lấy từ biến môi trường hoặc fallback)
+  const SERVER_URL = process.env.SERVER_URL || "https://fuzzy-cosette-filezingme-org-64d51f5d.koyeb.app";
   
   // Break script tag to prevent parsing issues
   const embedCode = `<!-- BibiChat Widget Embed Code -->

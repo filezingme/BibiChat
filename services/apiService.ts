@@ -2,8 +2,8 @@
 import { GoogleGenAI } from "@google/genai";
 import { User, Document, WidgetSettings, ChatLog, UserRole, Notification, Lead, PluginConfig, DirectMessage, ConversationUser, Reaction } from "../types";
 
-// URL Backend - Cập nhật URL này nếu bạn deploy backend riêng
-const API_URL = 'https://fuzzy-cosette-filezingme-org-64d51f5d.koyeb.app';
+// URL Backend - Sử dụng biến môi trường hoặc fallback về Koyeb URL mặc định
+const API_URL = process.env.SERVER_URL || 'https://fuzzy-cosette-filezingme-org-64d51f5d.koyeb.app';
 const DB_KEY = 'omnichat_db_v1';
 
 const MASTER_USER: User = {
@@ -378,11 +378,10 @@ export const apiService = {
         const now = Date.now();
         let startTime = 0;
         
-        // Updated logic based on specific durations
-        if (period === 'hour') startTime = now - 60 * 60 * 1000; // 60 minutes
-        else if (period === 'day') startTime = now - 24 * 60 * 60 * 1000; // 24 hours
-        else if (period === 'week') startTime = now - 7 * 24 * 60 * 60 * 1000; // 7 days
-        else startTime = now - 30 * 24 * 60 * 60 * 1000; // 30 days
+        if (period === 'hour') startTime = now - 60 * 60 * 1000;
+        else if (period === 'day') startTime = now - 24 * 60 * 60 * 1000;
+        else if (period === 'week') startTime = now - 7 * 24 * 60 * 60 * 1000;
+        else startTime = now - 30 * 24 * 60 * 60 * 1000;
 
         return leads.filter(l => l.createdAt >= startTime).length;
       } catch (e) {
@@ -495,28 +494,23 @@ export const apiService = {
 
   // --- ANALYTICS & LOGS (PAGINATED CHAT - HYBRID ONLINE/OFFLINE) ---
   
-  // 1. Get List of Sessions (Paginated) with FULL Offline Support
   getChatSessionsPaginated: async (userId: string | 'all', page: number, limit: number, filterUserId: string = 'all'): Promise<{ data: any[], pagination: any }> => {
       try {
           const res = await fetch(`${API_URL}/api/chat-sessions/${userId}?page=${page}&limit=${limit}&filterUserId=${filterUserId}`);
           if(!res.ok) throw new Error("Lỗi tải danh sách chat");
           return await res.json();
       } catch (e) {
-          // Offline Fallback Logic: Replicate Server grouping locally
           const db = getLocalDB();
           let allLogs = db.chatLogs || [];
 
-          // Filter by Owner (similar to server)
           if (userId !== 'all') {
               allLogs = allLogs.filter((l: any) => l.userId === userId);
           } else {
-              // Admin view offline
               if (filterUserId !== 'all') {
                   allLogs = allLogs.filter((l: any) => l.userId === filterUserId);
               }
           }
 
-          // Grouping Logic
           const sessionsMap: Record<string, any> = {};
           allLogs.forEach((log: any) => {
               const sessId = log.customerSessionId || 'legacy_session';
@@ -554,14 +548,12 @@ export const apiService = {
       }
   },
 
-  // 2. Get Messages for a specific session (Lazy Load) with FULL Offline Support
   getChatMessages: async (userId: string | 'all', sessionId: string): Promise<ChatLog[]> => {
       try {
           const res = await fetch(`${API_URL}/api/chat-messages/${userId}/${sessionId}`);
           if(!res.ok) throw new Error("Lỗi tải tin nhắn");
           return await res.json();
       } catch (e) {
-          // Offline Fallback
           const db = getLocalDB();
           let logs = db.chatLogs || [];
           if (userId !== 'all' && userId !== 'admin') {
@@ -582,11 +574,10 @@ export const apiService = {
           const now = Date.now();
           let startTime = 0;
           
-          // Updated logic based on user request
-          if (period === 'hour') startTime = now - 60 * 60 * 1000; // 60 minutes
-          else if (period === 'day') startTime = now - 24 * 60 * 60 * 1000; // 24 hours
-          else if (period === 'week') startTime = now - 7 * 24 * 60 * 60 * 1000; // 7 days
-          else startTime = now - 30 * 24 * 60 * 60 * 1000; // 30 days
+          if (period === 'hour') startTime = now - 60 * 60 * 1000;
+          else if (period === 'day') startTime = now - 24 * 60 * 60 * 1000;
+          else if (period === 'week') startTime = now - 7 * 24 * 60 * 60 * 1000;
+          else startTime = now - 30 * 24 * 60 * 60 * 1000;
 
           const filteredLogs = logs.filter(l => l.timestamp >= startTime);
           
@@ -598,27 +589,23 @@ export const apiService = {
               let sortKey = 0;
 
               if (period === 'hour') {
-                  // Group by 5 minutes
                   const minutes = Math.floor(date.getMinutes() / 5) * 5;
                   const d = new Date(date);
                   d.setMinutes(minutes, 0, 0);
                   label = `${d.getHours().toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
                   sortKey = d.getTime();
               } else if (period === 'day') {
-                  // Group by hour
                   const h = date.getHours();
                   label = `${h.toString().padStart(2, '0')}:00`;
                   const d = new Date(date);
                   d.setMinutes(0, 0, 0);
                   sortKey = d.getTime();
               } else if (period === 'week') {
-                   // Group by day
                   label = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
                   const d = new Date(date);
                   d.setHours(0, 0, 0, 0);
                   sortKey = d.getTime();
               } else {
-                  // Group by day for month view
                   label = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
                   const d = new Date(date);
                   d.setHours(0, 0, 0, 0);
@@ -641,8 +628,6 @@ export const apiService = {
             .sort((a, b) => a.timestamp - b.timestamp);
 
       } catch (e) {
-          const db = getLocalDB();
-          // Offline fallback basic
           return [];
       }
   },

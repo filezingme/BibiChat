@@ -21,7 +21,8 @@ const io = new Server(httpServer, {
 });
 
 const PORT = process.env.PORT || 3001;
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
+// CẬP NHẬT: URL Frontend trên Vercel
+const CLIENT_URL = process.env.CLIENT_URL || 'https://bibi-chat.vercel.app';
 
 // Middleware
 app.use(cors({

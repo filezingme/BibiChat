@@ -114,7 +114,8 @@ const App: React.FC = () => {
              // We can't query specific user by ID easily with current API, 
              // but assuming we fetch user settings via a public endpoint would be better.
              // For now, we reuse the existing settings endpoint which is open enough.
-             fetch(`https://fuzzy-cosette-filezingme-org-64d51f5d.koyeb.app/api/settings/${userId}`)
+             const SERVER_URL = process.env.SERVER_URL || 'https://fuzzy-cosette-filezingme-org-64d51f5d.koyeb.app';
+             fetch(`${SERVER_URL}/api/settings/${userId}`)
                 .then(r => r.json())
                 .then(data => {
                     if(data) setSettings(data);
@@ -131,6 +132,29 @@ const App: React.FC = () => {
       localStorage.setItem('omnichat_theme', 'light');
     }
   }, [darkMode]);
+
+  // Handle Hash Routing
+  useEffect(() => {
+      const handleHashChange = () => {
+          const hash = window.location.hash.replace('#', '');
+          if (Object.values(View).includes(hash as View)) {
+              setCurrentView(hash as View);
+          } else if (hash === '') {
+              // Default view
+              setCurrentView(View.DASHBOARD);
+          }
+      };
+
+      // Listen for hash changes
+      window.addEventListener('hashchange', handleHashChange);
+      
+      // Check initial hash on load
+      handleHashChange();
+
+      return () => {
+          window.removeEventListener('hashchange', handleHashChange);
+      };
+  }, []);
 
   // Embed Mode Render
   if (isEmbedMode && embedUserId) {
@@ -289,6 +313,8 @@ const App: React.FC = () => {
     setPublicView('landing'); 
     setNotifications([]); 
     socketService.disconnect();
+    // Clear hash on logout
+    window.location.hash = '';
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -339,20 +365,21 @@ const App: React.FC = () => {
   };
 
   const handleViewChange = (view: View) => {
-    setCurrentView(view);
+    // Update Hash to trigger routing
+    window.location.hash = view;
     setIsMobileMenuOpen(false);
     if (view !== View.DASHBOARD) setSelectedCustomerIdForStats('all');
   };
 
   const handleViewCustomerStats = (userId: string) => {
     setSelectedCustomerIdForStats(userId);
-    setCurrentView(View.DASHBOARD);
+    handleViewChange(View.DASHBOARD);
   };
 
   // Handle direct chat from Customer Management
   const handleStartChat = (userId: string) => {
       setChatTargetId(userId);
-      setCurrentView(View.DIRECT_MESSAGES);
+      handleViewChange(View.DIRECT_MESSAGES);
   };
 
   // Calculate position for Profile Dropdown Portal

@@ -9,6 +9,7 @@ interface Props {
 
 const LandingPage: React.FC<Props> = ({ onNavigate }) => {
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const SERVER_URL = process.env.SERVER_URL || "https://fuzzy-cosette-filezingme-org-64d51f5d.koyeb.app";
 
   useEffect(() => {
     const handleScroll = () => {
@@ -253,10 +254,10 @@ const LandingPage: React.FC<Props> = ({ onNavigate }) => {
                 <div className="text-slate-400">
                   <span className="text-pink-400">&lt;script&gt;</span><br/>
                   &nbsp;&nbsp;window.BibiChatConfig = {'{'}<br/>
-                  &nbsp;&nbsp;&nbsp;&nbsp;widgetId: <span className="text-emerald-400">"YOUR_ID"</span>,<br/>
-                  &nbsp;&nbsp;&nbsp;&nbsp;theme: <span className="text-emerald-400">"cute"</span><br/>
+                  &nbsp;&nbsp;&nbsp;&nbsp;widgetId: <span className="text-emerald-400">"YOUR_ID"</span><br/>
                   &nbsp;&nbsp;{'}'};<br/>
-                  <span className="text-pink-400">&lt;/script&gt;</span>
+                  <span className="text-pink-400">&lt;/script&gt;</span><br/>
+                  <span className="text-pink-400">&lt;script src="{SERVER_URL}/widget.js" async defer&gt;&lt;/script&gt;</span>
                 </div>
               </div>
            </div>
