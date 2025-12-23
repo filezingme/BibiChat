@@ -1,4 +1,3 @@
-
 import express, { RequestHandler } from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
@@ -19,7 +18,7 @@ const io = new Server(httpServer, {
     methods: ["GET", "POST"]
   },
   transports: ['websocket', 'polling']
-});
+} as any);
 
 const PORT = process.env.PORT || 3001;
 
@@ -44,7 +43,7 @@ mongoose.connect(MONGODB_URI, {
   maxPoolSize: 100, // High concurrency connection pool
   serverSelectionTimeoutMS: 5000,
   socketTimeoutMS: 45000,
-})
+} as any)
   .then(() => console.log('✅ Đã kết nối cơ sở dữ liệu thành công!'))
   .catch(err => console.error('❌ Lỗi kết nối MongoDB:', err));
 
@@ -176,6 +175,7 @@ initDB();
 const upload = multer({ storage: multer.memoryStorage() });
 
 // --- WIDGET SCRIPT ENDPOINT (QUAN TRỌNG) ---
+// ... (Keep existing widget code) ...
 // Endpoint này trả về mã JS để tạo iframe trỏ về CLIENT_URL (Vercel)
 app.get('/widget.js', (req, res) => {
   const scriptContent = `
@@ -343,12 +343,20 @@ app.post('/api/upload/proxy', upload.single('file') as any, async (req: any, res
 
         if (!response.ok) throw new Error(`Upload failed: ${response.statusText}`);
         const url = await response.text();
+        
+        // Validation: Ensure valid URL returned
+        if (!url.startsWith('http')) {
+            throw new Error('Invalid URL returned from upload service');
+        }
+        
         res.json({ url: url.trim() });
     } catch (error: any) {
+        console.error("Proxy upload error:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
+// ... (Rest of the file remains unchanged) ...
 // --- API ROUTES ---
 
 app.get('/api/plugins/:userId', async (req, res) => {
