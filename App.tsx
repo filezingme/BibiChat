@@ -16,7 +16,7 @@ import Login from './components/Login';
 import LandingPage from './components/LandingPage';
 import CommunityChat from './components/CommunityChat'; // Import new component
 import { TermsPage, PrivacyPage, ContactPage, DemoPage } from './components/LegalPages'; 
-import { View, Document, WidgetSettings, User, Notification } from './types';
+import { View, Document, WidgetSettings, User, Notification, PluginConfig } from './types';
 import { apiService } from './services/apiService';
 import { socketService } from './services/socketService';
 
@@ -409,10 +409,6 @@ const App: React.FC = () => {
           </div>
         )}
         
-        {/* (Rest of the standard app layout code goes here - Sidebar, Main Content, etc) */}
-        {/* RE-INSERT EXISTING JSX STRUCTURE FOR MAIN APP HERE FROM PREVIOUS FILE CONTENT */}
-        {/* Since I am replacing the whole file, I will paste the full content below with the fixes applied */}
-        
         {!darkMode && (
         <div className="absolute inset-0 z-0 pointer-events-none opacity-60">
            <div className="absolute top-[-10%] left-[-10%] w-[40rem] h-[40rem] bg-pink-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
@@ -624,40 +620,57 @@ const App: React.FC = () => {
 
 // Specialized Standalone Widget Component for Embed Mode
 const StandaloneChatWidget: React.FC<{ settings: WidgetSettings, userId: string }> = ({ settings, userId }) => {
-    // This is essentially a stripped down version of ChatWidget that communicates window size changes
-    // to the parent window via postMessage
     const [isOpen, setIsOpen] = useState(false);
+    const [plugins, setPlugins] = useState<PluginConfig | null>(null);
+    
+    // Fetch Plugins at the top level to control Auto Open from here
+    useEffect(() => {
+        const fetchPlugins = async () => {
+            try {
+                const data = await apiService.getPlugins(userId);
+                setPlugins(data);
+                
+                // Handle Auto Open logic here in the container
+                if (data.autoOpen?.enabled) {
+                    setTimeout(() => setIsOpen(true), data.autoOpen.delay * 1000);
+                }
+            } catch (e) {
+                console.error("Failed to load plugins in embed mode", e);
+            }
+        };
+        fetchPlugins();
+    }, [userId]);
     
     useEffect(() => {
         // Communicate state change to parent window (widget.js)
         window.parent.postMessage(isOpen ? 'bibichat-open' : 'bibichat-close', '*');
         
         // Always enforce position when state changes or loads
-        // Added a tiny delay to ensure parent iframe script is ready/listening
         setTimeout(() => {
              window.parent.postMessage({ type: 'bibichat-position', position: settings.position }, '*');
         }, 100);
         
     }, [isOpen, settings.position]);
 
-    // Update alignment based on position
-    // If Left: items-start. If Right: items-end.
     const alignClass = settings.position === 'left' ? 'items-start' : 'items-end';
 
     return (
-        // REMOVED 'overflow-hidden' from here to allow shadow to bleed out naturally
-        // REMOVED PADDING ON MOBILE (sm:p-4) to allow full screen fit
-        // Add pointer-events-auto to ensure clicks work inside the transparent container
         <div className={`h-full w-full flex flex-col justify-end ${alignClass} p-0 sm:p-4 bg-transparent pointer-events-auto`}>
             {isOpen && (
                 <div className="w-full h-full flex flex-col relative z-20 animate-in slide-in-from-bottom-5 fade-in duration-300">
-                    <ChatWidget settings={settings} userId={userId} forceOpen={true} onClose={() => setIsOpen(false)} isEmbed={true} />
+                    <ChatWidget 
+                        settings={settings} 
+                        userId={userId} 
+                        forceOpen={true} 
+                        onClose={() => setIsOpen(false)} 
+                        isEmbed={true}
+                        initialPlugins={plugins} // Pass fetched plugins down to avoid refetch/delay
+                    />
                 </div>
             )}
             {!isOpen && (
                  <button 
                     onClick={() => setIsOpen(true)} 
-                    // Fixed width to w-14 (56px) to fit comfortably in 100px container
                     className="w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-white text-2xl transition-all hover:scale-110 active:scale-95 duration-300 relative group z-20 border-2 border-white/20 m-2 sm:m-0 pointer-events-auto" 
                     style={{ backgroundColor: settings.primaryColor || '#8b5cf6' }}
                 >

@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { WidgetSettings, Message, User } from '../types';
+import { WidgetSettings, Message, User, PluginConfig } from '../types';
 import { apiService } from '../services/apiService';
 
 interface Props {
@@ -9,9 +9,10 @@ interface Props {
   forceOpen?: boolean; // New Prop for Embed Mode
   onClose?: () => void; // New Prop for Embed Mode
   isEmbed?: boolean; // New Prop to adjust layout
+  initialPlugins?: PluginConfig | null; // Pass plugins from parent to avoid double fetch/logic split
 }
 
-const ChatWidget: React.FC<Props> = ({ settings, userId, forceOpen, onClose, isEmbed }) => {
+const ChatWidget: React.FC<Props> = ({ settings, userId, forceOpen, onClose, isEmbed, initialPlugins }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     { id: '1', role: 'model', text: settings.welcomeMessage, timestamp: Date.now() }
@@ -22,7 +23,7 @@ const ChatWidget: React.FC<Props> = ({ settings, userId, forceOpen, onClose, isE
   const [sessionId, setSessionId] = useState('');
   
   // Plugin States
-  const [plugins, setPlugins] = useState<any>(null);
+  const [plugins, setPlugins] = useState<any>(initialPlugins || null);
   const [showLeadForm, setShowLeadForm] = useState(false);
   const [leadForm, setLeadForm] = useState({ name: '', phone: '', email: '' });
   const [leadSubmitted, setLeadSubmitted] = useState(false);
@@ -32,7 +33,7 @@ const ChatWidget: React.FC<Props> = ({ settings, userId, forceOpen, onClose, isE
       if (forceOpen !== undefined) setIsOpen(forceOpen);
   }, [forceOpen]);
 
-  // Initialize Session ID & Fetch Plugins
+  // Initialize Session ID & Fetch Plugins (if not provided)
   useEffect(() => {
     // 1. Session Logic
     let storedSessionId = localStorage.getItem('bibichat_session_id');
@@ -43,17 +44,20 @@ const ChatWidget: React.FC<Props> = ({ settings, userId, forceOpen, onClose, isE
     setSessionId(storedSessionId);
 
     // 2. Plugins Logic
-    const fetchPlugins = async () => {
-        const p = await apiService.getPlugins(userId);
-        setPlugins(p);
-        
-        // Auto Open Logic - Only if not forced (embed mode handles its own open state usually via button, but autoOpen can trigger it too)
-        if (p.autoOpen?.enabled && !isEmbed) {
-            setTimeout(() => setIsOpen(true), p.autoOpen.delay * 1000);
-        }
-    };
-    fetchPlugins();
-  }, [userId]);
+    if (!plugins) {
+        const fetchPlugins = async () => {
+            const p = await apiService.getPlugins(userId);
+            setPlugins(p);
+            
+            // Auto Open Logic - Only if not forced (embed mode handles its own open state usually via button, but autoOpen can trigger it too)
+            // NOTE: Embed mode auto-open is now handled in StandaloneChatWidget (App.tsx)
+            if (p.autoOpen?.enabled && !isEmbed) {
+                setTimeout(() => setIsOpen(true), p.autoOpen.delay * 1000);
+            }
+        };
+        fetchPlugins();
+    }
+  }, [userId, isEmbed]);
 
   // Effect to scroll bottom
   useEffect(() => {
@@ -111,7 +115,6 @@ const ChatWidget: React.FC<Props> = ({ settings, userId, forceOpen, onClose, isE
 
   if (isEmbed) {
       // Specialized Render for Embed Iframe (Full Height/Width of container)
-      // Updated rounded classes to match floating margin style on mobile
       return (
         <div className="w-full h-full bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-slate-100/50">
           {/* Header */}
@@ -134,10 +137,28 @@ const ChatWidget: React.FC<Props> = ({ settings, userId, forceOpen, onClose, isE
                     </div>
                 </div>
                 
-                {/* Close Button for Embed */}
-                <button onClick={handleToggle} className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center transition-colors">
-                    <i className="fa-solid fa-xmark text-sm"></i>
-                </button>
+                <div className="flex items-center gap-2">
+                    {/* Social Plugin Icons for Embed Mode */}
+                    {plugins?.social?.enabled && (
+                        <div className="flex gap-2 mr-2">
+                             {plugins.social.phone && (
+                                 <a href={`tel:${plugins.social.phone}`} className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center transition-colors border border-white/20" title="Gọi Hotline" target="_blank" rel="noreferrer">
+                                     <i className="fa-solid fa-phone text-xs"></i>
+                                 </a>
+                             )}
+                             {plugins.social.zalo && (
+                                 <a href={`https://zalo.me/${plugins.social.zalo}`} target="_blank" rel="noreferrer" className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center transition-colors border border-white/20" title="Chat Zalo">
+                                     <div className="font-bold text-[8px]">Zalo</div>
+                                 </a>
+                             )}
+                        </div>
+                    )}
+
+                    {/* Close Button for Embed */}
+                    <button onClick={handleToggle} className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center transition-colors">
+                        <i className="fa-solid fa-xmark text-sm"></i>
+                    </button>
+                </div>
             </div>
           </div>
 
