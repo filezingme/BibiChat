@@ -113,12 +113,12 @@ export const apiService = {
       }
   },
 
-  sendDirectMessage: async (senderId: string, receiverId: string, content: string, type: 'text' | 'sticker' | 'image' = 'text', replyToId?: string): Promise<DirectMessage> => {
+  sendDirectMessage: async (senderId: string, receiverId: string, content: string, type: 'text' | 'sticker' | 'image' = 'text', replyToId?: string, groupId?: string): Promise<DirectMessage> => {
       try {
           const res = await fetch(`${API_URL}/api/dm/send`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ senderId, receiverId, content, type, replyToId })
+              body: JSON.stringify({ senderId, receiverId, content, type, replyToId, groupId })
           });
           return await res.json();
       } catch (e) {
@@ -543,212 +543,146 @@ export const apiService = {
       } catch (e) {
           // Offline Fallback
           const db = getLocalDB();
-          const messages = (db.chatLogs || []).filter((l: any) => 
-              (userId === 'all' || l.userId === userId) && 
-              (l.customerSessionId === sessionId || (sessionId === 'legacy_session' && !l.customerSessionId))
-          );
-          return messages.sort((a: any, b: any) => a.timestamp - b.timestamp);
+          let logs = db.chatLogs || [];
+          if (userId !== 'all' && userId !== 'admin') {
+              logs = logs.filter((l: any) => l.userId === userId);
+          }
+          return logs.filter((l: any) => l.customerSessionId === sessionId)
+                     .sort((a: any, b: any) => a.timestamp - b.timestamp);
       }
   },
 
-  getStats: async (userId: string | 'all', period: 'hour' | 'day' | 'week' | 'month') => {
-    let logs: ChatLog[] = [];
-    try {
-        logs = await apiService.getChatLogs('all'); // Try fetch all to compute stats
-    } catch (e) {
-        const db = getLocalDB();
-        logs = db.chatLogs;
-    }
-    if (userId !== 'all') logs = logs.filter(l => l.userId === userId);
+  // --- STATS ---
+  getStats: async (userId: string | 'all', period: string): Promise<any[]> => {
+      try {
+          const res = await fetch(`${API_URL}/api/chat-logs/${userId}`);
+          if (!res.ok) throw new Error("Failed to fetch logs for stats");
+          const logs: ChatLog[] = await res.json();
+          
+          const statsMap: Record<string, number> = {};
+          
+          logs.forEach(log => {
+              const date = new Date(log.timestamp);
+              let label = '';
+              if (period === 'hour') label = `${date.getHours()}:00`;
+              else if (period === 'day') label = `${date.getDate()}/${date.getMonth() + 1}`;
+              else if (period === 'week') {
+                  // Simple week calculation
+                  const onejan = new Date(date.getFullYear(), 0, 1);
+                  const week = Math.ceil((((date.getTime() - onejan.getTime()) / 86400000) + onejan.getDay() + 1) / 7);
+                  label = `W${week}`;
+              }
+              else label = `${date.getMonth() + 1}/${date.getFullYear()}`;
+              
+              statsMap[label] = (statsMap[label] || 0) + 1;
+          });
 
-    const statsMap: Record<string, { queries: number, solved: number }> = {};
-    logs.forEach(log => {
-      let key = '';
-      const date = new Date(log.timestamp);
-      if (period === 'hour') key = `${date.getHours()}h`;
-      else if (period === 'day') key = date.toLocaleDateString('vi-VN');
-      else if (period === 'week') key = `Tuần ${Math.ceil(date.getDate() / 7)}`;
-      else key = `Tháng ${date.getMonth() + 1}`;
-      if (!statsMap[key]) statsMap[key] = { queries: 0, solved: 0 };
-      statsMap[key].queries++;
-      if (log.isSolved) statsMap[key].solved++;
-    });
-    
-    const result = Object.entries(statsMap).map(([label, data]) => ({ label, ...data }));
-
-    // Sort result based on period to ensure ascending order (Left to Right)
-    if (period === 'day') {
-        return result.sort((a, b) => {
-            const [d1, m1, y1] = a.label.split('/').map(Number);
-            const [d2, m2, y2] = b.label.split('/').map(Number);
-            if (!y1 || !y2) return 0; // Guard against parse failure
-            return new Date(y1, m1 - 1, d1).getTime() - new Date(y2, m2 - 1, d2).getTime();
-        });
-    } else if (period === 'hour') {
-        return result.sort((a, b) => parseInt(a.label) - parseInt(b.label));
-    } else {
-        // Week / Month
-        return result.sort((a, b) => {
-             const numA = parseInt(a.label.replace(/\D/g, '')) || 0;
-             const numB = parseInt(b.label.replace(/\D/g, '')) || 0;
-             return numA - numB;
-        });
-    }
+          return Object.entries(statsMap).map(([label, queries]) => ({
+              label,
+              queries,
+              solved: queries // Placeholder
+          }));
+      } catch (e) {
+          const db = getLocalDB();
+          // Offline fallback basic
+          return [];
+      }
   },
 
-  getChatLogs: async (userId: string | 'all'): Promise<ChatLog[]> => {
-    try {
-        const res = await fetch(`${API_URL}/api/chat-logs/${userId}`);
-        if(!res.ok) throw new Error("Lỗi tải nhật ký");
-        return await res.json();
-    } catch (e) {
-        const db = getLocalDB();
-        let logs = db.chatLogs as ChatLog[];
-        if (userId !== 'all') logs = logs.filter(l => l.userId === userId);
-        return logs.sort((a, b) => b.timestamp - a.timestamp);
-    }
+  // --- CHAT WIDGET ---
+  chat: async (userId: string, message: string, botName: string, sessionId: string): Promise<string> => {
+      try {
+          const res = await fetch(`${API_URL}/api/chat`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId, message, botName, sessionId })
+          });
+          if (!res.ok) throw new Error("Chat failed");
+          const data = await res.json();
+          return data.text;
+      } catch (e) {
+          console.error(e);
+          throw e;
+      }
   },
 
   // --- NOTIFICATIONS ---
   getNotifications: async (userId: string): Promise<Notification[]> => {
-    try {
-      const res = await fetch(`${API_URL}/api/notifications/${userId}`);
-      if (!res.ok) throw new Error("Lỗi máy chủ");
-      return await res.json();
-    } catch (e) {
-      const db = getLocalDB();
-      const now = Date.now();
-      return (db.notifications || [])
-        .filter((n: any) => {
-          const isTargetUser = (n.userId === 'all' || n.userId === userId);
-          if (!isTargetUser) return false;
-          if (userId === 'admin') return true;
-          return n.scheduledAt ? n.scheduledAt <= now : n.time <= now;
-        })
-        .map((n: any) => ({
-            ...n,
-            isRead: Array.isArray(n.readBy) ? n.readBy.includes(userId) : (n.isRead || false)
-        }))
-        .sort((a: any, b: any) => (b.scheduledAt || b.time) - (a.scheduledAt || a.time));
-    }
-  },
-
-  markNotificationRead: async (id: string, userId: string): Promise<void> => {
-    try {
-      await fetch(`${API_URL}/api/notifications/${id}/read`, { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId })
-      });
-    } catch (e) {
-      const db = getLocalDB();
-      const n = db.notifications?.find((x: any) => x.id === id);
-      if (n) {
-        if (!n.readBy) n.readBy = [];
-        if (!n.readBy.includes(userId)) n.readBy.push(userId);
-        saveLocalDB(db);
+      try {
+          const res = await fetch(`${API_URL}/api/notifications/${userId}`);
+          if (!res.ok) throw new Error("Failed");
+          return await res.json();
+      } catch (e) {
+          const db = getLocalDB();
+          return (db.notifications || []).filter((n: any) => n.userId === 'all' || n.userId === userId).map((n: any) => ({...n, isRead: (n.readBy||[]).includes(userId)}));
       }
-    }
   },
 
-  markAllNotificationsRead: async (userId: string): Promise<void> => {
-    try {
-        await fetch(`${API_URL}/api/notifications/read-all`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId })
-        });
-    } catch (e) {
-        const db = getLocalDB();
-        const now = Date.now();
-        db.notifications?.forEach((n: any) => {
-            const isTargetUser = (n.userId === 'all' || n.userId === userId);
-            const isVisible = userId === 'admin' ? true : (n.scheduledAt ? n.scheduledAt <= now : n.time <= now);
-            if (isTargetUser && isVisible) {
-                if (!n.readBy) n.readBy = [];
-                if (!n.readBy.includes(userId)) n.readBy.push(userId);
-            }
-        });
-        saveLocalDB(db);
-    }
-  },
-
-  createSystemNotification: async (data: Partial<Notification>) => {
-    try {
-      await fetch(`${API_URL}/api/notifications/create`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(data)
-      });
-    } catch (e) {
-      const db = getLocalDB();
-      if (!db.notifications) db.notifications = [];
-      const now = Date.now();
-      db.notifications.push({
-        id: Math.random().toString(36).substr(2, 9),
-        userId: data.userId || 'all',
-        title: data.title || '',
-        desc: data.desc || '',
-        time: data.scheduledAt || now, 
-        scheduledAt: data.scheduledAt || now,
-        readBy: [],
-        icon: data.icon || 'fa-bell',
-        color: data.color || 'text-blue-500',
-        bg: data.bg || 'bg-blue-100'
-      });
-      saveLocalDB(db);
-    }
-  },
-
-  suggestIcon: async (text: string): Promise<string> => {
-    const apiKey = getApiKey();
-    if (!apiKey) return 'fa-bullhorn';
-    
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `Based on the following notification text, suggest the single most appropriate FontAwesome 6 icon class name. ONLY return the class name string. Text: "${text}"`;
-      const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
-      const iconClass = response.text?.trim() || 'fa-bullhorn';
-      return iconClass.replace(/['".]/g, '');
-    } catch (error) { return 'fa-bullhorn'; }
-  },
-
-  chat: async (userId: string, message: string, botName: string, sessionId: string): Promise<string> => {
-    try {
-      const res = await fetch(`${API_URL}/api/chat`, {
-         method: 'POST',
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({ userId, message, botName, sessionId })
-      });
-      if(res.ok) {
-         const data = await res.json();
-         return data.text;
+  markNotificationRead: async (id: string, userId: string) => {
+      try {
+          await fetch(`${API_URL}/api/notifications/${id}/read`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId })
+          });
+      } catch (e) {
+          const db = getLocalDB();
+          const n = db.notifications?.find((x: any) => x.id === id);
+          if(n) {
+              if(!n.readBy) n.readBy = [];
+              if(!n.readBy.includes(userId)) n.readBy.push(userId);
+              saveLocalDB(db);
+          }
       }
-    } catch (e) {}
+  },
 
-    try {
-      const apiKey = getApiKey();
-      if (!apiKey) {
-          // Trả về hướng dẫn chi tiết cho người dùng
-          return "⚠️ Lỗi cấu hình: Thiếu API Key.\n\nHệ thống không tìm thấy API Key để chạy AI.\n\n👉 Cách khắc phục:\n1. Vào Vercel > Settings > Environment Variables.\n2. Thêm key: API_KEY = [Key Gemini của bạn].\n3. Redeploy lại ứng dụng.\n\nHoặc mở Console (F12) và nhập: localStorage.setItem('API_KEY', 'your-key') để test nhanh.";
+  markAllNotificationsRead: async (userId: string) => {
+      try {
+          await fetch(`${API_URL}/api/notifications/read-all`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId })
+          });
+      } catch (e) {
+           const db = getLocalDB();
+           if(db.notifications) {
+               db.notifications.forEach((n: any) => {
+                   if(n.userId === 'all' || n.userId === userId) {
+                       if(!n.readBy) n.readBy = [];
+                       if(!n.readBy.includes(userId)) n.readBy.push(userId);
+                   }
+               });
+               saveLocalDB(db);
+           }
       }
+  },
 
-      const db = getLocalDB();
-      const docs = db.documents.filter((d: any) => d.userId === userId);
-      const context = docs.map((d: any) => `[Tài liệu: ${d.name}]\n${d.content}`).join('\n\n');
-      const systemInstruction = `Bạn là trợ lý AI tên "${botName || 'BibiBot'}". Hãy sử dụng kiến thức sau để hỗ trợ khách hàng: ${context}`;
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: message, config: { systemInstruction } });
-      
-      if (!db.chatLogs) db.chatLogs = [];
-      db.chatLogs.push({ id: Math.random().toString(36).substr(2, 9), userId, customerSessionId: sessionId || 'client-fallback', query: message, answer: response.text || '', timestamp: Date.now(), isSolved: true });
-      saveLocalDB(db);
-      
-      return response.text || "Tôi không thể trả lời lúc này.";
-    } catch (clientError) { 
-        console.error(clientError);
-        return "Lỗi kết nối AI. Vui lòng kiểm tra lại API Key hoặc thử lại sau."; 
-    }
+  createSystemNotification: async (notification: any) => {
+      try {
+          await fetch(`${API_URL}/api/notifications/create`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(notification)
+          });
+      } catch (e) {
+          const db = getLocalDB();
+          if(!db.notifications) db.notifications = [];
+          db.notifications.push({ ...notification, id: Date.now().toString(), readBy: [] });
+          saveLocalDB(db);
+      }
+  },
+
+  suggestIcon: async (context: string): Promise<string> => {
+      if (!process.env.API_KEY) return 'fa-bell';
+      try {
+          const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+          const response = await ai.models.generateContent({
+              model: 'gemini-3-flash-preview',
+              contents: `Suggest a single FontAwesome 6 icon class (e.g., fa-bell) for: "${context}". Return ONLY the class name.`,
+          });
+          return response.text?.trim() || 'fa-bell';
+      } catch (e) {
+          return 'fa-bell';
+      }
   }
 };

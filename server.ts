@@ -109,7 +109,8 @@ const directMessageSchema = new mongoose.Schema({
   isRead: { type: Boolean, default: false },
   type: { type: String, default: 'text' }, // text, sticker, image
   replyToId: String,
-  reactions: [{ userId: String, emoji: String }]
+  reactions: [{ userId: String, emoji: String }],
+  groupId: String // New field for batch grouping
 });
 
 // Models
@@ -535,7 +536,7 @@ app.get('/api/dm/history/:userId/:otherUserId', async (req, res) => {
 
 // Send Message
 app.post('/api/dm/send', async (req, res) => {
-    const { senderId, receiverId, content, type, replyToId } = req.body;
+    const { senderId, receiverId, content, type, replyToId, groupId } = req.body;
     // Fix: Cast object to any to avoid strict Mongoose type checking errors
     const newMessage = await DirectMessage.create({
         id: Math.random().toString(36).substr(2, 9),
@@ -546,7 +547,8 @@ app.post('/api/dm/send', async (req, res) => {
         isRead: false,
         type: type || 'text',
         replyToId: replyToId || null,
-        reactions: []
+        reactions: [],
+        groupId: groupId || null
     } as any);
     res.json(newMessage);
 });
