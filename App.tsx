@@ -18,6 +18,7 @@ import CommunityChat from './components/CommunityChat'; // Import new component
 import { TermsPage, PrivacyPage, ContactPage, DemoPage } from './components/LegalPages'; 
 import { View, Document, WidgetSettings, User, Notification } from './types';
 import { apiService } from './services/apiService';
+import { socketService } from './services/socketService';
 
 type PublicViewType = 'landing' | 'login' | 'terms' | 'privacy' | 'contact' | 'demo';
 
@@ -195,19 +196,29 @@ const App: React.FC = () => {
 
   }, []);
 
-  // Poll for Notifications and Unread Messages
+  // Socket Listener for Notifications and Unread Messages
   useEffect(() => {
     if (isLoggedIn && currentUser && !isEmbedMode) {
+      // Connect Socket
+      socketService.connect(currentUser.id);
+
       loadNotifications();
       loadUnreadMessages(); // Initial load
       
-      const interval = setInterval(() => {
-          loadNotifications();
-          loadUnreadMessages();
-      }, 5000);
-      
+      // Listen for new notifications
+      socketService.on('notification', (notif: Notification) => {
+          setNotifications(prev => [notif, ...prev]);
+      });
+
+      // Listen for unread message events
+      socketService.on('direct_message', () => {
+          setUnreadMessagesCount(prev => prev + 1);
+      });
+
       return () => {
-        clearInterval(interval);
+        socketService.off('notification');
+        socketService.off('direct_message');
+        socketService.disconnect();
       };
     }
   }, [isLoggedIn, currentUser?.id, isEmbedMode]);
@@ -277,6 +288,7 @@ const App: React.FC = () => {
     localStorage.removeItem('omnichat_user_role');
     setPublicView('landing'); 
     setNotifications([]); 
+    socketService.disconnect();
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {

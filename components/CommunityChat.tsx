@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { apiService } from '../services/apiService';
+import { socketService } from '../services/socketService';
 import { User, ConversationUser, DirectMessage } from '../types';
 
 interface Props {
@@ -331,12 +332,41 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showEmojiPicker, showStickerPicker]);
 
-  // Load conversations list
+  // Load conversations list - INITIAL ONLY
   useEffect(() => {
     loadConversations();
-    const interval = setInterval(loadConversations, 5000); 
-    return () => clearInterval(interval);
-  }, [user.id]);
+    // Socket Listener for Live Updates
+    socketService.on('direct_message', (msg: DirectMessage) => {
+        // Only update message list if chatting with sender
+        if (activeChatUser && msg.senderId === activeChatUser.id) {
+            setMessages(prev => [...prev, msg]);
+        }
+        // Always refresh conversations to update last message/unread count
+        loadConversations();
+    });
+    
+    // Also listen for my own messages sent from other devices
+    socketService.on('message_sent', (msg: DirectMessage) => {
+         if (activeChatUser && msg.receiverId === activeChatUser.id) {
+             setMessages(prev => {
+                 // Check if optimistic update exists
+                 if(prev.find(m => m.id === msg.id)) return prev;
+                 return [...prev, msg];
+             });
+         }
+         loadConversations();
+    });
+
+    socketService.on('message_reaction', (data: { messageId: string, reactions: any[] }) => {
+        setMessages(prev => prev.map(m => m.id === data.messageId ? { ...m, reactions: data.reactions } : m));
+    });
+
+    return () => {
+        socketService.off('direct_message');
+        socketService.off('message_sent');
+        socketService.off('message_reaction');
+    }
+  }, [activeChatUser?.id]);
 
   // Handle Initial Target User
   useEffect(() => {
@@ -374,8 +404,6 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   useEffect(() => {
     if (activeChatUser) {
       loadMessages(activeChatUser.id);
-      const interval = setInterval(() => loadMessages(activeChatUser.id), 3000);
-      return () => clearInterval(interval);
     }
   }, [activeChatUser]);
 
@@ -558,7 +586,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
       try {
           await apiService.sendDirectMessage(user.id, activeChatUser.id, msgContent, msgType, actualReplyId, groupId);
-          loadConversations(); 
+          // Don't need loadConversations here, socket will handle it
       } catch (e) {
           console.error("Failed to send", e);
           // Silent fail for optimistic update, or show error toast
@@ -566,6 +594,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   };
 
   const handleReaction = async (messageId: string, emoji: string) => {
+      // Optimistic update
       setMessages(prev => prev.map(m => {
           if (m.id === messageId) {
               const currentReactions = m.reactions || [];

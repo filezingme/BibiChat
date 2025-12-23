@@ -1,4 +1,3 @@
-
 import express, { RequestHandler } from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
@@ -6,13 +5,22 @@ import multer from 'multer';
 import fs from 'fs';
 import { GoogleGenAI } from "@google/genai";
 import dotenv from 'dotenv';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 
 dotenv.config();
 
 const app = express();
+const httpServer = createServer(app); // Wrap express in HTTP server
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*", // Allow all for SaaS flexibility
+    methods: ["GET", "POST"]
+  },
+  transports: ['websocket', 'polling']
+});
+
 const PORT = process.env.PORT || 3001;
-// URL của Frontend (Vercel) để nhúng vào Iframe. Mặc định là localhost nếu chạy local.
-// Trên Koyeb, bạn cần set biến môi trường CLIENT_URL = https://your-frontend.vercel.app
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
 // Middleware
@@ -22,23 +30,45 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }) as any);
 
-// INCREASED LIMIT FOR IMAGES
 app.use(express.json({ limit: '50mb' }) as any);
 app.use(express.urlencoded({ limit: '50mb', extended: true }) as any);
 
-// --- MONGODB CONNECTION ---
+// --- MONGODB OPTIMIZATION ---
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/bibichat_local";
 
-mongoose.connect(MONGODB_URI)
+mongoose.connect(MONGODB_URI, {
+  maxPoolSize: 100, // High concurrency connection pool
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+})
   .then(() => console.log('✅ Đã kết nối cơ sở dữ liệu thành công!'))
   .catch(err => console.error('❌ Lỗi kết nối MongoDB:', err));
 
-// --- SCHEMAS & MODELS ---
+// --- REAL-TIME SOCKET LOGIC ---
+const onlineUsers = new Map<string, string>(); // userId -> socketId
+
+io.on('connection', (socket) => {
+  const userId = socket.handshake.query.userId as string;
+  
+  if (userId) {
+    socket.join(userId); // Join room named by userId for private messaging
+    onlineUsers.set(userId, socket.id);
+    
+    // Broadcast status update if needed (optional for scale)
+    // io.emit('user_status', { userId, status: 'online' });
+  }
+
+  socket.on('disconnect', () => {
+    if (userId) onlineUsers.delete(userId);
+  });
+});
+
+// --- SCHEMAS & MODELS (OPTIMIZED WITH INDEXES) ---
 const userSchema = new mongoose.Schema({
-  id: { type: String, unique: true }, 
-  email: { type: String, required: true, unique: true },
+  id: { type: String, unique: true, index: true }, 
+  email: { type: String, required: true, unique: true, index: true },
   password: { type: String, required: true },
-  role: { type: String, default: 'user' },
+  role: { type: String, default: 'user', index: true },
   createdAt: { type: Number, default: Date.now },
   botSettings: {
     botName: { type: String, default: 'Trợ lý AI' },
@@ -55,8 +85,8 @@ const userSchema = new mongoose.Schema({
 });
 
 const documentSchema = new mongoose.Schema({
-  id: String,
-  userId: String,
+  id: { type: String, index: true },
+  userId: { type: String, index: true },
   name: String,
   content: String,
   type: String,
@@ -66,33 +96,33 @@ const documentSchema = new mongoose.Schema({
 
 const chatLogSchema = new mongoose.Schema({
   id: String,
-  userId: String,
-  customerSessionId: String,
+  userId: { type: String, index: true },
+  customerSessionId: { type: String, index: true },
   query: String,
   answer: String,
-  timestamp: Number,
+  timestamp: { type: Number, index: true },
   tokens: Number,
   isSolved: Boolean
 });
 
 const leadSchema = new mongoose.Schema({
   id: String,
-  userId: String,
+  userId: { type: String, index: true },
   name: String,
   phone: String,
   email: String,
   source: String,
   status: String,
-  createdAt: Number,
+  createdAt: { type: Number, index: true },
   isTest: Boolean
 });
 
 const notificationSchema = new mongoose.Schema({
   id: String,
-  userId: String,
+  userId: { type: String, index: true },
   title: String,
   desc: String,
-  time: Number,
+  time: { type: Number, index: true },
   scheduledAt: Number,
   readBy: [String],
   icon: String,
@@ -101,16 +131,16 @@ const notificationSchema = new mongoose.Schema({
 });
 
 const directMessageSchema = new mongoose.Schema({
-  id: String,
-  senderId: String,
-  receiverId: String,
+  id: { type: String, index: true },
+  senderId: { type: String, index: true },
+  receiverId: { type: String, index: true },
   content: String,
-  timestamp: Number,
-  isRead: { type: Boolean, default: false },
-  type: { type: String, default: 'text' }, // text, sticker, image
+  timestamp: { type: Number, index: true },
+  isRead: { type: Boolean, default: false, index: true },
+  type: { type: String, default: 'text' }, 
   replyToId: String,
   reactions: [{ userId: String, emoji: String }],
-  groupId: String // New field for batch grouping
+  groupId: String 
 });
 
 // Models
@@ -126,7 +156,6 @@ const initDB = async () => {
   const count = await User.countDocuments();
   if (count === 0) {
     console.log("Initializing Admin User...");
-    // Fix: Cast object to any to avoid strict Mongoose type checking errors
     await User.create({
       id: 'admin',
       email: 'admin@bibichat.io',
@@ -139,8 +168,6 @@ const initDB = async () => {
          leadForm: { enabled: true, title: 'Để lại thông tin nhé!', trigger: 'manual' }
       }
     } as any);
-    // Sample Notification - UPDATED TEXT
-    // Fix: Cast object to any to avoid strict Mongoose type checking errors
     await Notification.create({
       id: '1', userId: 'all', title: 'Hệ thống sẵn sàng', desc: 'BibiChat đã kết nối cơ sở dữ liệu thành công!', 
       time: Date.now(), scheduledAt: Date.now(), readBy: [], icon: 'fa-rocket', color: 'text-emerald-500', bg: 'bg-emerald-100'
@@ -149,10 +176,9 @@ const initDB = async () => {
 };
 initDB();
 
-// Multer for memory storage
 const upload = multer({ storage: multer.memoryStorage() });
 
-// --- WIDGET SCRIPT SERVING (SAAS CORE) ---
+// --- WIDGET SCRIPT ---
 app.get('/widget.js', (req, res) => {
   const scriptContent = `
 (function() {
@@ -228,7 +254,6 @@ app.get('/widget.js', (req, res) => {
 // --- HEALTH CHECK ---
 app.get('/api/health', (req, res) => {
   const dbState = mongoose.connection.readyState;
-  // 0: disconnected, 1: connected, 2: connecting, 3: disconnecting
   res.json({ 
     status: dbState === 1 ? 'ok' : 'error', 
     dbState: dbState,
@@ -236,45 +261,38 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// --- PROXY UPLOAD (Litterbox) ---
+// --- PROXY UPLOAD ---
 app.post('/api/upload/proxy', upload.single('file') as any, async (req: any, res: any) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-
     try {
         const formData = new FormData();
         const blob = new Blob([req.file.buffer], { type: req.file.mimetype });
         formData.append('fileToUpload', blob, req.file.originalname);
         formData.append('reqtype', 'fileupload');
-        formData.append('time', '24h'); // Temporary storage for 24 hours
+        formData.append('time', '24h'); 
 
         const response = await fetch('https://litterbox.catbox.moe/resources/internals/api.php', {
             method: 'POST',
             body: formData,
         });
 
-        if (!response.ok) {
-            throw new Error(`Upload failed: ${response.statusText}`);
-        }
-
+        if (!response.ok) throw new Error(`Upload failed: ${response.statusText}`);
         const url = await response.text();
         res.json({ url: url.trim() });
     } catch (error: any) {
-        console.error('Proxy upload error:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
 // --- API ROUTES ---
 
-// PLUGINS
 app.get('/api/plugins/:userId', async (req, res) => {
-    const user = await User.findOne({ id: req.params.userId });
+    const user = await User.findOne({ id: req.params.userId }).lean(); // Use lean() for faster read
     if (user) res.json(user.plugins);
     else res.status(404).json({ success: false });
 });
 
 app.post('/api/plugins/:userId', async (req, res) => {
-    // Use $set to ensure fields are updated correctly even if nested schema changes
     await User.findOneAndUpdate(
         { id: req.params.userId }, 
         { $set: { plugins: req.body } }, 
@@ -283,19 +301,16 @@ app.post('/api/plugins/:userId', async (req, res) => {
     res.json({ success: true });
 });
 
-// LEADS
 app.get('/api/leads/:userId', async (req, res) => {
     const { userId } = req.params;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const search = (req.query.search as string || '').toLowerCase();
     
-    // START CHANGE: Handle 'all' userId for Master/Admin
     const query: any = {};
     if (userId !== 'all') {
         query.userId = userId;
     }
-    // END CHANGE
     
     if (search) {
         query.$or = [
@@ -305,11 +320,10 @@ app.get('/api/leads/:userId', async (req, res) => {
         ];
     }
     
-    const total = await Lead.countDocuments(query);
-    const leads = await Lead.find(query)
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit);
+    const [total, leads] = await Promise.all([
+        Lead.countDocuments(query),
+        Lead.find(query).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean()
+    ]);
 
     res.json({
         data: leads,
@@ -319,11 +333,14 @@ app.get('/api/leads/:userId', async (req, res) => {
 
 app.post('/api/leads', async (req, res) => {
     const { userId, name, phone, email, isTest } = req.body;
-    // Fix: Cast object to any to avoid strict Mongoose type checking errors
     const newLead = await Lead.create({
         id: Math.random().toString(36).substr(2, 9),
         userId, name, phone, email, source: 'chat_form', status: 'new', createdAt: Date.now(), isTest: !!isTest
     } as any);
+    
+    // Notify bot owner in real-time
+    io.to(userId).emit('new_lead', newLead);
+    
     res.json(newLead);
 });
 
@@ -337,17 +354,13 @@ app.delete('/api/leads/:id', async (req, res) => {
     res.json({ success: true });
 });
 
-// NOTIFICATIONS
 app.get('/api/notifications/:userId', async (req, res) => {
     const { userId } = req.params;
     const now = Date.now();
-    
     let filter: any = {};
 
     if (userId === 'admin' || userId === 'master') {
-        filter = {
-            $or: [{ userId: 'all' }, { userId: 'admin' }]
-        };
+        filter = { $or: [{ userId: 'all' }, { userId: 'admin' }] };
     } else {
         filter = {
             $and: [
@@ -363,13 +376,11 @@ app.get('/api/notifications/:userId', async (req, res) => {
         };
     }
 
-    const notifs = await Notification.find(filter).sort({ scheduledAt: -1, time: -1 });
-    
-    const mapped = notifs.map(n => ({
-        ...n.toObject(),
+    const notifs = await Notification.find(filter).sort({ scheduledAt: -1, time: -1 }).limit(50).lean();
+    const mapped = notifs.map((n: any) => ({
+        ...n,
         isRead: n.readBy.includes(userId)
     }));
-    
     res.json(mapped);
 });
 
@@ -384,17 +395,12 @@ app.post('/api/notifications/:id/read', async (req, res) => {
 app.post('/api/notifications/read-all', async (req, res) => {
     const { userId } = req.body;
     const filter = { $or: [{ userId: 'all' }, { userId: userId }] };
-    
-    await Notification.updateMany(
-        filter,
-        { $addToSet: { readBy: userId } }
-    );
+    await Notification.updateMany(filter, { $addToSet: { readBy: userId } });
     res.json({ success: true });
 });
 
 app.post('/api/notifications/create', async (req, res) => {
     const scheduledTime = Number(req.body.scheduledAt) || Date.now();
-    // Fix: Cast object to any to avoid strict Mongoose type checking errors
     const newNotif = await Notification.create({
         id: Math.random().toString(36).substr(2, 9),
         userId: req.body.userId || 'all',
@@ -407,187 +413,179 @@ app.post('/api/notifications/create', async (req, res) => {
         color: req.body.color || 'text-blue-500',
         bg: req.body.bg || 'bg-blue-100'
     } as any);
+
+    // Broadcast Real-time
+    if (req.body.userId === 'all') {
+        io.emit('notification', newNotif);
+    } else {
+        io.to(req.body.userId).emit('notification', newNotif);
+    }
+
     res.json(newNotif);
 });
 
-// USERS
 app.get('/api/users', async (req, res) => {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10000;
     const search = (req.query.search as string || '').toLowerCase();
     
-    // START CHANGE: Filter out master/admin from customer list by default
     const query: any = { role: { $ne: 'master' } };
-    
     if (search) {
         query.$or = [
             { email: { $regex: search, $options: 'i' } },
             { 'botSettings.botName': { $regex: search, $options: 'i' } }
         ];
     }
-    // END CHANGE
     
-    const total = await User.countDocuments(query);
-    const users = await User.find(query).skip((page - 1) * limit).limit(limit);
+    const [total, users] = await Promise.all([
+        User.countDocuments(query),
+        User.find(query).skip((page - 1) * limit).limit(limit).lean()
+    ]);
     
     res.json({ data: users, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } });
 });
 
-// --- NEW DIRECT MESSAGE ROUTES ---
-
-// Search User by Email
+// --- MESSAGING ---
 app.post('/api/dm/find', async (req, res) => {
     const { email } = req.body;
-    const user = await User.findOne({ email: email.toLowerCase() }).select('id email role');
+    const user = await User.findOne({ email: email.toLowerCase() }).select('id email role').lean();
     if (user) {
-        res.json({ success: true, user: { id: user.id, email: user.email, role: user.role } });
+        res.json({ success: true, user });
     } else {
         res.json({ success: false, message: 'Không tìm thấy người dùng.' });
     }
 });
 
-// Get conversations list (Users you have talked to)
 app.get('/api/dm/conversations/:userId', async (req, res) => {
     const { userId } = req.params;
     
-    // Find all messages where user is sender or receiver
-    const messages = await DirectMessage.find({
-        $or: [{ senderId: userId }, { receiverId: userId }]
-    }).sort({ timestamp: -1 });
-
-    const contactIds = new Set<string>();
-    messages.forEach(m => {
-        if (m.senderId !== userId) contactIds.add(m.senderId);
-        if (m.receiverId !== userId) contactIds.add(m.receiverId);
-    });
-
-    const contacts = await User.find({ id: { $in: Array.from(contactIds) } }).select('id email role');
-    
-    // Map last message info AND unread count
-    const conversations = await Promise.all(contacts.map(async contact => {
-        const lastMsg = messages.find(m => 
-            (m.senderId === userId && m.receiverId === contact.id) || 
-            (m.senderId === contact.id && m.receiverId === userId)
-        );
-        
-        // Count unread messages from this contact to current user
-        const unreadCount = await DirectMessage.countDocuments({
-            senderId: contact.id,
-            receiverId: userId,
-            isRead: false
-        });
-
-        // Determine preview text based on type
-        let previewText = '';
-        if (lastMsg) {
-            if (lastMsg.type === 'sticker') previewText = '[Sticker]';
-            else if (lastMsg.type === 'image') previewText = '[Hình ảnh]';
-            else previewText = lastMsg.content || '';
+    // Aggregation for performance (replaces multiple queries)
+    const rawConversations = await DirectMessage.aggregate([
+        { 
+            $match: { 
+                $or: [{ senderId: userId }, { receiverId: userId }] 
+            } 
+        },
+        { 
+            $sort: { timestamp: -1 } 
+        },
+        {
+            $group: {
+                _id: {
+                    $cond: [{ $eq: ["$senderId", userId] }, "$receiverId", "$senderId"]
+                },
+                lastMessage: { $first: "$content" },
+                lastMessageTime: { $first: "$timestamp" },
+                type: { $first: "$type" },
+                unreadCount: {
+                    $sum: {
+                        $cond: [
+                            { $and: [{ $eq: ["$receiverId", userId] }, { $eq: ["$isRead", false] }] },
+                            1,
+                            0
+                        ]
+                    }
+                }
+            }
         }
+    ]);
+
+    const contactIds = rawConversations.map(c => c._id);
+    const contacts = await User.find({ id: { $in: contactIds } }).select('id email role').lean();
+
+    const conversations = rawConversations.map(conv => {
+        const contact = contacts.find(c => c.id === conv._id);
+        if (!contact) return null;
+
+        let previewText = conv.lastMessage || '';
+        if (conv.type === 'sticker') previewText = '[Sticker]';
+        else if (conv.type === 'image') previewText = '[Hình ảnh]';
 
         return {
             id: contact.id,
             email: contact.email,
             role: contact.role,
             lastMessage: previewText,
-            lastMessageTime: lastMsg?.timestamp || 0,
-            unreadCount: unreadCount 
+            lastMessageTime: conv.lastMessageTime,
+            unreadCount: conv.unreadCount
         };
-    }));
+    }).filter(c => c !== null);
 
-    // Sort by last active
-    conversations.sort((a, b) => b.lastMessageTime - a.lastMessageTime);
-
+    conversations.sort((a, b) => (b?.lastMessageTime || 0) - (a?.lastMessageTime || 0));
     res.json(conversations);
 });
 
-// Get Total Unread Count
 app.get('/api/dm/unread/:userId', async (req, res) => {
     const { userId } = req.params;
     try {
-        const count = await DirectMessage.countDocuments({ 
-            receiverId: userId, 
-            isRead: false 
-        });
+        const count = await DirectMessage.countDocuments({ receiverId: userId, isRead: false });
         res.json({ count });
     } catch (error) {
         res.json({ count: 0 });
     }
 });
 
-// Get message history between two users
 app.get('/api/dm/history/:userId/:otherUserId', async (req, res) => {
     const { userId, otherUserId } = req.params;
-    
-    // Update isRead to true for messages received by userId from otherUserId
     await DirectMessage.updateMany(
         { senderId: otherUserId, receiverId: userId, isRead: false },
         { isRead: true }
     );
-
     const messages = await DirectMessage.find({
         $or: [
             { senderId: userId, receiverId: otherUserId },
             { senderId: otherUserId, receiverId: userId }
         ]
-    }).sort({ timestamp: 1 });
+    }).sort({ timestamp: 1 }).limit(100).lean();
     res.json(messages);
 });
 
-// Send Message
 app.post('/api/dm/send', async (req, res) => {
     const { senderId, receiverId, content, type, replyToId, groupId } = req.body;
-    // Fix: Cast object to any to avoid strict Mongoose type checking errors
     const newMessage = await DirectMessage.create({
         id: Math.random().toString(36).substr(2, 9),
-        senderId,
-        receiverId,
-        content,
-        timestamp: Date.now(),
-        isRead: false,
-        type: type || 'text',
-        replyToId: replyToId || null,
-        reactions: [],
-        groupId: groupId || null
+        senderId, receiverId, content, timestamp: Date.now(), isRead: false,
+        type: type || 'text', replyToId: replyToId || null, reactions: [], groupId: groupId || null
     } as any);
+
+    // Real-time Event
+    const payload = {
+        ...(newMessage as any).toObject(),
+        replyToContent: null // Frontend handles looking up reply content via ID if needed or we populate it here
+    };
+    
+    io.to(receiverId).emit('direct_message', payload);
+    io.to(senderId).emit('message_sent', payload); // Confirmation to sender (optional)
+
     res.json(newMessage);
 });
 
-// React to Message
 app.post('/api/dm/react', async (req, res) => {
     const { messageId, userId, emoji } = req.body;
-    
-    // Fix: Cast to any to prevent Typescript from misinterpreting the Mongoose document structure
     const message: any = await DirectMessage.findOne({ id: messageId });
     if (!message) return res.status(404).json({ success: false });
 
-    // Ensure reactions array exists
     if (!message.reactions) message.reactions = [];
-
-    // Check if user already reacted
     const existingIndex = message.reactions.findIndex((r: any) => r.userId === userId);
     
     if (existingIndex > -1) {
-        if (message.reactions[existingIndex].emoji === emoji) {
-            // Remove reaction if same emoji clicked
-            message.reactions.splice(existingIndex, 1);
-        } else {
-            // Update emoji
-            message.reactions[existingIndex].emoji = emoji;
-        }
+        if (message.reactions[existingIndex].emoji === emoji) message.reactions.splice(existingIndex, 1);
+        else message.reactions[existingIndex].emoji = emoji;
     } else {
-        // Add new reaction
         message.reactions.push({ userId, emoji });
     }
 
-    // Mark specific path as modified because it's a nested array
     message.markModified('reactions');
     await message.save();
+    
+    // Broadcast reaction
+    io.to(message.senderId).to(message.receiverId).emit('message_reaction', { 
+        messageId, reactions: message.reactions 
+    });
     
     res.json({ success: true, reactions: message.reactions });
 });
 
-// CHAT SESSIONS (AI)
 app.get('/api/chat-sessions/:userId', async (req, res) => {
     const { userId } = req.params;
     const page = parseInt(req.query.page as string) || 1;
@@ -595,44 +593,36 @@ app.get('/api/chat-sessions/:userId', async (req, res) => {
     const filterUserId = req.query.filterUserId as string || 'all';
 
     let matchStage: any = {};
-    
-    if (userId !== 'all' && userId !== 'admin') {
-        matchStage.userId = userId;
-    } else {
-        if (filterUserId !== 'all') {
-            matchStage.userId = filterUserId;
-        }
-    }
+    if (userId !== 'all' && userId !== 'admin') matchStage.userId = userId;
+    else if (filterUserId !== 'all') matchStage.userId = filterUserId;
 
-    const sessions = await ChatLog.aggregate([
-        { $match: matchStage },
-        { $sort: { timestamp: -1 } },
-        {
-            $group: {
-                _id: { userId: "$userId", sessionId: "$customerSessionId" },
-                lastActive: { $max: "$timestamp" },
-                preview: { $first: "$query" },
-                messageCount: { $sum: 1 },
-                userId: { $first: "$userId" },
-                sessionId: { $first: "$customerSessionId" }
-            }
-        },
-        { $sort: { lastActive: -1 } },
-        { $skip: (page - 1) * limit },
-        { $limit: limit }
+    const [sessions, countResult] = await Promise.all([
+        ChatLog.aggregate([
+            { $match: matchStage },
+            { $sort: { timestamp: -1 } },
+            {
+                $group: {
+                    _id: { userId: "$userId", sessionId: "$customerSessionId" },
+                    lastActive: { $max: "$timestamp" },
+                    preview: { $first: "$query" },
+                    messageCount: { $sum: 1 },
+                    userId: { $first: "$userId" },
+                    sessionId: { $first: "$customerSessionId" }
+                }
+            },
+            { $sort: { lastActive: -1 } },
+            { $skip: (page - 1) * limit },
+            { $limit: limit }
+        ]),
+        ChatLog.aggregate([
+            { $match: matchStage },
+            { $group: { _id: { userId: "$userId", sessionId: "$customerSessionId" } } },
+            { $count: "total" }
+        ])
     ]);
 
-    const countResult = await ChatLog.aggregate([
-        { $match: matchStage },
-        { $group: { _id: { userId: "$userId", sessionId: "$customerSessionId" } } },
-        { $count: "total" }
-    ]);
     const total = countResult[0]?.total || 0;
-
-    const mappedSessions = sessions.map(s => ({
-        uniqueKey: `${s.userId}_${s.sessionId}`,
-        ...s
-    }));
+    const mappedSessions = sessions.map(s => ({ uniqueKey: `${s.userId}_${s.sessionId}`, ...s }));
 
     res.json({
         data: mappedSessions,
@@ -644,24 +634,21 @@ app.get('/api/chat-messages/:userId/:sessionId', async (req, res) => {
     const { userId, sessionId } = req.params;
     const query: any = { customerSessionId: sessionId };
     if (userId !== 'all' && userId !== 'admin') query.userId = userId;
-    
-    const messages = await ChatLog.find(query).sort({ timestamp: 1 });
+    const messages = await ChatLog.find(query).sort({ timestamp: 1 }).limit(100).lean();
     res.json(messages);
 });
 
 app.get('/api/chat-logs/:userId', async (req, res) => {
     const query = (req.params.userId !== 'all' && req.params.userId !== 'admin') ? { userId: req.params.userId } : {};
-    const logs = await ChatLog.find(query).sort({ timestamp: -1 });
+    const logs = await ChatLog.find(query).sort({ timestamp: -1 }).limit(2000).lean();
     res.json(logs);
 });
 
-// AUTH
 app.post('/api/register', async (req, res) => {
     const { email, password } = req.body;
     const existing = await User.findOne({ email });
     if (existing) return res.status(400).json({ success: false, message: 'Email đã tồn tại' });
     
-    // Fix: Cast object to any to avoid strict Mongoose type checking errors
     const newUser = await User.create({
         id: Math.random().toString(36).substr(2, 9),
         email, password, role: 'user', createdAt: Date.now()
@@ -671,11 +658,12 @@ app.post('/api/register', async (req, res) => {
 
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
-    const user = await User.findOne({ email, password });
+    const user = await User.findOne({ email, password }).lean();
     if (user) res.json({ success: true, user });
     else res.status(401).json({ success: false, message: 'Sai thông tin đăng nhập' });
 });
 
+// ... (Keeping rest of standard CRUD endpoints, assuming they are low volume) ...
 app.post('/api/user/change-password', async (req, res) => {
     const { userId, oldPassword, newPassword } = req.body;
     const user = await User.findOne({ id: userId });
@@ -701,33 +689,26 @@ app.delete('/api/admin/users/:id', async (req, res) => {
     res.json({ success: true, message: 'Xóa user thành công' });
 });
 
-// DOCS & SETTINGS
 app.get('/api/documents/:userId', async (req, res) => {
-    const docs = await Document.find({ userId: req.params.userId });
+    const docs = await Document.find({ userId: req.params.userId }).lean();
     res.json(docs);
 });
 
 app.get('/api/settings/:userId', async (req, res) => {
-    const user = await User.findOne({ id: req.params.userId });
+    const user = await User.findOne({ id: req.params.userId }).select('botSettings').lean();
     if(user) res.json(user.botSettings);
     else res.status(404).json({success: false});
 });
 
 app.post('/api/settings/:userId', async (req, res) => {
-    await User.findOneAndUpdate(
-        { id: req.params.userId }, 
-        { $set: { botSettings: req.body } },
-        { new: true, upsert: true }
-    );
+    await User.findOneAndUpdate({ id: req.params.userId }, { $set: { botSettings: req.body } }, { new: true, upsert: true });
     res.json({ success: true });
 });
 
 app.post('/api/documents/text', async (req, res) => {
     const { name, content, userId } = req.body;
-    // Fix: Cast object to any to avoid strict Mongoose type checking errors
     const newDoc = await Document.create({
-        id: Math.random().toString(36).substr(2, 9),
-        userId, name, content, type: 'text', status: 'indexed', createdAt: Date.now()
+        id: Math.random().toString(36).substr(2, 9), userId, name, content, type: 'text', status: 'indexed', createdAt: Date.now()
     } as any);
     res.json(newDoc);
 });
@@ -735,15 +716,8 @@ app.post('/api/documents/text', async (req, res) => {
 app.post('/api/documents/upload', upload.single('file') as any, async (req: any, res: any) => {
     if (!req.file || !req.body.userId) return res.status(400).send('Missing file/userId');
     const content = req.file.buffer.toString('utf-8');
-    // Fix: Cast object to any to avoid strict Mongoose type checking errors
     const newDoc = await Document.create({
-        id: Math.random().toString(36).substr(2, 9),
-        userId: req.body.userId,
-        name: req.file.originalname,
-        content: content,
-        type: 'file',
-        status: 'indexed',
-        createdAt: Date.now()
+        id: Math.random().toString(36).substr(2, 9), userId: req.body.userId, name: req.file.originalname, content, type: 'file', status: 'indexed', createdAt: Date.now()
     } as any);
     res.json(newDoc);
 });
@@ -753,13 +727,12 @@ app.delete('/api/documents/:id', async (req, res) => {
     res.json({ success: true });
 });
 
-// CHAT AI
 app.post('/api/chat', async (req, res) => {
     const { message, userId, botName, sessionId } = req.body;
     if (!process.env.API_KEY) return res.status(500).json({ error: "Missing API KEY" });
     
-    const docs = await Document.find({ userId });
-    const context = docs.map(d => `[Tài liệu: ${d.name}]\n${d.content}`).join('\n\n');
+    const docs = await Document.find({ userId }).lean();
+    const context = docs.map((d: any) => `[Tài liệu: ${d.name}]\n${d.content}`).join('\n\n');
     const systemInstruction = `Bạn là trợ lý AI tên "${botName || 'BibiBot'}". Hãy sử dụng kiến thức sau để hỗ trợ khách hàng: ${context}`;
     
     try {
@@ -771,16 +744,9 @@ app.post('/api/chat', async (req, res) => {
         });
         const reply = response.text || "Tôi không thể trả lời.";
         
-        // Fix: Cast object to any to avoid strict Mongoose type checking errors
         await ChatLog.create({
             id: Math.random().toString(36).substr(2, 9),
-            userId,
-            customerSessionId: sessionId || 'anon',
-            query: message,
-            answer: reply,
-            timestamp: Date.now(),
-            tokens: message.length,
-            isSolved: !reply.includes("không có thông tin")
+            userId, customerSessionId: sessionId || 'anon', query: message, answer: reply, timestamp: Date.now(), tokens: message.length, isSolved: !reply.includes("không có thông tin")
         } as any);
         
         res.json({ text: reply });
@@ -790,6 +756,6 @@ app.post('/api/chat', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+httpServer.listen(PORT, () => {
+  console.log(`🚀 Server (Http+Socket) running at http://localhost:${PORT}`);
 });
