@@ -47,52 +47,56 @@ const ImageLightbox: React.FC<{
     current: number;
     total: number;
 }> = ({ src, onClose, onPrev, onNext, hasPrev, hasNext, current, total }) => {
-    // Touch state for swipe detection
-    const [touchStart, setTouchStart] = useState<{x: number, y: number} | null>(null);
-    const minSwipeDistance = 50; // Minimum distance to trigger swipe
-    const minCloseDistance = 80; // Minimum distance to trigger close (vertical)
+    // Touch tracking state
+    const [offset, setOffset] = useState({ x: 0, y: 0 });
+    const [isDragging, setIsDragging] = useState(false);
+    const touchStart = useRef<{ x: number, y: number } | null>(null);
 
-    // Animation Direction State
-    const prevIndexRef = useRef(current);
-    const [direction, setDirection] = useState<'initial' | 'left' | 'right'>('initial');
+    // Thresholds
+    const DISMISS_THRESHOLD = 150; // Pixels to pull down to close
+    const NAV_THRESHOLD = 100; // Pixels to swipe to navigate
 
-    useEffect(() => {
-        if (current > prevIndexRef.current) setDirection('right'); // Moving to next
-        else if (current < prevIndexRef.current) setDirection('left'); // Moving to prev
-        else setDirection('initial');
-        prevIndexRef.current = current;
-    }, [current]);
-
-    const onTouchStart = (e: React.TouchEvent) => {
-        setTouchStart({ x: e.targetTouches[0].clientX, y: e.targetTouches[0].clientY });
+    const handleTouchStart = (e: React.TouchEvent) => {
+        setIsDragging(true);
+        touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     };
 
-    const onTouchEnd = (e: React.TouchEvent) => {
-        if (!touchStart) return;
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (!isDragging || !touchStart.current) return;
+        const dx = e.touches[0].clientX - touchStart.current.x;
+        const dy = e.touches[0].clientY - touchStart.current.y;
         
-        const touchEndX = e.changedTouches[0].clientX;
-        const touchEndY = e.changedTouches[0].clientY;
+        // Prevent default scrolling behavior on mobile
+        // e.preventDefault(); // Note: React synthetic events might not support this directly in all cases without passive: false
         
-        const diffX = touchStart.x - touchEndX;
-        const diffY = touchStart.y - touchEndY;
+        setOffset({ x: dx, y: dy });
+    };
 
-        // Check if vertical swipe (Close)
-        // Ensure vertical movement is significantly more than horizontal to avoid accidental closes when swiping diagonally
-        if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > minCloseDistance) {
+    const handleTouchEnd = () => {
+        setIsDragging(false);
+        if (!touchStart.current) return;
+
+        const { x, y } = offset;
+
+        // Vertical Logic (Close)
+        if (Math.abs(y) > DISMISS_THRESHOLD) {
             onClose();
             return;
         }
 
-        // Check if horizontal swipe (Nav)
-        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > minSwipeDistance) {
-            if (diffX > 0 && hasNext) {
-                onNext();
-            } else if (diffX < 0 && hasPrev) {
+        // Horizontal Logic (Next/Prev)
+        // Only navigate if horizontal movement is dominant
+        if (Math.abs(x) > Math.abs(y) && Math.abs(x) > NAV_THRESHOLD) {
+            if (x > 0 && hasPrev) {
                 onPrev();
+            } else if (x < 0 && hasNext) {
+                onNext();
             }
         }
-        
-        setTouchStart(null);
+
+        // Reset if no action taken (snap back)
+        setOffset({ x: 0, y: 0 });
+        touchStart.current = null;
     };
 
     useEffect(() => {
@@ -105,42 +109,55 @@ const ImageLightbox: React.FC<{
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [hasPrev, hasNext, onPrev, onNext, onClose]);
 
-    // Determine animation class based on direction
-    let animClass = "animate-in zoom-in duration-300";
-    if (direction === 'right') animClass = "animate-in slide-in-from-right duration-300 fade-in";
-    if (direction === 'left') animClass = "animate-in slide-in-from-left duration-300 fade-in";
+    // Calculate dynamic styles for iPhone-like feel
+    const opacity = Math.max(0, 1 - Math.abs(offset.y) / (window.innerHeight * 0.7)); // Fade out bg
+    const scale = Math.max(0.8, 1 - Math.abs(offset.y) / 1000); // Shrink image slightly on drag
 
     return createPortal(
         <div 
-            className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-md flex items-center justify-center p-0 md:p-4 animate-in fade-in duration-300 group touch-none"
+            className="fixed inset-0 z-[9999] flex items-center justify-center touch-none"
+            style={{ 
+                backgroundColor: `rgba(0, 0, 0, ${isDragging ? opacity * 0.95 : 0.95})`,
+                transition: isDragging ? 'none' : 'background-color 0.3s ease' 
+            }}
             onClick={onClose}
-            onTouchStart={onTouchStart}
-            onTouchEnd={onTouchEnd}
         >
+            {/* Close Button */}
             <button 
                 onClick={onClose}
-                className="absolute top-6 right-6 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors z-50 backdrop-blur-sm"
+                className={`absolute top-6 right-6 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all z-50 backdrop-blur-sm ${isDragging ? 'opacity-0' : 'opacity-100'}`}
             >
                 <i className="fa-solid fa-xmark text-xl"></i>
             </button>
 
+            {/* Nav Buttons (Hidden on drag) */}
             {hasPrev && (
                 <button 
                     onClick={(e) => { e.stopPropagation(); onPrev(); }}
-                    className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/10 hover:bg-white/20 hidden md:flex items-center justify-center text-white transition-colors z-50 backdrop-blur-md opacity-0 group-hover:opacity-100 duration-300"
+                    className={`absolute left-2 md:left-4 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/10 hover:bg-white/20 hidden md:flex items-center justify-center text-white transition-all z-50 backdrop-blur-md ${isDragging ? 'opacity-0' : 'opacity-100'}`}
                 >
                     <i className="fa-solid fa-chevron-left text-xl"></i>
                 </button>
             )}
             
-            {/* Image Container with Key for Re-render Animation */}
-            <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+            {/* Draggable Image Container */}
+            <div 
+                className="relative w-full h-full flex items-center justify-center overflow-hidden"
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onClick={(e) => e.stopPropagation()} 
+            >
                 <img 
-                    key={src}
+                    key={src} // Important: Resets transform when src changes
                     src={src} 
                     alt="Expanded View" 
-                    className={`max-w-full max-h-full md:rounded-xl shadow-2xl object-contain select-none ${animClass}`}
-                    onClick={(e) => e.stopPropagation()} 
+                    className="max-w-full max-h-full md:rounded-xl shadow-2xl object-contain select-none"
+                    style={{
+                        transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
+                        transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)', // iOS-like spring curve
+                        cursor: isDragging ? 'grabbing' : 'grab'
+                    }}
                     draggable={false}
                 />
             </div>
@@ -148,20 +165,16 @@ const ImageLightbox: React.FC<{
             {hasNext && (
                 <button 
                     onClick={(e) => { e.stopPropagation(); onNext(); }}
-                    className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/10 hover:bg-white/20 hidden md:flex items-center justify-center text-white transition-colors z-50 backdrop-blur-md opacity-0 group-hover:opacity-100 duration-300"
+                    className={`absolute right-2 md:right-4 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/10 hover:bg-white/20 hidden md:flex items-center justify-center text-white transition-all z-50 backdrop-blur-md ${isDragging ? 'opacity-0' : 'opacity-100'}`}
                 >
                     <i className="fa-solid fa-chevron-right text-xl"></i>
                 </button>
             )}
 
-            {/* Image Counter & Mobile Hint */}
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none opacity-0 group-hover:opacity-100 duration-300 transition-opacity">
+            {/* Simple Counter - No Text Instructions */}
+            <div className={`absolute bottom-8 left-1/2 -translate-x-1/2 pointer-events-none transition-opacity duration-300 ${isDragging ? 'opacity-0' : 'opacity-100'}`}>
                 <div className="bg-white/10 border border-white/20 px-4 py-1.5 rounded-full text-white text-xs font-bold backdrop-blur-md">
                     {current + 1} / {total}
-                </div>
-                <div className="md:hidden text-white/50 text-[10px] font-medium flex gap-3">
-                    <span><i className="fa-solid fa-arrows-left-right mr-1"></i> Vuốt ngang đổi ảnh</span>
-                    <span><i className="fa-solid fa-arrows-up-down mr-1"></i> Vuốt dọc để đóng</span>
                 </div>
             </div>
         </div>,
