@@ -36,7 +36,7 @@ const ONLINE_THRESHOLD = 5 * 60 * 1000;
 
 // === UTILS ===
 
-// Tối ưu hóa nén ảnh mạnh hơn
+// Tối ưu hóa nén ảnh mạnh hơn: Max Full HD (1920px) và Quality 0.5 (~200KB)
 const compressImage = async (file: File): Promise<File> => {
     if (file.type === 'image/gif') return file; // Giữ nguyên GIF
     return new Promise((resolve, reject) => {
@@ -47,7 +47,7 @@ const compressImage = async (file: File): Promise<File> => {
             img.src = event.target?.result as string;
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const maxWidth = 1024; // Giảm xuống 1024px để nhẹ hơn
+                const maxWidth = 1920; // Full HD
                 let width = img.width;
                 let height = img.height;
                 
@@ -61,12 +61,12 @@ const compressImage = async (file: File): Promise<File> => {
                 const ctx = canvas.getContext('2d');
                 ctx?.drawImage(img, 0, 0, width, height);
                 
-                // Nén JPEG chất lượng 0.6
+                // Nén JPEG chất lượng 0.5 (Khá thấp nhưng đủ chat, dung lượng rất nhẹ)
                 canvas.toBlob((blob) => {
                     if (blob) {
                         resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() }));
                     } else reject(new Error('Compression failed'));
-                }, 'image/jpeg', 0.6);
+                }, 'image/jpeg', 0.5);
             };
             img.onerror = (err) => reject(err);
         };
@@ -102,7 +102,7 @@ const SafeImage: React.FC<{ src: string; alt: string; className?: string; onClic
     );
 };
 
-// Lightbox với hiệu ứng Slide mượt mà (Đã khôi phục)
+// Lightbox với hiệu ứng Slide mượt mà
 const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose: () => void; }> = ({ images, initialIndex, onClose }) => {
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -129,7 +129,6 @@ const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose:
         const dx = e.touches[0].clientX - touchStart.current.x;
         const dy = e.touches[0].clientY - touchStart.current.y;
         
-        // Kéo dọc để đóng, kéo ngang để chuyển ảnh
         if (Math.abs(dy) > Math.abs(dx) * 1.5 && Math.abs(dy) > 10) setOffset({ x: 0, y: dy });
         else if (Math.abs(offset.y) < 10) setOffset({ x: dx, y: 0 });
     };
@@ -140,22 +139,19 @@ const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose:
         if (!touchStart.current) return;
         const { x, y } = offset;
         
-        // Đóng nếu kéo dọc quá 150px
         if (Math.abs(y) > 150) { onClose(); return; }
         
-        // Chuyển ảnh nếu kéo ngang quá 25% màn hình
         if (Math.abs(x) > viewportWidth * 0.25 && y === 0) {
             if (x < 0 && currentIndex < images.length - 1) {
-                setOffset({ x: -viewportWidth - 20, y: 0 }); // Slide out left
+                setOffset({ x: -viewportWidth - 20, y: 0 });
                 setTimeout(() => { setIsAnimating(false); setCurrentIndex(c => c + 1); setOffset({x:0, y:0})}, 300);
                 return;
             } else if (x > 0 && currentIndex > 0) {
-                setOffset({ x: viewportWidth + 20, y: 0 }); // Slide out right
+                setOffset({ x: viewportWidth + 20, y: 0 });
                 setTimeout(() => { setIsAnimating(false); setCurrentIndex(c => c - 1); setOffset({x:0, y:0})}, 300);
                 return;
             }
         }
-        // Reset về vị trí cũ
         setOffset({ x: 0, y: 0 });
         touchStart.current = null;
     };
@@ -196,7 +192,7 @@ const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose:
             {currentIndex < images.length - 1 && <button onClick={(e) => { e.stopPropagation(); setIsAnimating(true); setOffset({ x: -viewportWidth, y: 0 }); setTimeout(() => { setIsAnimating(false); setCurrentIndex(c => c + 1); setOffset({x:0, y:0})}, 300); }} className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full items-center justify-center text-white z-50 backdrop-blur-md"><i className="fa-solid fa-chevron-right"></i></button>}
 
             <div className="relative w-full h-full" onClick={e => e.stopPropagation()}>
-                {/* Previous Image (Preload) */}
+                {/* Previous Image */}
                 {currentIndex > 0 && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ transform: `translateX(${offset.x - viewportWidth - GAP}px) scale(${scale})`, transition }}>
                         <img src={images[currentIndex - 1]} className="max-w-full max-h-full object-contain opacity-50" alt="Prev" draggable={false} />
@@ -208,7 +204,7 @@ const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose:
                     <img src={images[currentIndex]} className="max-w-full max-h-full object-contain shadow-2xl select-none" draggable={false} alt="Current" />
                 </div>
 
-                {/* Next Image (Preload) */}
+                {/* Next Image */}
                 {currentIndex < images.length - 1 && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ transform: `translateX(${offset.x + viewportWidth + GAP}px) scale(${scale})`, transition }}>
                         <img src={images[currentIndex + 1]} className="max-w-full max-h-full object-contain opacity-50" alt="Next" draggable={false} />
@@ -247,7 +243,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [replyingTo, setReplyingTo] = useState<DirectMessage | null>(null);
   
-  // New Robust Upload State
+  // State for Uploads
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [uploadQueueRunning, setUploadQueueRunning] = useState(false);
   
@@ -338,34 +334,36 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
   const isUploading = pendingImages.some(img => img.uploading);
 
-  // --- UPLOAD LOGIC (SMART QUEUE) ---
-  const MAX_CONCURRENT_UPLOADS = 3;
-
+  // --- UPLOAD LOGIC (SEQUENTIAL 1-BY-1) ---
+  
   useEffect(() => {
-      if (pendingImages.some(img => img.uploading && !img.serverUrl && !img.error) && !uploadQueueRunning) {
-          processUploadQueue();
+      // Logic upload tuần tự: Chỉ chạy nếu không có file nào đang upload
+      if (!uploadQueueRunning) {
+          const nextImageToUpload = pendingImages.find(img => img.uploading && !img.serverUrl && !img.error);
+          if (nextImageToUpload) {
+              processSingleImage(nextImageToUpload);
+          }
       }
   }, [pendingImages, uploadQueueRunning]);
 
-  const processUploadQueue = async () => {
+  const processSingleImage = async (img: PendingImage) => {
       setUploadQueueRunning(true);
-      const imagesToUpload = pendingImages.filter(img => img.uploading && !img.serverUrl && !img.error);
-      if (imagesToUpload.length === 0) {
+      try {
+          const compressed = await compressImage(img.file);
+          const result = await apiService.uploadFile(compressed);
+          
+          setPendingImages(prev => prev.map(p => 
+              p.id === img.id ? { ...p, serverUrl: result.url, uploading: false } : p
+          ));
+      } catch (e) {
+          console.error("Upload failed", e);
+          setPendingImages(prev => prev.map(p => 
+              p.id === img.id ? { ...p, uploading: false, error: true } : p
+          ));
+      } finally {
+          // Giải phóng lock để useEffect kích hoạt upload file tiếp theo (nếu có)
           setUploadQueueRunning(false);
-          return;
       }
-      const chunk = imagesToUpload.slice(0, MAX_CONCURRENT_UPLOADS);
-      await Promise.all(chunk.map(async (img) => {
-          try {
-              const compressed = await compressImage(img.file);
-              const result = await apiService.uploadFile(compressed);
-              setPendingImages(prev => prev.map(p => p.id === img.id ? { ...p, serverUrl: result.url, uploading: false } : p));
-          } catch (e) {
-              console.error("Upload failed", e);
-              setPendingImages(prev => prev.map(p => p.id === img.id ? { ...p, uploading: false, error: true } : p));
-          }
-      }));
-      setUploadQueueRunning(false);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -517,28 +515,18 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
         loadConversations();
     });
     
-    // Khi tin nhắn CỦA MÌNH được server xác nhận (gửi từ thiết bị này hoặc thiết bị khác)
+    // Khi tin nhắn CỦA MÌNH được server xác nhận
     socketService.on('message_sent', (msg: DirectMessage) => {
          if (activeChatUser && msg.receiverId === activeChatUser.id) {
              setMessages(prev => {
-                 // Nếu là Text/Sticker -> Đã có Optimistic Update -> Bỏ qua (hoặc replace nếu cần ID thật)
-                 // Nếu là Image -> Chưa có Optimistic Update -> Thêm vào
-                 // Logic đơn giản: Kiểm tra xem ID này đã có chưa (để tránh duplicate từ các nguồn khác)
                  if(prev.find(m => m.id === msg.id)) return prev;
                  
-                 // Với Text, check xem có tin nhắn nào nội dung y hệt + timestamp gần đây không để de-duplicate?
-                 // Tạm thời chỉ áp dụng logic chặt chẽ cho Image (vì Text đã handle optimistic riêng)
+                 // Chấp nhận ảnh luôn vì ta không render optimistic
                  if (msg.type === 'image') {
                      return [...prev, msg];
                  }
                  
-                 // Với Text, nếu optimistic update đã chạy, ta có tempId. 
-                 // Socket trả về realId. 
-                 // Vì UI không cần chính xác realId ngay lập tức, ta có thể bỏ qua socket event cho Text 
-                 // TRỪ KHI ta muốn replace tempId bằng realId (phức tạp).
-                 // Hiện tại code cũ đang return prev nếu tìm thấy ID. 
-                 // Do ta dùng tempId cho text, nên find(id) sẽ false -> Add thêm -> Duplicate Text.
-                 // FIX: Lọc duplicate text dựa trên content + timestamp gần nhau.
+                 // Lọc duplicate text
                  const isDuplicateText = prev.some(m => 
                      m.content === msg.content && 
                      m.type === msg.type && 
