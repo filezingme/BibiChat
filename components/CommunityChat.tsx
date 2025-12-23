@@ -37,6 +37,41 @@ const REACTIONS = ['❤️', '😆', '😮', '😢', '😡', '👍'];
 // Thời gian tối đa để coi là "Online" (5 phút)
 const ONLINE_THRESHOLD = 5 * 60 * 1000;
 
+// Component hiển thị ảnh an toàn (fallback khi ảnh chết/hết hạn)
+const SafeImage: React.FC<{ 
+    src: string; 
+    alt: string; 
+    className?: string; 
+    onClick?: () => void;
+}> = ({ src, alt, className, onClick }) => {
+    const [hasError, setHasError] = useState(false);
+
+    if (hasError) {
+        return (
+            <div 
+                className={`${className} bg-slate-100 dark:bg-slate-800 flex flex-col items-center justify-center text-slate-400 dark:text-slate-600 border-2 border-dashed border-slate-200 dark:border-slate-700 p-2 select-none overflow-hidden`}
+                onClick={onClick}
+                title="Ảnh gốc đã hết hạn hoặc bị xóa"
+            >
+                <div className="w-8 h-8 mb-1 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
+                    <i className="fa-solid fa-ghost animate-pulse"></i>
+                </div>
+                <span className="text-[9px] font-bold text-center leading-tight opacity-70 uppercase tracking-wide">Đã bay màu</span>
+            </div>
+        );
+    }
+
+    return (
+        <img 
+            src={src} 
+            alt={alt} 
+            className={className} 
+            onClick={onClick} 
+            onError={() => setHasError(true)} 
+        />
+    );
+};
+
 // Lightbox xem ảnh kiểu iPhone (Mượt mà)
 const ImageLightbox: React.FC<{
     images: string[];
@@ -48,6 +83,7 @@ const ImageLightbox: React.FC<{
     const [offset, setOffset] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
     const [isAnimating, setIsAnimating] = useState(false);
+    const [imageError, setImageError] = useState(false); // Track specific image load error in lightbox
     
     const touchStart = useRef<{ x: number, y: number } | null>(null);
     const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
@@ -57,6 +93,11 @@ const ImageLightbox: React.FC<{
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
+
+    // Reset error when index changes
+    useEffect(() => {
+        setImageError(false);
+    }, [currentIndex]);
 
     const handleTouchStart = (e: React.TouchEvent) => {
         if (e.touches.length > 1) return; // Bỏ qua đa điểm
@@ -195,7 +236,7 @@ const ImageLightbox: React.FC<{
                             transition 
                         }}
                     >
-                        <img src={images[currentIndex - 1]} className="max-w-full max-h-full object-contain" alt="Prev" />
+                        <SafeImage src={images[currentIndex - 1]} className="max-w-full max-h-full object-contain" alt="Prev" />
                     </div>
                 )}
 
@@ -207,7 +248,21 @@ const ImageLightbox: React.FC<{
                         transition 
                     }}
                 >
-                    <img src={images[currentIndex]} className="max-w-full max-h-full object-contain shadow-2xl select-none" draggable={false} alt="Current" />
+                    {imageError ? (
+                        <div className="flex flex-col items-center justify-center text-white/50">
+                            <i className="fa-solid fa-ghost text-6xl mb-4 animate-bounce"></i>
+                            <p className="text-xl font-bold">Ảnh này đã biến mất...</p>
+                            <p className="text-sm mt-2 opacity-70">Có vẻ như ảnh đã hết hạn lưu trữ (24h).</p>
+                        </div>
+                    ) : (
+                        <img 
+                            src={images[currentIndex]} 
+                            className="max-w-full max-h-full object-contain shadow-2xl select-none" 
+                            draggable={false} 
+                            alt="Current" 
+                            onError={() => setImageError(true)}
+                        />
+                    )}
                 </div>
 
                 {/* ẢNH SAU (Preload bên phải) */}
@@ -219,7 +274,7 @@ const ImageLightbox: React.FC<{
                             transition 
                         }}
                     >
-                        <img src={images[currentIndex + 1]} className="max-w-full max-h-full object-contain" alt="Next" />
+                        <SafeImage src={images[currentIndex + 1]} className="max-w-full max-h-full object-contain" alt="Next" />
                     </div>
                 )}
             </div>
@@ -914,7 +969,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
                                                    return (
                                                        <div key={img.id} className={`relative cursor-pointer group/img ${spanClass}`} onClick={() => setExpandedImage(img.content)}>
-                                                           <img src={img.content} className="w-full h-full object-cover hover:opacity-90 transition-opacity" alt="img" />
+                                                           <SafeImage src={img.content} alt="img" className="w-full h-full object-cover hover:opacity-90 transition-opacity" />
                                                            {isOverlay && (
                                                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-bold text-xl backdrop-blur-[2px]">
                                                                    +{count - 3}
@@ -983,7 +1038,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                            </div>
                                        ) : msg.type === 'image' ? (
                                             <div className="relative inline-block group cursor-pointer" onClick={() => setExpandedImage(msg.content)}>
-                                                <img src={msg.content} alt="Image" className="w-64 h-auto rounded-2xl border-2 border-slate-200 dark:border-slate-700 hover:opacity-90 transition-opacity" />
+                                                <SafeImage src={msg.content} alt="Image" className="w-64 h-auto rounded-2xl border-2 border-slate-200 dark:border-slate-700 hover:opacity-90 transition-opacity" />
                                                 <div className={`absolute bottom-2 right-2 bg-black/40 backdrop-blur-sm text-white px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none`}>
                                                     {new Date(msg.timestamp).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}
                                                     {isMe && (
