@@ -826,8 +826,8 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
       setPendingImages(prev => [...prev, ...newImages]);
 
-      // OPTIMIZATION: Use Promise.all to upload in parallel instead of sequential loop
-      // This speeds up the "Ready to Send" state significantly for multiple images
+      // OPTIMIZATION: Use Promise.all to upload in parallel
+      // FIX: Do not automatically remove image on error, so user can see it failed
       await Promise.all(newImages.map(async (img) => {
           try {
               // OPTIMIZATION: Compress image before upload
@@ -839,9 +839,10 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
               ));
           } catch (e) {
               console.error("Upload failed", e);
-              // Remove failed images from list or mark error
-              setPendingImages(prev => prev.filter(p => p.id !== img.id));
-              // Optional: Show toast error here
+              // Stop spinner but keep image in list
+              setPendingImages(prev => prev.map(p => 
+                  p.id === img.id ? { ...p, uploading: false } : p
+              ));
           }
       }));
   };
@@ -1219,9 +1220,9 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                        Xóa tất cả
                                    </button>
                                </div>
-                               <div className="flex gap-3 overflow-x-auto pb-2 pt-2 custom-scrollbar-hover pl-1">
+                               <div className="flex gap-3 overflow-x-auto pb-2 pt-2 custom-scrollbar-hover px-1 scroll-smooth snap-x">
                                    {pendingImages.map((img) => (
-                                       <div key={img.id} className="relative group shrink-0 w-16 h-16">
+                                       <div key={img.id} className="relative group shrink-0 w-20 h-20 snap-start">
                                            <img src={img.localUrl} alt="Preview" className="w-full h-full object-cover rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm" />
                                            
                                            {/* Loading Overlay */}
@@ -1234,8 +1235,8 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                            {/* Remove Button - Fixed Clipping & Mobile Hover Issue */}
                                            <button 
                                                onClick={() => removePendingImage(img.id)} 
-                                               className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-sm hover:scale-110 transition-transform z-10"
-                                               disabled={img.uploading}
+                                               className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-sm hover:scale-110 transition-transform z-10"
+                                               // disabled={img.uploading}
                                            >
                                                <i className="fa-solid fa-xmark text-[10px]"></i>
                                            </button>
@@ -1245,9 +1246,9 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                    {/* Add more button */}
                                    <button 
                                        onClick={() => fileInputRef.current?.click()}
-                                       className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center text-slate-400 hover:border-indigo-400 hover:text-indigo-500 transition-colors shrink-0"
+                                       className="w-20 h-20 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center text-slate-400 hover:border-indigo-400 hover:text-indigo-500 transition-colors shrink-0 snap-start"
                                    >
-                                       <i className="fa-solid fa-plus text-lg"></i>
+                                       <i className="fa-solid fa-plus text-2xl"></i>
                                    </button>
                                </div>
                            </div>
