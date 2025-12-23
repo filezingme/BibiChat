@@ -201,6 +201,7 @@ app.get('/widget.js', (req, res) => {
   container.style.height = '80px';
   container.style.border = 'none';
   container.style.transition = 'all 0.3s ease';
+  container.style.background = 'transparent'; // Ensure container is transparent
   
   // IFRAME SOURCE TRỎ VỀ VERCEL
   var iframe = document.createElement('iframe');
@@ -209,7 +210,9 @@ app.get('/widget.js', (req, res) => {
   iframe.style.height = '100%';
   iframe.style.border = 'none';
   iframe.style.borderRadius = '20px';
+  iframe.style.background = 'transparent'; // Ensure iframe background is transparent
   iframe.allow = "microphone";
+  iframe.setAttribute('allowTransparency', 'true'); // For older browsers
   
   container.appendChild(iframe);
   document.body.appendChild(container);

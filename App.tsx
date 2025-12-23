@@ -109,18 +109,22 @@ const App: React.FC = () => {
     if (mode === 'embed' && userId) {
         setIsEmbedMode(true);
         setEmbedUserId(userId);
-        // Load settings for this user
-        apiService.getUsersPaginated(1, 1, userId).then(res => {
-             // We can't query specific user by ID easily with current API, 
-             // but assuming we fetch user settings via a public endpoint would be better.
-             // For now, we reuse the existing settings endpoint which is open enough.
-             const SERVER_URL = process.env.SERVER_URL || 'https://fuzzy-cosette-filezingme-org-64d51f5d.koyeb.app';
-             fetch(`${SERVER_URL}/api/settings/${userId}`)
-                .then(r => r.json())
-                .then(data => {
-                    if(data) setSettings(data);
-                });
-        });
+        
+        // CRITICAL: Make body transparent for iframe embedding
+        document.body.style.backgroundColor = 'transparent';
+        document.body.style.backgroundImage = 'none';
+
+        // Load settings for this user directly using the specific endpoint
+        const SERVER_URL = process.env.SERVER_URL || 'https://fuzzy-cosette-filezingme-org-64d51f5d.koyeb.app';
+        fetch(`${SERVER_URL}/api/settings/${userId}`)
+            .then(r => r.json())
+            .then(data => {
+                if(data && data.primaryColor) { // Ensure valid data
+                    setSettings(data);
+                }
+            })
+            .catch(err => console.error("Failed to load settings in embed mode:", err));
+            
         return; // Stop further initialization
     }
 
@@ -697,7 +701,7 @@ const StandaloneChatWidget: React.FC<{ settings: WidgetSettings, userId: string 
     }, [isOpen, settings.position]);
 
     return (
-        <div className="h-full w-full flex flex-col justify-end items-end p-2 sm:p-4 overflow-hidden">
+        <div className="h-full w-full flex flex-col justify-end items-end p-2 sm:p-4 overflow-hidden bg-transparent">
             {isOpen && (
                 <div className="w-full h-full flex flex-col relative z-20 animate-in slide-in-from-bottom-5 fade-in duration-300">
                     <ChatWidget settings={settings} userId={userId} forceOpen={true} onClose={() => setIsOpen(false)} isEmbed={true} />
@@ -706,8 +710,8 @@ const StandaloneChatWidget: React.FC<{ settings: WidgetSettings, userId: string 
             {!isOpen && (
                  <button 
                     onClick={() => setIsOpen(true)} 
-                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-2xl flex items-center justify-center text-white text-2xl transition-all hover:scale-110 active:scale-95 duration-300 relative group z-20" 
-                    style={{ backgroundColor: settings.primaryColor }}
+                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-2xl flex items-center justify-center text-white text-2xl transition-all hover:scale-110 active:scale-95 duration-300 relative group z-20 border-2 border-white/20" 
+                    style={{ backgroundColor: settings.primaryColor || '#8b5cf6' }}
                 >
                     <span className="absolute inset-0 rounded-full bg-white opacity-20 group-hover:animate-ping"></span>
                     <i className="fa-solid fa-comment-dots"></i>
