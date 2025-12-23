@@ -227,32 +227,29 @@ app.get('/widget.js', (req, res) => {
   window.addEventListener('message', function(event) {
     if (event.data === 'bibichat-open') {
        container.style.pointerEvents = 'auto';
-       // Reset standard styles
-       container.style.borderRadius = '24px';
-       container.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.25)';
        
        if(window.innerWidth < 480) {
-         // Mobile Fullscreen Logic
-         container.style.width = '100vw'; // Ensure full viewport width
-         container.style.height = '100dvh'; // Use dynamic viewport height if supported
-         if (!CSS.supports('height: 100dvh')) container.style.height = '100vh';
+         // Mobile Logic: Float with margins instead of full screen
+         container.style.width = 'calc(100vw - 32px)'; // 16px margin each side
+         // Use dynamic viewport height minus margin
+         container.style.height = 'calc(100dvh - 32px)'; 
+         if (!CSS.supports('height: 100dvh')) container.style.height = 'calc(100vh - 32px)';
          
-         container.style.bottom = '0';
-         container.style.right = '0';
-         container.style.left = '0';
-         container.style.top = '0';
-         container.style.borderRadius = '0';
+         container.style.bottom = '16px';
+         container.style.right = '16px';
+         container.style.left = 'auto'; // Let width + right handle positioning, or use left: 16px
+         container.style.top = 'auto';
+         container.style.borderRadius = '24px'; // Rounded corners on mobile
          container.style.margin = '0';
-         container.style.maxWidth = 'none';
-         container.style.maxHeight = 'none';
+         container.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.35)'; // Stronger shadow for floating effect
        } else {
          // Desktop/Tablet Popover Logic
          container.style.width = '380px';
          container.style.height = '600px';
-         // Reset position properties that might have been set by mobile logic
+         container.style.borderRadius = '24px';
+         container.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.25)';
          container.style.top = 'auto';
          container.style.bottom = '20px';
-         // Check explicit position message for left/right
        }
     } else if (event.data === 'bibichat-close') {
        // Reset to button size (100px for safety against shadow clipping)
@@ -266,8 +263,8 @@ app.get('/widget.js', (req, res) => {
        container.style.pointerEvents = 'none'; 
     } else if (event.data && event.data.type === 'bibichat-position') {
        // Only apply left/right positioning when closed or desktop open
-       // On mobile open, we force full screen (inset: 0)
-       if (container.style.width !== '100vw') {
+       // On mobile open, we generally force right-aligned/centered logic via margins
+       if (window.innerWidth >= 480 || container.style.height === '100px') {
            if (event.data.position === 'left') {
               container.style.left = '20px';
               container.style.right = 'auto'; 
