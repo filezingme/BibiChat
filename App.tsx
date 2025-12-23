@@ -137,20 +137,34 @@ const App: React.FC = () => {
     }
   }, [darkMode, isEmbedMode, embedUserId]);
 
-  // Handle Hash Routing
+  // Handle Hash Routing & Query Params
   useEffect(() => {
-      const handleHashChange = () => {
+      const handleRouting = () => {
           const hash = window.location.hash.replace('#', '');
-          if (Object.values(View).includes(hash as View)) {
+          const params = new URLSearchParams(window.location.search);
+          const chatUserParam = params.get('chatUser');
+
+          // Check Query Param for Chat User first
+          if (chatUserParam) {
+              setChatTargetId(chatUserParam);
+              setCurrentView(View.DIRECT_MESSAGES);
+              // Ensure hash matches view if not already
+              if(hash !== View.DIRECT_MESSAGES) {
+                  window.history.replaceState(null, '', `#${View.DIRECT_MESSAGES}?chatUser=${chatUserParam}`);
+              }
+          } else if (Object.values(View).includes(hash as View)) {
               setCurrentView(hash as View);
           } else if (hash === '') {
               setCurrentView(View.DASHBOARD);
           }
       };
-      window.addEventListener('hashchange', handleHashChange);
-      handleHashChange();
+
+      window.addEventListener('hashchange', handleRouting);
+      // Run once on load
+      handleRouting(); 
+      
       return () => {
-          window.removeEventListener('hashchange', handleHashChange);
+          window.removeEventListener('hashchange', handleRouting);
       };
   }, []);
 
@@ -290,6 +304,11 @@ const App: React.FC = () => {
     setNotifications([]); 
     socketService.disconnect();
     window.location.hash = '';
+    
+    // Clear query params on logout
+    const url = new URL(window.location.href);
+    url.search = '';
+    window.history.replaceState({}, '', url.toString());
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -343,6 +362,14 @@ const App: React.FC = () => {
     window.location.hash = view;
     setIsMobileMenuOpen(false);
     if (view !== View.DASHBOARD) setSelectedCustomerIdForStats('all');
+    
+    // If navigating away from messages, clear the chatUser param
+    if (view !== View.DIRECT_MESSAGES) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('chatUser');
+        window.history.replaceState({}, '', url.toString());
+        setChatTargetId(null);
+    }
   };
 
   const handleViewCustomerStats = (userId: string) => {
@@ -352,6 +379,11 @@ const App: React.FC = () => {
 
   const handleStartChat = (userId: string) => {
       setChatTargetId(userId);
+      // Update URL immediately so reload works even before View loads fully
+      const url = new URL(window.location.href);
+      url.searchParams.set('chatUser', userId);
+      window.history.pushState({}, '', url.toString());
+      
       handleViewChange(View.DIRECT_MESSAGES);
   };
 
@@ -400,8 +432,6 @@ const App: React.FC = () => {
     <div className={`flex h-screen w-full overflow-hidden relative font-sans antialiased transition-colors duration-500
       ${darkMode ? 'bg-slate-900 text-slate-100 selection:bg-purple-500 selection:text-white' : 'bg-[#f0f2f5] text-slate-700 selection:bg-pink-100 selection:text-pink-900'}
     `}>
-        {/* ... (Keep existing Main App JSX for Dashboard/Sidebar etc.) ... */}
-        {/* Simplified for brevity in this specific update block, assuming existing content is preserved if not modified */}
         {isOffline && (
           <div className="absolute top-0 left-0 right-0 z-[100] bg-amber-500 text-white text-center py-1 text-xs font-bold shadow-md animate-in slide-in-from-top duration-300">
               <i className="fa-solid fa-wifi-slash mr-2"></i>

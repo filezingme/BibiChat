@@ -46,7 +46,8 @@ const compressImage = async (file: File): Promise<File> => {
             img.src = event.target?.result as string;
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const maxWidth = 1920; 
+                // Giảm kích thước tối đa xuống 1280px để đảm bảo file nhẹ
+                const maxWidth = 1280; 
                 let width = img.width;
                 let height = img.height;
                 
@@ -60,11 +61,12 @@ const compressImage = async (file: File): Promise<File> => {
                 const ctx = canvas.getContext('2d');
                 ctx?.drawImage(img, 0, 0, width, height);
                 
+                // Giảm chất lượng xuống 0.4 -> Xấp xỉ 80kb - 150kb
                 canvas.toBlob((blob) => {
                     if (blob) {
                         resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() }));
                     } else reject(new Error('Compression failed'));
-                }, 'image/jpeg', 0.5);
+                }, 'image/jpeg', 0.4); 
             };
             img.onerror = (err) => reject(err);
         };
@@ -128,7 +130,7 @@ const SafeImage: React.FC<{ src: string; alt: string; className?: string; onClic
     );
 };
 
-// Lightbox đã fix nháy đen
+// Lightbox đã fix nháy đen và bỏ hiệu ứng ánh sáng gây khó chịu
 const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose: () => void; }> = ({ images, initialIndex, onClose }) => {
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -200,15 +202,22 @@ const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose:
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [currentIndex, images.length, viewportWidth]);
 
+    // CHỈ thay đổi opacity nền khi kéo dọc (để đóng), KHÔNG đổi khi chuyển ảnh ngang
     const bgOpacity = Math.max(0, 1 - Math.abs(offset.y) / (window.innerHeight * 0.7));
-    const scale = Math.max(0.7, 1 - Math.abs(offset.y) / 1000);
+    
+    // Scale chỉ áp dụng khi đóng, không áp dụng khi slide ngang để mượt mà
+    const scale = offset.y !== 0 ? Math.max(0.7, 1 - Math.abs(offset.y) / 1000) : 1;
+    
     const transition = isAnimating ? 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none';
-    const GAP = 20;
+    const GAP = 40; // Tăng khoảng cách giữa các ảnh
 
     return createPortal(
         <div 
             className="fixed inset-0 z-[9999] flex items-center justify-center touch-none overflow-hidden"
-            style={{ backgroundColor: `rgba(0, 0, 0, ${isDragging ? bgOpacity * 0.95 : 0.95})`, transition: isDragging ? 'none' : 'background-color 0.3s' }}
+            style={{ 
+                backgroundColor: `rgba(0, 0, 0, ${offset.x !== 0 ? 0.95 : bgOpacity * 0.95})`, 
+                transition: isDragging ? 'none' : 'background-color 0.3s' 
+            }}
             onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} onClick={onClose}
         >
             <button onClick={onClose} className="absolute top-6 right-6 z-50 w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-md"><i className="fa-solid fa-xmark"></i></button>
@@ -221,7 +230,7 @@ const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose:
                 {/* Previous Image */}
                 {currentIndex > 0 && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ transform: `translateX(${offset.x - viewportWidth - GAP}px) scale(${scale})`, transition }}>
-                        <img src={images[currentIndex - 1]} className="max-w-full max-h-full object-contain opacity-50" alt="Prev" draggable={false} decoding="async" />
+                        <img src={images[currentIndex - 1]} className="max-w-full max-h-full object-contain" alt="Prev" draggable={false} decoding="async" />
                     </div>
                 )}
 
@@ -233,7 +242,7 @@ const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose:
                 {/* Next Image */}
                 {currentIndex < images.length - 1 && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ transform: `translateX(${offset.x + viewportWidth + GAP}px) scale(${scale})`, transition }}>
-                        <img src={images[currentIndex + 1]} className="max-w-full max-h-full object-contain opacity-50" alt="Next" draggable={false} decoding="async" />
+                        <img src={images[currentIndex + 1]} className="max-w-full max-h-full object-contain" alt="Next" draggable={false} decoding="async" />
                     </div>
                 )}
             </div>
@@ -276,12 +285,31 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   const [lightboxData, setLightboxData] = useState<{ images: string[], index: number } | null>(null);
 
   // --- HELPER FUNCTIONS ---
+  
+  // Update URL param when active chat changes
+  const updateChatUrl = (userId: string | null) => {
+      const url = new URL(window.location.href);
+      if (userId) {
+          url.searchParams.set('chatUser', userId);
+      } else {
+          url.searchParams.delete('chatUser');
+      }
+      window.history.replaceState({}, '', url.toString());
+  };
+
+  const handleSelectConversation = (conv: ConversationUser) => {
+      setActiveChatUser(conv);
+      updateChatUrl(conv.id);
+  };
+
   const loadConversations = async () => {
       try {
           const convs = await apiService.getConversations(user.id);
           setConversations(convs);
+          return convs;
       } catch (error) {
           console.error("Failed to load conversations", error);
+          return [];
       }
   };
 
@@ -304,7 +332,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       if (res.success && res.user) {
           const exists = conversations.find(c => c.id === res.user!.id);
           if (exists) {
-              setActiveChatUser(exists);
+              handleSelectConversation(exists);
           } else {
               const newConv: ConversationUser = {
                   id: res.user!.id,
@@ -313,7 +341,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                   unreadCount: 0
               };
               setConversations(prev => [newConv, ...prev]);
-              setActiveChatUser(newConv);
+              handleSelectConversation(newConv);
           }
           setSearchEmail('');
       } else {
@@ -328,6 +356,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
   const handleBackToConversations = () => {
       setActiveChatUser(null);
+      updateChatUrl(null);
   };
 
   const openLightbox = (images: string[], index: number) => {
@@ -564,6 +593,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
           const target = conversations.find(c => c.id === initialChatUserId);
           if (target) {
               setActiveChatUser(target);
+              updateChatUrl(target.id);
               if (onClearTargetUser) onClearTargetUser(); 
           }
       }
@@ -573,8 +603,20 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
     if (activeChatUser) loadMessages(activeChatUser.id);
   }, [activeChatUser]);
 
+  // Scroll to bottom on updates with slight delay to ensure rendering
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const scrollToBottom = () => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+    };
+    
+    // Immediate scroll
+    scrollToBottom();
+    
+    // Delayed scroll for image loading or layout shifts
+    const timer = setTimeout(scrollToBottom, 100);
+    return () => clearTimeout(timer);
   }, [messages.length, activeChatUser, replyingTo, pendingImages.length]);
 
   const handleReaction = async (messageId: string, emoji: string) => {
@@ -614,7 +656,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
            </div>
            <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar-hover">
                {conversations.map(conv => (
-                   <div key={conv.id} onClick={() => setActiveChatUser(conv)} className={`p-3 rounded-2xl cursor-pointer flex gap-3 items-center transition-all ${activeChatUser?.id === conv.id ? 'bg-indigo-50 dark:bg-slate-700 border-indigo-200 dark:border-slate-600 shadow-sm' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50 border-transparent'} border-2 relative`}>
+                   <div key={conv.id} onClick={() => handleSelectConversation(conv)} className={`p-3 rounded-2xl cursor-pointer flex gap-3 items-center transition-all ${activeChatUser?.id === conv.id ? 'bg-indigo-50 dark:bg-slate-700 border-indigo-200 dark:border-slate-600 shadow-sm' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50 border-transparent'} border-2 relative`}>
                        <div className="relative shrink-0">
                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white relative ${conv.role === 'master' ? 'bg-gradient-to-br from-indigo-500 to-purple-600' : 'bg-gradient-to-br from-pink-400 to-orange-400'}`}>
                                {conv.role === 'master' ? <i className="fa-solid fa-user-shield"></i> : conv.email.charAt(0).toUpperCase()}
