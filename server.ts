@@ -1,3 +1,4 @@
+
 import express, { RequestHandler } from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
@@ -330,13 +331,15 @@ app.get('/api/health', (req, res) => {
 app.post('/api/upload/proxy', upload.single('file') as any, async (req: any, res: any) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     try {
+        console.log(`[Upload] Starting upload for ${req.file.originalname} (${req.file.size} bytes)`);
+        
         const formData = new FormData();
         const blob = new Blob([req.file.buffer], { type: req.file.mimetype });
         formData.append('fileToUpload', blob, req.file.originalname);
         formData.append('reqtype', 'fileupload');
-        formData.append('time', '24h'); 
-
-        const response = await fetch('https://litterbox.catbox.moe/resources/internals/api.php', {
+        
+        // Use Catbox (Permanent) instead of Litterbox
+        const response = await fetch('https://catbox.moe/user/api.php', {
             method: 'POST',
             body: formData,
         });
@@ -346,9 +349,10 @@ app.post('/api/upload/proxy', upload.single('file') as any, async (req: any, res
         
         // Validation: Ensure valid URL returned
         if (!url.startsWith('http')) {
-            throw new Error('Invalid URL returned from upload service');
+            throw new Error('Invalid URL returned from upload service: ' + url);
         }
         
+        console.log(`[Upload] Success: ${url}`);
         res.json({ url: url.trim() });
     } catch (error: any) {
         console.error("Proxy upload error:", error);
