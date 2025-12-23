@@ -37,6 +37,53 @@ const REACTIONS = ['❤️', '😆', '😮', '😢', '😡', '👍'];
 // Thời gian tối đa để coi là "Online" (5 phút)
 const ONLINE_THRESHOLD = 5 * 60 * 1000;
 
+// Hàm nén ảnh phía Client trước khi upload
+const compressImage = async (file: File): Promise<File> => {
+    // Không nén GIF để giữ animation
+    if (file.type === 'image/gif') return file;
+
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target?.result as string;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                // Resize nếu quá lớn (max 1280px width)
+                const maxWidth = 1280;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > maxWidth) {
+                    height = (height * maxWidth) / width;
+                    width = maxWidth;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx?.drawImage(img, 0, 0, width, height);
+
+                // Nén chất lượng xuống 0.7 (JPEG)
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        const newFile = new File([blob], file.name, {
+                            type: 'image/jpeg',
+                            lastModified: Date.now(),
+                        });
+                        resolve(newFile);
+                    } else {
+                        reject(new Error('Compression failed'));
+                    }
+                }, 'image/jpeg', 0.7);
+            };
+            img.onerror = (err) => reject(err);
+        };
+        reader.onerror = (err) => reject(err);
+    });
+};
+
 // Component hiển thị ảnh an toàn (Optimized Loading State)
 const SafeImage: React.FC<{ 
     src: string; 
@@ -47,7 +94,7 @@ const SafeImage: React.FC<{
     // status: 'loading' | 'loaded' | 'error'
     const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
 
-    // Reset status if src changes (e.g. reused component)
+    // Reset status if src changes
     useEffect(() => {
         setStatus('loading');
     }, [src]);
@@ -55,9 +102,9 @@ const SafeImage: React.FC<{
     return (
         <div className={`relative overflow-hidden ${className}`} onClick={onClick}>
             
-            {/* 1. Loading Skeleton - Hiện ngay lập tức */}
+            {/* 1. Loading Skeleton - Chỉ hiện khi đang loading */}
             {status === 'loading' && (
-                <div className="absolute inset-0 bg-slate-200 dark:bg-slate-700 animate-pulse flex items-center justify-center z-10">
+                <div className="absolute inset-0 bg-slate-200 dark:bg-slate-700 animate-pulse flex items-center justify-center z-10 w-full h-full">
                     <i className="fa-solid fa-image text-slate-400 text-2xl animate-bounce"></i>
                 </div>
             )}
@@ -65,7 +112,7 @@ const SafeImage: React.FC<{
             {/* 2. Error State (Ghost) - Chỉ hiện khi thực sự lỗi */}
             {status === 'error' && (
                 <div 
-                    className="absolute inset-0 bg-slate-100 dark:bg-slate-800 flex flex-col items-center justify-center text-slate-400 dark:text-slate-600 border-2 border-dashed border-slate-200 dark:border-slate-700 p-2 select-none z-20"
+                    className="absolute inset-0 bg-slate-100 dark:bg-slate-800 flex flex-col items-center justify-center text-slate-400 dark:text-slate-600 border-2 border-dashed border-slate-200 dark:border-slate-700 p-2 select-none z-20 w-full h-full"
                     title="Ảnh gốc đã hết hạn hoặc bị xóa"
                 >
                     <div className="w-8 h-8 mb-1 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
@@ -75,11 +122,12 @@ const SafeImage: React.FC<{
                 </div>
             )}
 
-            {/* 3. The Image - Ẩn đi cho đến khi load xong để tránh xấu */}
+            {/* 3. The Image - Ẩn đi cho đến khi load xong */}
             <img 
                 src={src} 
                 alt={alt} 
-                className={`w-full h-full object-cover transition-opacity duration-500 ease-in-out ${status === 'loaded' ? 'opacity-100' : 'opacity-0'}`} 
+                loading="lazy"
+                className={`w-full h-full object-cover transition-opacity duration-300 ease-in-out ${status === 'loaded' ? 'opacity-100' : 'opacity-0'}`} 
                 onLoad={() => setStatus('loaded')}
                 onError={() => setStatus('error')}
                 draggable={false}
@@ -782,7 +830,10 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       // This speeds up the "Ready to Send" state significantly for multiple images
       await Promise.all(newImages.map(async (img) => {
           try {
-              const result = await apiService.uploadFile(img.file);
+              // OPTIMIZATION: Compress image before upload
+              const compressedFile = await compressImage(img.file);
+              const result = await apiService.uploadFile(compressedFile);
+              
               setPendingImages(prev => prev.map(p => 
                   p.id === img.id ? { ...p, serverUrl: result.url, uploading: false } : p
               ));
