@@ -36,56 +36,30 @@ const REACTIONS = ['❤️', '😆', '😮', '😢', '😡', '👍'];
 // Threshold for "Online" status in milliseconds (e.g., 5 minutes)
 const ONLINE_THRESHOLD = 5 * 60 * 1000;
 
-// Separate Lightbox Component to manage hooks correctly
+// Improved iPhone-style Image Lightbox
 const ImageLightbox: React.FC<{
-    src: string;
+    images: string[];
+    initialIndex: number;
     onClose: () => void;
-    onPrev: () => void;
-    onNext: () => void;
-    hasPrev: boolean;
-    hasNext: boolean;
-    current: number;
-    total: number;
-}> = ({ src, onClose, onPrev, onNext, hasPrev, hasNext, current, total }) => {
-    // Touch tracking state
+}> = ({ images, initialIndex, onClose }) => {
+    const [currentIndex, setCurrentIndex] = useState(initialIndex);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
-    const [isAnimating, setIsAnimating] = useState(false); // Controls transition
+    const [isAnimating, setIsAnimating] = useState(false);
+    
     const touchStart = useRef<{ x: number, y: number } | null>(null);
-    const pendingNav = useRef<'prev' | 'next' | null>(null);
+    const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
 
-    // Thresholds
-    const DISMISS_THRESHOLD = 150; 
-    const NAV_THRESHOLD = 80;
-
-    // Handle Image Change Animation (Entry)
     useEffect(() => {
-        if (pendingNav.current) {
-            const direction = pendingNav.current;
-            pendingNav.current = null;
-            
-            // 1. Snap new image to start position (off-screen)
-            const startX = direction === 'next' ? window.innerWidth : -window.innerWidth;
-            setIsAnimating(false); // Disable transition for instant snap
-            setOffset({ x: startX, y: 0 });
-
-            // 2. Animate to center
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    setIsAnimating(true); // Enable transition
-                    setOffset({ x: 0, y: 0 });
-                });
-            });
-        } else {
-            // Initial mount or non-swipe update
-            setOffset({ x: 0, y: 0 });
-        }
-    }, [src]);
+        const handleResize = () => setViewportWidth(window.innerWidth);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     const handleTouchStart = (e: React.TouchEvent) => {
-        if (e.touches.length > 1) return;
+        if (e.touches.length > 1) return; // Ignore multitouch
         setIsDragging(true);
-        setIsAnimating(false); // Disable spring transition during drag
+        setIsAnimating(false);
         touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     };
 
@@ -93,134 +67,158 @@ const ImageLightbox: React.FC<{
         if (!isDragging || !touchStart.current) return;
         const dx = e.touches[0].clientX - touchStart.current.x;
         const dy = e.touches[0].clientY - touchStart.current.y;
-        
-        // Block vertical scroll if mostly horizontal
-        if (Math.abs(dx) > Math.abs(dy)) {
-             if (e.cancelable) e.preventDefault();
+
+        // Determine main axis
+        // If vertical swipe is dominant, lock horizontal to 0
+        // If horizontal swipe is dominant, lock vertical to 0 (mostly)
+        if (Math.abs(dy) > Math.abs(dx) * 1.5) {
+             setOffset({ x: 0, y: dy });
+        } else {
+             // For horizontal, prevent swipe if at edges? No, iOS allows rubber banding.
+             setOffset({ x: dx, y: 0 });
         }
-        
-        setOffset({ x: dx, y: dy });
     };
 
     const handleTouchEnd = () => {
         setIsDragging(false);
+        setIsAnimating(true);
+        
         if (!touchStart.current) return;
-
+        
         const { x, y } = offset;
-        const w = window.innerWidth;
+        const DISMISS_THRESHOLD = 150;
+        const NAV_THRESHOLD = viewportWidth * 0.25; // 25% of screen to trigger nav
 
-        // Vertical Logic (Close)
+        // Vertical Dismiss
         if (Math.abs(y) > DISMISS_THRESHOLD) {
             onClose();
             return;
         }
 
-        // Horizontal Logic (Next/Prev)
-        // Only navigate if horizontal movement is dominant
-        if (Math.abs(x) > NAV_THRESHOLD && Math.abs(x) > Math.abs(y)) {
-            if (x < 0 && hasNext) {
-                // Swipe Left -> Next
-                setIsAnimating(true);
-                setOffset({ x: -w, y: 0 }); // Slide out completely to left
-                pendingNav.current = 'next';
-                setTimeout(() => onNext(), 250); // Wait for slide out, then switch
+        // Horizontal Navigation
+        if (Math.abs(x) > NAV_THRESHOLD) {
+            // Next
+            if (x < 0 && currentIndex < images.length - 1) {
+                setOffset({ x: -viewportWidth - 20, y: 0 }); // Slide completely out
+                setTimeout(() => {
+                    setIsAnimating(false);
+                    setCurrentIndex(prev => prev + 1);
+                    setOffset({ x: 0, y: 0 });
+                }, 300);
                 return;
-            } else if (x > 0 && hasPrev) {
-                // Swipe Right -> Prev
-                setIsAnimating(true);
-                setOffset({ x: w, y: 0 }); // Slide out completely to right
-                pendingNav.current = 'prev';
-                setTimeout(() => onPrev(), 250);
+            } 
+            // Prev
+            else if (x > 0 && currentIndex > 0) {
+                setOffset({ x: viewportWidth + 20, y: 0 });
+                setTimeout(() => {
+                    setIsAnimating(false);
+                    setCurrentIndex(prev => prev - 1);
+                    setOffset({ x: 0, y: 0 });
+                }, 300);
                 return;
             }
         }
 
-        // Reset if no action taken (snap back to center)
-        setIsAnimating(true);
+        // Snap back if threshold not met or at edges
         setOffset({ x: 0, y: 0 });
         touchStart.current = null;
     };
 
+    // Keyboard support
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'ArrowLeft' && hasPrev) onPrev();
-            if (e.key === 'ArrowRight' && hasNext) onNext();
+            if (e.key === 'ArrowLeft' && currentIndex > 0) {
+                 setIsAnimating(true);
+                 setOffset({ x: viewportWidth, y: 0 });
+                 setTimeout(() => { setIsAnimating(false); setCurrentIndex(c => c - 1); setOffset({x:0, y:0})}, 300);
+            }
+            if (e.key === 'ArrowRight' && currentIndex < images.length - 1) {
+                 setIsAnimating(true);
+                 setOffset({ x: -viewportWidth, y: 0 });
+                 setTimeout(() => { setIsAnimating(false); setCurrentIndex(c => c + 1); setOffset({x:0, y:0})}, 300);
+            }
             if (e.key === 'Escape') onClose();
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [hasPrev, hasNext, onPrev, onNext, onClose]);
+    }, [currentIndex, images.length, viewportWidth]);
 
-    // Calculate dynamic styles for iPhone-like feel
-    const opacity = Math.max(0, 1 - Math.abs(offset.y) / (window.innerHeight * 0.7)); // Fade out bg on vertical drag
-    const scale = Math.max(0.8, 1 - Math.abs(offset.y) / 1000); // Shrink image slightly on vertical drag
-
-    const transitionStyle = isDragging || (!isAnimating && offset.x !== 0 && offset.y !== 0)
-        ? 'none' 
-        : 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)';
+    const bgOpacity = Math.max(0, 1 - Math.abs(offset.y) / (window.innerHeight * 0.7));
+    const scale = Math.max(0.7, 1 - Math.abs(offset.y) / 1000);
+    const transition = isAnimating ? 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s' : 'none';
+    const GAP = 20;
 
     return createPortal(
         <div 
-            className="fixed inset-0 z-[9999] flex items-center justify-center touch-none"
+            className="fixed inset-0 z-[9999] flex items-center justify-center touch-none overflow-hidden"
             style={{ 
-                backgroundColor: `rgba(0, 0, 0, ${isDragging ? opacity * 0.95 : 0.95})`,
-                transition: isDragging ? 'none' : 'background-color 0.3s ease' 
+                backgroundColor: `rgba(0, 0, 0, ${isDragging ? bgOpacity * 0.95 : 0.95})`, 
+                transition: isDragging ? 'none' : 'background-color 0.3s' 
             }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
             onClick={onClose}
         >
             {/* Close Button */}
-            <button 
-                onClick={onClose}
-                className={`absolute top-6 right-6 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all z-50 backdrop-blur-sm ${isDragging ? 'opacity-0' : 'opacity-100'}`}
-            >
-                <i className="fa-solid fa-xmark text-xl"></i>
-            </button>
+            <button onClick={onClose} className="absolute top-6 right-6 z-50 w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-md transition-colors"><i className="fa-solid fa-xmark text-xl"></i></button>
 
-            {/* Nav Buttons (Hidden on drag) */}
-            {hasPrev && (
-                <button 
-                    onClick={(e) => { e.stopPropagation(); onPrev(); }}
-                    className={`absolute left-2 md:left-4 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/10 hover:bg-white/20 hidden md:flex items-center justify-center text-white transition-all z-50 backdrop-blur-md ${isDragging ? 'opacity-0' : 'opacity-100'}`}
-                >
-                    <i className="fa-solid fa-chevron-left text-xl"></i>
-                </button>
-            )}
-            
-            {/* Draggable Image Container */}
-            <div 
-                className="relative w-full h-full flex items-center justify-center overflow-hidden"
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-                onClick={(e) => e.stopPropagation()} 
-            >
-                <img 
-                    src={src} 
-                    alt="Expanded View" 
-                    className="max-w-full max-h-full md:rounded-xl shadow-2xl object-contain select-none will-change-transform"
-                    style={{
-                        transform: `translate3d(${offset.x}px, ${offset.y}px, 0) scale(${scale})`,
-                        transition: transitionStyle,
-                        cursor: isDragging ? 'grabbing' : 'grab'
-                    }}
-                    draggable={false}
-                />
+            {/* Counter */}
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 text-white font-bold text-xs bg-white/10 px-4 py-1.5 rounded-full backdrop-blur-md border border-white/10">
+                {currentIndex + 1} / {images.length}
             </div>
 
-            {hasNext && (
-                <button 
-                    onClick={(e) => { e.stopPropagation(); onNext(); }}
-                    className={`absolute right-2 md:right-4 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/10 hover:bg-white/20 hidden md:flex items-center justify-center text-white transition-all z-50 backdrop-blur-md ${isDragging ? 'opacity-0' : 'opacity-100'}`}
-                >
-                    <i className="fa-solid fa-chevron-right text-xl"></i>
+            {/* Nav Arrows (Desktop) */}
+            {currentIndex > 0 && (
+                <button onClick={(e) => { e.stopPropagation(); setIsAnimating(true); setOffset({ x: viewportWidth, y: 0 }); setTimeout(() => { setIsAnimating(false); setCurrentIndex(c => c - 1); setOffset({x:0, y:0})}, 300); }} className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full items-center justify-center text-white z-50 backdrop-blur-md transition-colors">
+                    <i className="fa-solid fa-chevron-left"></i>
+                </button>
+            )}
+            {currentIndex < images.length - 1 && (
+                <button onClick={(e) => { e.stopPropagation(); setIsAnimating(true); setOffset({ x: -viewportWidth, y: 0 }); setTimeout(() => { setIsAnimating(false); setCurrentIndex(c => c + 1); setOffset({x:0, y:0})}, 300); }} className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full items-center justify-center text-white z-50 backdrop-blur-md transition-colors">
+                    <i className="fa-solid fa-chevron-right"></i>
                 </button>
             )}
 
-            {/* Simple Counter - No Text Instructions */}
-            <div className={`absolute bottom-8 left-1/2 -translate-x-1/2 pointer-events-none transition-opacity duration-300 ${isDragging ? 'opacity-0' : 'opacity-100'}`}>
-                <div className="bg-white/10 border border-white/20 px-4 py-1.5 rounded-full text-white text-xs font-bold backdrop-blur-md">
-                    {current + 1} / {total}
+            {/* Carousel Container */}
+            <div className="relative w-full h-full" onClick={e => e.stopPropagation()}>
+                
+                {/* PREVIOUS IMAGE */}
+                {currentIndex > 0 && (
+                    <div 
+                        className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                        style={{ 
+                            transform: `translateX(${offset.x - viewportWidth - GAP}px) scale(${scale})`, 
+                            transition 
+                        }}
+                    >
+                        <img src={images[currentIndex - 1]} className="max-w-full max-h-full object-contain" alt="Prev" />
+                    </div>
+                )}
+
+                {/* CURRENT IMAGE */}
+                <div 
+                    className="absolute inset-0 flex items-center justify-center"
+                    style={{ 
+                        transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`, 
+                        transition 
+                    }}
+                >
+                    <img src={images[currentIndex]} className="max-w-full max-h-full object-contain shadow-2xl select-none" draggable={false} alt="Current" />
                 </div>
+
+                {/* NEXT IMAGE */}
+                {currentIndex < images.length - 1 && (
+                    <div 
+                        className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                        style={{ 
+                            transform: `translateX(${offset.x + viewportWidth + GAP}px) scale(${scale})`, 
+                            transition 
+                        }}
+                    >
+                        <img src={images[currentIndex + 1]} className="max-w-full max-h-full object-contain" alt="Next" />
+                    </div>
+                )}
             </div>
         </div>,
         document.body
@@ -249,7 +247,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   // Image State
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [expandedImage, setExpandedImage] = useState<string | null>(null); // For Lightbox
+  const [expandedImage, setExpandedImage] = useState<string | null>(null); // Trigger for Lightbox
 
   // Refs for Click Outside
   const emojiPickerRef = useRef<HTMLDivElement>(null);
@@ -589,20 +587,9 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   };
 
   // Prepare images for lightbox
-  const images = messages.filter(m => m.type === 'image');
-  const currentIndex = expandedImage ? images.findIndex(m => m.content === expandedImage) : -1;
-
-  const handleNextImage = () => {
-      if (currentIndex < images.length - 1) {
-          setExpandedImage(images[currentIndex + 1].content);
-      }
-  };
-
-  const handlePrevImage = () => {
-      if (currentIndex > 0) {
-          setExpandedImage(images[currentIndex - 1].content);
-      }
-  };
+  const allImages = messages.filter(m => m.type === 'image');
+  const imageUrls = allImages.map(m => m.content);
+  const initialIndex = expandedImage ? imageUrls.indexOf(expandedImage) : -1;
 
   // Safe zone for padding (Admin does not need right padding for Widget Button)
   // Logic: 
@@ -1043,16 +1030,11 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
        </div>
     </div>
 
-    {expandedImage && (
+    {expandedImage && initialIndex !== -1 && (
         <ImageLightbox 
-            src={expandedImage}
+            images={imageUrls}
+            initialIndex={initialIndex}
             onClose={() => setExpandedImage(null)}
-            onPrev={handlePrevImage}
-            onNext={handleNextImage}
-            hasPrev={currentIndex > 0}
-            hasNext={currentIndex < images.length - 1}
-            current={currentIndex}
-            total={images.length}
         />
     )}
     </>
