@@ -110,6 +110,8 @@ const App: React.FC = () => {
     if (isEmbedMode && embedUserId) {
         document.body.style.backgroundColor = 'transparent';
         document.body.style.backgroundImage = 'none';
+        document.body.classList.remove('bg-slate-900', 'text-slate-100', 'dark:bg-slate-900'); // Remove dark mode/bg classes
+        document.documentElement.style.backgroundColor = 'transparent';
 
         // Load settings
         const SERVER_URL = process.env.SERVER_URL || 'https://fuzzy-cosette-filezingme-org-64d51f5d.koyeb.app';
@@ -155,7 +157,8 @@ const App: React.FC = () => {
   // --- RENDER FOR EMBED MODE ---
   if (isEmbedMode && embedUserId) {
       return (
-          <div className="bg-transparent h-screen w-full flex items-end overflow-hidden">
+          // Fixed container - remove overflow-hidden to allow shadow to bleed
+          <div className="bg-transparent h-screen w-full flex items-end">
              <StandaloneChatWidget settings={settings} userId={embedUserId} />
           </div>
       );
@@ -641,7 +644,8 @@ const StandaloneChatWidget: React.FC<{ settings: WidgetSettings, userId: string 
     const alignClass = settings.position === 'left' ? 'items-start' : 'items-end';
 
     return (
-        <div className={`h-full w-full flex flex-col justify-end ${alignClass} p-2 sm:p-4 overflow-hidden bg-transparent`}>
+        // REMOVED 'overflow-hidden' from here to allow shadow to bleed out naturally in the 90px container
+        <div className={`h-full w-full flex flex-col justify-end ${alignClass} p-2 sm:p-4 bg-transparent`}>
             {isOpen && (
                 <div className="w-full h-full flex flex-col relative z-20 animate-in slide-in-from-bottom-5 fade-in duration-300">
                     <ChatWidget settings={settings} userId={userId} forceOpen={true} onClose={() => setIsOpen(false)} isEmbed={true} />
@@ -650,7 +654,8 @@ const StandaloneChatWidget: React.FC<{ settings: WidgetSettings, userId: string 
             {!isOpen && (
                  <button 
                     onClick={() => setIsOpen(true)} 
-                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-2xl flex items-center justify-center text-white text-2xl transition-all hover:scale-110 active:scale-95 duration-300 relative group z-20 border-2 border-white/20" 
+                    // Fixed width to w-14 (56px) to fit comfortably in 90px container with padding
+                    className="w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-white text-2xl transition-all hover:scale-110 active:scale-95 duration-300 relative group z-20 border-2 border-white/20" 
                     style={{ backgroundColor: settings.primaryColor || '#8b5cf6' }}
                 >
                     <span className="absolute inset-0 rounded-full bg-white opacity-20 group-hover:animate-ping"></span>

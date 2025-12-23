@@ -199,11 +199,13 @@ app.get('/widget.js', (req, res) => {
   // Default to Right initially, will update via message
   container.style.right = '20px'; 
   container.style.left = 'auto';
-  container.style.width = '80px';
-  container.style.height = '80px';
+  // Increased width/height to 90px to accommodate shadow without clipping
+  container.style.width = '90px';
+  container.style.height = '90px';
   container.style.border = 'none';
   container.style.transition = 'all 0.3s ease';
   container.style.background = 'transparent'; // Ensure container is transparent
+  container.style.pointerEvents = 'none'; // Allow clicking through empty space initially
   
   // IFRAME SOURCE TRỎ VỀ VERCEL
   var iframe = document.createElement('iframe');
@@ -215,6 +217,7 @@ app.get('/widget.js', (req, res) => {
   iframe.style.background = 'transparent'; // Ensure iframe background is transparent
   iframe.allow = "microphone";
   iframe.setAttribute('allowTransparency', 'true'); // For older browsers
+  iframe.style.pointerEvents = 'auto'; // Re-enable pointer events for the iframe itself
   
   container.appendChild(iframe);
   document.body.appendChild(container);
@@ -225,6 +228,7 @@ app.get('/widget.js', (req, res) => {
        container.style.height = '600px';
        container.style.borderRadius = '24px';
        container.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.25)';
+       container.style.pointerEvents = 'auto';
        if(window.innerWidth < 480) {
          container.style.width = '100%';
          container.style.height = '100%';
@@ -234,11 +238,13 @@ app.get('/widget.js', (req, res) => {
          container.style.borderRadius = '0';
        }
     } else if (event.data === 'bibichat-close') {
-       container.style.width = '80px';
-       container.style.height = '80px';
+       // Reset to slightly larger size for shadow
+       container.style.width = '90px';
+       container.style.height = '90px';
        container.style.borderRadius = '0';
        container.style.boxShadow = 'none';
        container.style.bottom = '20px';
+       container.style.pointerEvents = 'none'; // Reset to allow click through around the button
        // Reset position logic handled by position message
     } else if (event.data && event.data.type === 'bibichat-position') {
        // Force update position
