@@ -196,7 +196,9 @@ app.get('/widget.js', (req, res) => {
   container.style.position = 'fixed';
   container.style.zIndex = '2147483647';
   container.style.bottom = '20px';
-  container.style.right = '20px';
+  // Default to Right initially, will update via message
+  container.style.right = '20px'; 
+  container.style.left = 'auto';
   container.style.width = '80px';
   container.style.height = '80px';
   container.style.border = 'none';
@@ -228,6 +230,7 @@ app.get('/widget.js', (req, res) => {
          container.style.height = '100%';
          container.style.bottom = '0';
          container.style.right = '0';
+         container.style.left = '0';
          container.style.borderRadius = '0';
        }
     } else if (event.data === 'bibichat-close') {
@@ -236,14 +239,15 @@ app.get('/widget.js', (req, res) => {
        container.style.borderRadius = '0';
        container.style.boxShadow = 'none';
        container.style.bottom = '20px';
-       container.style.right = '20px';
+       // Reset position logic handled by position message
     } else if (event.data && event.data.type === 'bibichat-position') {
+       // Force update position
        if (event.data.position === 'left') {
           container.style.left = '20px';
-          container.style.right = 'auto';
+          container.style.right = 'auto'; // Clear right to allow left to take effect
        } else {
           container.style.right = '20px';
-          container.style.left = 'auto';
+          container.style.left = 'auto'; // Clear left to allow right to take effect
        }
     }
   });
