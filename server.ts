@@ -18,7 +18,8 @@ const io = new Server(httpServer, {
     origin: "*", // Allow all for SaaS flexibility (Should strictly be CLIENT_URL in prod but * is safer for setup)
     methods: ["GET", "POST"]
   },
-  transports: ['websocket', 'polling']
+  transports: ['websocket', 'polling'],
+  maxHttpBufferSize: 1e8 // Tăng giới hạn buffer lên 100MB để handle ảnh Base64 qua Socket
 } as any);
 
 const PORT = process.env.PORT || 3001;
@@ -327,35 +328,24 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// --- PROXY UPLOAD ---
+// --- PROXY UPLOAD (CONVERT TO BASE64) ---
+// Chuyển sang Base64 storage để đảm bảo ảnh luôn tồn tại và không phụ thuộc dịch vụ bên ngoài
 app.post('/api/upload/proxy', upload.single('file') as any, async (req: any, res: any) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     try {
-        console.log(`[Upload] Starting upload for ${req.file.originalname} (${req.file.size} bytes)`);
+        console.log(`[Upload] Processing image ${req.file.originalname} (${req.file.size} bytes)`);
         
-        const formData = new FormData();
-        const blob = new Blob([req.file.buffer], { type: req.file.mimetype });
-        formData.append('fileToUpload', blob, req.file.originalname);
-        formData.append('reqtype', 'fileupload');
+        // Convert buffer to base64
+        const b64 = Buffer.from(req.file.buffer).toString('base64');
+        const mime = req.file.mimetype;
+        const dataURI = `data:${mime};base64,${b64}`;
         
-        // Use Catbox (Permanent) instead of Litterbox
-        const response = await fetch('https://catbox.moe/user/api.php', {
-            method: 'POST',
-            body: formData,
-        });
-
-        if (!response.ok) throw new Error(`Upload failed: ${response.statusText}`);
-        const url = await response.text();
+        console.log(`[Upload] Converted to Base64 successfully. Length: ${dataURI.length}`);
         
-        // Validation: Ensure valid URL returned
-        if (!url.startsWith('http')) {
-            throw new Error('Invalid URL returned from upload service: ' + url);
-        }
-        
-        console.log(`[Upload] Success: ${url}`);
-        res.json({ url: url.trim() });
+        // Return as if it were a URL
+        res.json({ url: dataURI });
     } catch (error: any) {
-        console.error("Proxy upload error:", error);
+        console.error("Upload/Conversion error:", error);
         res.status(500).json({ error: error.message });
     }
 });

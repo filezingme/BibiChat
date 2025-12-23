@@ -46,7 +46,8 @@ const compressImage = async (file: File): Promise<File> => {
             img.src = event.target?.result as string;
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const maxWidth = 1280; 
+                // Reduced max width to 1024px for efficient Base64 storage
+                const maxWidth = 1024; 
                 let width = img.width;
                 let height = img.height;
                 
@@ -60,11 +61,12 @@ const compressImage = async (file: File): Promise<File> => {
                 const ctx = canvas.getContext('2d');
                 ctx?.drawImage(img, 0, 0, width, height);
                 
+                // Reduced quality to 0.5 for smaller payload
                 canvas.toBlob((blob) => {
                     if (blob) {
                         resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() }));
                     } else reject(new Error('Compression failed'));
-                }, 'image/jpeg', 0.6); 
+                }, 'image/jpeg', 0.5); 
             };
             img.onerror = (err) => reject(err);
         };
