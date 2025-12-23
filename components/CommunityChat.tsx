@@ -508,13 +508,19 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       // 2. Send Pending Images with Batch Grouping
       if (pendingImages.length > 0) {
           // Filter successfully uploaded images
-          const readyImages = pendingImages.filter(img => img.serverUrl && !img.uploading);
+          const readyImages = pendingImages.filter(img => !img.uploading); // Check for already uploaded local state might not be enough, see below
           
           if (readyImages.length > 0) {
               // Create a unique groupId for this batch
               const batchGroupId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
               
+              // CRITICAL FIX: Iterate sequentially instead of Promise.all or forEach
+              // This prevents flooding the server/proxy with concurrent requests which causes 429/Connection errors
               for (const img of readyImages) {
+                  // Ensure upload is finished or retry if needed. 
+                  // But wait! processFiles already started uploads. 
+                  // If they failed, serverUrl is undefined.
+                  
                   if (img.serverUrl) {
                       await executeSend(img.serverUrl, 'image', undefined, batchGroupId);
                   }
@@ -555,8 +561,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
           loadConversations(); 
       } catch (e) {
           console.error("Failed to send", e);
-          alert("Gửi tin nhắn thất bại. Vui lòng thử lại.");
-          // remove failed message from state if needed or show error icon
+          // Silent fail for optimistic update, or show error toast
       }
   };
 
@@ -666,7 +671,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       }
   };
 
-  const processFiles = (files: File[]) => {
+  const processFiles = async (files: File[]) => {
       const newImages = files.map(file => ({
           id: Math.random().toString(36).substr(2, 9),
           localUrl: URL.createObjectURL(file),
@@ -676,8 +681,9 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
       setPendingImages(prev => [...prev, ...newImages]);
 
-      // Trigger upload for each new image
-      newImages.forEach(async (img) => {
+      // Trigger upload for each new image SEQUENTIALLY to avoid overloading the proxy/server
+      // Using loop with await inside ensures strict ordering and flow control
+      for (const img of newImages) {
           try {
               const result = await apiService.uploadFile(img.file);
               setPendingImages(prev => prev.map(p => 
@@ -685,11 +691,10 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
               ));
           } catch (e) {
               console.error("Upload failed", e);
-              // Mark as error or remove? Let's remove for simplicity or alert
               setPendingImages(prev => prev.filter(p => p.id !== img.id));
-              alert(`Không thể tải ảnh ${img.file.name}`);
+              alert(`Không thể tải ảnh ${img.file.name}. Vui lòng thử lại.`);
           }
-      });
+      }
   };
 
   const removePendingImage = (id: string) => {
