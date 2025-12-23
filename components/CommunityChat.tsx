@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { apiService } from '../services/apiService';
 import { User, ConversationUser, DirectMessage } from '../types';
@@ -227,6 +227,15 @@ const ImageLightbox: React.FC<{
     );
 };
 
+// Define extended type for grouped visual rendering
+type GroupedMessageItem = DirectMessage | {
+    type: 'image-group';
+    id: string;
+    senderId: string;
+    timestamp: number;
+    msgs: DirectMessage[];
+};
+
 const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTargetUser }) => {
   const [conversations, setConversations] = useState<ConversationUser[]>([]);
   const [activeChatUser, setActiveChatUser] = useState<ConversationUser | null>(null);
@@ -417,6 +426,41 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
           setIsLoadingMessages(false);
       }
   };
+
+  // Group Messages Logic (Including Image Grid Grouping)
+  const groupedMessages = useMemo(() => {
+      const groups: GroupedMessageItem[] = [];
+      let currentImageGroup: DirectMessage[] = [];
+
+      for (let i = 0; i < messages.length; i++) {
+          const msg = messages[i];
+          const isImage = msg.type === 'image';
+          const nextMsg = messages[i+1];
+          const isNextImage = nextMsg?.type === 'image' && nextMsg.senderId === msg.senderId;
+
+          if (isImage) {
+              currentImageGroup.push(msg);
+              if (!isNextImage) {
+                  // Flush group
+                  if (currentImageGroup.length === 1) {
+                      groups.push(currentImageGroup[0]);
+                  } else {
+                      groups.push({
+                          type: 'image-group',
+                          id: currentImageGroup[0].id, // use first id for key
+                          senderId: currentImageGroup[0].senderId,
+                          timestamp: currentImageGroup[currentImageGroup.length-1].timestamp, // use last timestamp
+                          msgs: [...currentImageGroup]
+                      });
+                  }
+                  currentImageGroup = [];
+              }
+          } else {
+              groups.push(msg);
+          }
+      }
+      return groups;
+  }, [messages]);
 
   const handleSendMessage = async (content: string, type: 'text' | 'sticker' | 'image' = 'text') => {
       if (!activeChatUser) return;
@@ -772,8 +816,51 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
                    {/* Messages List */}
                    <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50 dark:bg-slate-900" ref={scrollRef}>
-                       {messages.map((msg) => {
+                       {groupedMessages.map((item) => {
+                           // Type Narrowing
+                           const isGroup = 'type' in item && item.type === 'image-group';
+                           const msg = isGroup ? (item as { msgs: DirectMessage[] }).msgs[0] : item as DirectMessage;
                            const isMe = msg.senderId === user.id;
+                           
+                           // Handle Render for Image Group Grid
+                           if (isGroup) {
+                               const group = item as { type: 'image-group'; id: string; senderId: string; timestamp: number; msgs: DirectMessage[] };
+                               const images = group.msgs;
+                               const count = images.length;
+                               
+                               return (
+                                   <div key={group.id} className={`flex w-full group ${isMe ? 'justify-end' : 'justify-start'} mb-1`}>
+                                       <div className={`relative max-w-[70%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                                           <div className={`grid gap-1 overflow-hidden rounded-2xl ${count === 1 ? 'grid-cols-1 w-64' : 'grid-cols-2 w-64'}`}>
+                                               {images.slice(0, 4).map((img, idx) => {
+                                                   const isOverlay = count > 4 && idx === 3;
+                                                   // Grid Span Logic
+                                                   let spanClass = '';
+                                                   if (count === 3 && idx === 0) spanClass = 'col-span-2 aspect-[2/1]';
+                                                   else spanClass = 'aspect-square';
+
+                                                   return (
+                                                       <div key={img.id} className={`relative cursor-pointer group/img ${spanClass}`} onClick={() => setExpandedImage(img.content)}>
+                                                           <img src={img.content} className="w-full h-full object-cover hover:opacity-90 transition-opacity" alt="img" />
+                                                           {isOverlay && (
+                                                               <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-bold text-xl backdrop-blur-[2px]">
+                                                                   +{count - 3}
+                                                               </div>
+                                                           )}
+                                                       </div>
+                                                   );
+                                               })}
+                                           </div>
+                                           {/* Timestamp for Group */}
+                                           <div className={`text-[9px] font-bold mt-1 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity`}>
+                                                {new Date(msg.timestamp).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}
+                                           </div>
+                                       </div>
+                                   </div>
+                               );
+                           }
+
+                           // Standard Message Handling
                            const hasReactions = msg.reactions && msg.reactions.length > 0;
                            const isEmoji = msg.type === 'text' && isEmojiOnly(msg.content);
                            const emojiSizeClass = isEmoji ? getEmojiSizeClass(msg.content) : '';
@@ -1038,8 +1125,8 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                       type="text" 
                                       value={newMessage}
                                       onChange={(e) => setNewMessage(e.target.value)}
-                                      onKeyDown={(e) => e.key === 'Enter' && handleSendMessage(newMessage, 'text')}
-                                      onPaste={handlePaste}
+                                      onKeyDown={(e) => { if (e.key === 'Enter') handleSendMessage(newMessage, 'text'); }}
+                                      onPaste={(e) => { handlePaste(e); }}
                                       placeholder="Nhập tin nhắn..." 
                                       className="flex-1 px-3 py-3 md:px-4 md:py-3 bg-transparent outline-none text-sm font-medium text-slate-800 dark:text-white min-w-0"
                                    />
