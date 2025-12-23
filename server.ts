@@ -1,3 +1,4 @@
+
 import express, { RequestHandler } from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
@@ -14,19 +15,21 @@ const app = express();
 const httpServer = createServer(app); // Wrap express in HTTP server
 const io = new Server(httpServer, {
   cors: {
-    origin: "*", // Allow all for SaaS flexibility
+    origin: "*", // Allow all for SaaS flexibility (Should strictly be CLIENT_URL in prod but * is safer for setup)
     methods: ["GET", "POST"]
   },
   transports: ['websocket', 'polling']
 });
 
 const PORT = process.env.PORT || 3001;
-// CẬP NHẬT: URL Frontend trên Vercel
-const CLIENT_URL = process.env.CLIENT_URL || 'https://bibi-chat.vercel.app';
+
+// CẤU HÌNH QUAN TRỌNG: URL của Frontend (Vercel)
+// Nếu không có biến môi trường, fallback về localhost để dev
+const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
 // Middleware
 app.use(cors({
-  origin: '*', 
+  origin: '*', // Cho phép mọi domain gọi API (Cần thiết để Widget hoạt động trên web khách hàng)
   methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }) as any);
@@ -54,9 +57,6 @@ io.on('connection', (socket) => {
   if (userId) {
     socket.join(userId); // Join room named by userId for private messaging
     onlineUsers.set(userId, socket.id);
-    
-    // Broadcast status update if needed (optional for scale)
-    // io.emit('user_status', { userId, status: 'online' });
   }
 
   socket.on('disconnect', () => {
@@ -64,7 +64,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// --- SCHEMAS & MODELS (OPTIMIZED WITH INDEXES) ---
+// --- SCHEMAS & MODELS ---
 const userSchema = new mongoose.Schema({
   id: { type: String, unique: true, index: true }, 
   email: { type: String, required: true, unique: true, index: true },
@@ -169,17 +169,14 @@ const initDB = async () => {
          leadForm: { enabled: true, title: 'Để lại thông tin nhé!', trigger: 'manual' }
       }
     } as any);
-    await Notification.create({
-      id: '1', userId: 'all', title: 'Hệ thống sẵn sàng', desc: 'BibiChat đã kết nối cơ sở dữ liệu thành công!', 
-      time: Date.now(), scheduledAt: Date.now(), readBy: [], icon: 'fa-rocket', color: 'text-emerald-500', bg: 'bg-emerald-100'
-    } as any);
   }
 };
 initDB();
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-// --- WIDGET SCRIPT ---
+// --- WIDGET SCRIPT ENDPOINT (QUAN TRỌNG) ---
+// Endpoint này trả về mã JS để tạo iframe trỏ về CLIENT_URL (Vercel)
 app.get('/widget.js', (req, res) => {
   const scriptContent = `
 (function() {
@@ -205,6 +202,7 @@ app.get('/widget.js', (req, res) => {
   container.style.border = 'none';
   container.style.transition = 'all 0.3s ease';
   
+  // IFRAME SOURCE TRỎ VỀ VERCEL
   var iframe = document.createElement('iframe');
   iframe.src = '${CLIENT_URL}?mode=embed&userId=' + widgetId;
   iframe.style.width = '100%';
@@ -288,7 +286,7 @@ app.post('/api/upload/proxy', upload.single('file') as any, async (req: any, res
 // --- API ROUTES ---
 
 app.get('/api/plugins/:userId', async (req, res) => {
-    const user = await User.findOne({ id: req.params.userId }).lean(); // Use lean() for faster read
+    const user = await User.findOne({ id: req.params.userId }).lean();
     if (user) res.json(user.plugins);
     else res.status(404).json({ success: false });
 });
@@ -460,7 +458,6 @@ app.post('/api/dm/find', async (req, res) => {
 app.get('/api/dm/conversations/:userId', async (req, res) => {
     const { userId } = req.params;
     
-    // Aggregation for performance (replaces multiple queries)
     const rawConversations = await DirectMessage.aggregate([
         { 
             $match: { 
@@ -549,14 +546,13 @@ app.post('/api/dm/send', async (req, res) => {
         type: type || 'text', replyToId: replyToId || null, reactions: [], groupId: groupId || null
     } as any);
 
-    // Real-time Event
     const payload = {
         ...(newMessage as any).toObject(),
-        replyToContent: null // Frontend handles looking up reply content via ID if needed or we populate it here
+        replyToContent: null
     };
     
     io.to(receiverId).emit('direct_message', payload);
-    io.to(senderId).emit('message_sent', payload); // Confirmation to sender (optional)
+    io.to(senderId).emit('message_sent', payload);
 
     res.json(newMessage);
 });
@@ -579,7 +575,6 @@ app.post('/api/dm/react', async (req, res) => {
     message.markModified('reactions');
     await message.save();
     
-    // Broadcast reaction
     io.to(message.senderId).to(message.receiverId).emit('message_reaction', { 
         messageId, reactions: message.reactions 
     });
@@ -664,7 +659,6 @@ app.post('/api/login', async (req, res) => {
     else res.status(401).json({ success: false, message: 'Sai thông tin đăng nhập' });
 });
 
-// ... (Keeping rest of standard CRUD endpoints, assuming they are low volume) ...
 app.post('/api/user/change-password', async (req, res) => {
     const { userId, oldPassword, newPassword } = req.body;
     const user = await User.findOne({ id: userId });
@@ -759,4 +753,7 @@ app.post('/api/chat', async (req, res) => {
 
 httpServer.listen(PORT, () => {
   console.log(`🚀 Server (Http+Socket) running at http://localhost:${PORT}`);
+  console.log(`🔗 Backend URL: ${process.env.SERVER_URL || 'http://localhost:' + PORT}`);
+  console.log(`🔗 Client URL (CORS): ${CLIENT_URL}`);
+  console.log(`📡 Widget Endpoint: ${process.env.SERVER_URL || 'http://localhost:' + PORT}/widget.js`);
 });
