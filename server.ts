@@ -29,9 +29,8 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }) as any);
 // --- MONGODB CONNECTION ---
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/bibichat_local";
 
-mongoose.connect(MONGODB_URI)
-  .then(() => console.log('✅ Đã kết nối cơ sở dữ liệu thành công!'))
-  .catch(err => console.error('❌ Lỗi kết nối MongoDB:', err));
+// Set strictQuery to false to handle Mongoose v7+ behavior changes gracefully
+mongoose.set('strictQuery', false);
 
 // --- SCHEMAS & MODELS ---
 const userSchema = new mongoose.Schema({
@@ -121,33 +120,46 @@ const Lead = mongoose.model('Lead', leadSchema);
 const Notification = mongoose.model('Notification', notificationSchema);
 const DirectMessage = mongoose.model('DirectMessage', directMessageSchema);
 
-// --- INIT ADMIN USER ---
+// --- INIT DB LOGIC ---
 const initDB = async () => {
-  const count = await User.countDocuments();
-  if (count === 0) {
-    console.log("Initializing Admin User...");
-    // Fix: Cast object to any to avoid strict Mongoose type checking errors
-    await User.create({
-      id: 'admin',
-      email: 'admin@bibichat.io',
-      password: '123456',
-      role: 'master',
-      botSettings: { botName: 'BibiBot', primaryColor: '#ec4899', welcomeMessage: 'Xin chào Admin!' },
-      plugins: {
-         autoOpen: { enabled: false, delay: 5 },
-         social: { enabled: true, zalo: '0979116118', phone: '0979116118' },
-         leadForm: { enabled: true, title: 'Để lại thông tin nhé!', trigger: 'manual' }
-      }
-    } as any);
-    // Sample Notification - UPDATED TEXT
-    // Fix: Cast object to any to avoid strict Mongoose type checking errors
-    await Notification.create({
-      id: '1', userId: 'all', title: 'Hệ thống sẵn sàng', desc: 'BibiChat đã kết nối cơ sở dữ liệu thành công!', 
-      time: Date.now(), scheduledAt: Date.now(), readBy: [], icon: 'fa-rocket', color: 'text-emerald-500', bg: 'bg-emerald-100'
-    } as any);
+  try {
+    const count = await User.countDocuments();
+    if (count === 0) {
+      console.log("Initializing Admin User...");
+      // Fix: Cast object to any to avoid strict Mongoose type checking errors
+      await User.create({
+        id: 'admin',
+        email: 'admin@bibichat.io',
+        password: '123456',
+        role: 'master',
+        botSettings: { botName: 'BibiBot', primaryColor: '#ec4899', welcomeMessage: 'Xin chào Admin!' },
+        plugins: {
+           autoOpen: { enabled: false, delay: 5 },
+           social: { enabled: true, zalo: '0979116118', phone: '0979116118' },
+           leadForm: { enabled: true, title: 'Để lại thông tin nhé!', trigger: 'manual' }
+        }
+      } as any);
+      
+      await Notification.create({
+        id: '1', userId: 'all', title: 'Hệ thống sẵn sàng', desc: 'BibiChat đã kết nối cơ sở dữ liệu thành công!', 
+        time: Date.now(), scheduledAt: Date.now(), readBy: [], icon: 'fa-rocket', color: 'text-emerald-500', bg: 'bg-emerald-100'
+      } as any);
+    }
+  } catch (e) {
+    console.error("❌ Init DB failed:", e);
   }
 };
-initDB();
+
+// --- CONNECT AND START ---
+mongoose.connect(MONGODB_URI)
+  .then(async () => {
+    console.log('✅ Đã kết nối cơ sở dữ liệu thành công!');
+    await initDB();
+  })
+  .catch(err => {
+    console.error('❌ Lỗi kết nối MongoDB:', err);
+    console.log('⚠️ Server sẽ tiếp tục chạy nhưng các tính năng DB sẽ không hoạt động.');
+  });
 
 // Multer for memory storage
 const upload = multer({ storage: multer.memoryStorage() });
