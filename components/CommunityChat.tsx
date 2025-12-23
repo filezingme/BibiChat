@@ -484,7 +484,25 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
           
           for (const img of readyImages) {
               if (img.serverUrl) {
-                  await apiService.sendDirectMessage(user.id, activeChatUser.id, img.serverUrl, 'image', undefined, batchGroupId);
+                  try {
+                      const sentMsg = await apiService.sendDirectMessage(
+                          user.id, 
+                          activeChatUser.id, 
+                          img.serverUrl, 
+                          'image', 
+                          undefined, 
+                          batchGroupId
+                      );
+                      
+                      // CRITICAL FIX: Add image to local state immediately (Optimistic Update for Persistence)
+                      // This ensures it appears even if socket is slow or disconnected
+                      setMessages(prev => {
+                           if(prev.find(m => m.id === sentMsg.id)) return prev;
+                           return [...prev, sentMsg];
+                      });
+                  } catch (e) {
+                      console.error("Failed to send image", e);
+                  }
               }
           }
       }
