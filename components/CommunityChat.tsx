@@ -10,7 +10,7 @@ interface Props {
   onClearTargetUser?: () => void;
 }
 
-// Updated Stable Sticker List (Legacy Giphy IDs for reliability)
+// Danh sách Sticker ổn định
 const STICKERS = [
     "https://media.giphy.com/media/MDJ9IbxxvDuQA/giphy.gif", // Dance Cat
     "https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif", // Hello
@@ -33,16 +33,17 @@ const EMOJIS = ['😀', '😂', '😍', '😎', '😭', '😡', '👍', '👎', 
 
 const REACTIONS = ['❤️', '😆', '😮', '😢', '😡', '👍'];
 
-// Threshold for "Online" status in milliseconds (e.g., 5 minutes)
+// Thời gian tối đa để coi là "Online" (5 phút)
 const ONLINE_THRESHOLD = 5 * 60 * 1000;
 
-// Improved iPhone-style Image Lightbox
+// Lightbox xem ảnh kiểu iPhone (Mượt mà)
 const ImageLightbox: React.FC<{
     images: string[];
     initialIndex: number;
     onClose: () => void;
 }> = ({ images, initialIndex, onClose }) => {
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
+    // x: horizontal drag (prev/next), y: vertical drag (dismiss)
     const [offset, setOffset] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
     const [isAnimating, setIsAnimating] = useState(false);
@@ -57,9 +58,9 @@ const ImageLightbox: React.FC<{
     }, []);
 
     const handleTouchStart = (e: React.TouchEvent) => {
-        if (e.touches.length > 1) return; // Ignore multitouch
+        if (e.touches.length > 1) return; // Bỏ qua đa điểm
         setIsDragging(true);
-        setIsAnimating(false);
+        setIsAnimating(false); // Tắt transition để ảnh đi theo ngón tay tức thì (1:1 tracking)
         touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     };
 
@@ -68,43 +69,42 @@ const ImageLightbox: React.FC<{
         const dx = e.touches[0].clientX - touchStart.current.x;
         const dy = e.touches[0].clientY - touchStart.current.y;
 
-        // Determine main axis
-        // If vertical swipe is dominant, lock horizontal to 0
-        // If horizontal swipe is dominant, lock vertical to 0 (mostly)
-        if (Math.abs(dy) > Math.abs(dx) * 1.5) {
+        // Xác định hướng vuốt chính
+        // Nếu vuốt dọc nhiều hơn ngang -> Lock ngang lại, chỉ cho vuốt dọc (để đóng)
+        if (Math.abs(dy) > Math.abs(dx) * 1.5 && Math.abs(dy) > 10) {
              setOffset({ x: 0, y: dy });
-        } else {
-             // For horizontal, prevent swipe if at edges? No, iOS allows rubber banding.
+        } else if (Math.abs(offset.y) < 10) { 
+             // Nếu chưa vuốt dọc đáng kể -> Cho phép vuốt ngang (đổi ảnh)
              setOffset({ x: dx, y: 0 });
         }
     };
 
     const handleTouchEnd = () => {
         setIsDragging(false);
-        setIsAnimating(true);
+        setIsAnimating(true); // Bật lại transition để ảnh trượt về vị trí đích mượt mà
         
         if (!touchStart.current) return;
         
         const { x, y } = offset;
-        const DISMISS_THRESHOLD = 150;
-        const NAV_THRESHOLD = viewportWidth * 0.25; // 25% of screen to trigger nav
+        const DISMISS_THRESHOLD = 150; // Kéo dọc 150px thì đóng
+        const NAV_THRESHOLD = viewportWidth * 0.25; // Kéo ngang 25% màn hình thì đổi ảnh
 
-        // Vertical Dismiss
+        // Logic đóng (Vuốt dọc)
         if (Math.abs(y) > DISMISS_THRESHOLD) {
             onClose();
             return;
         }
 
-        // Horizontal Navigation
-        if (Math.abs(x) > NAV_THRESHOLD) {
+        // Logic điều hướng (Vuốt ngang)
+        if (Math.abs(x) > NAV_THRESHOLD && y === 0) {
             // Next
             if (x < 0 && currentIndex < images.length - 1) {
-                setOffset({ x: -viewportWidth - 20, y: 0 }); // Slide completely out
+                setOffset({ x: -viewportWidth - 20, y: 0 }); // Trượt hẳn ra ngoài
                 setTimeout(() => {
-                    setIsAnimating(false);
+                    setIsAnimating(false); // Tắt anim để reset vị trí về 0 ngay lập tức cho ảnh mới
                     setCurrentIndex(prev => prev + 1);
                     setOffset({ x: 0, y: 0 });
-                }, 300);
+                }, 300); // Khớp với thời gian transition css
                 return;
             } 
             // Prev
@@ -119,12 +119,12 @@ const ImageLightbox: React.FC<{
             }
         }
 
-        // Snap back if threshold not met or at edges
+        // Nếu không đủ điều kiện -> Trả về vị trí cũ (Snap back)
         setOffset({ x: 0, y: 0 });
         touchStart.current = null;
     };
 
-    // Keyboard support
+    // Hỗ trợ phím bấm trên Desktop
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'ArrowLeft' && currentIndex > 0) {
@@ -143,10 +143,12 @@ const ImageLightbox: React.FC<{
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [currentIndex, images.length, viewportWidth]);
 
+    // Tính toán style động
     const bgOpacity = Math.max(0, 1 - Math.abs(offset.y) / (window.innerHeight * 0.7));
     const scale = Math.max(0.7, 1 - Math.abs(offset.y) / 1000);
+    // Cubic bezier cho hiệu ứng "nảy" tự nhiên
     const transition = isAnimating ? 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s' : 'none';
-    const GAP = 20;
+    const GAP = 20; // Khoảng cách giữa các ảnh
 
     return createPortal(
         <div 
@@ -160,15 +162,15 @@ const ImageLightbox: React.FC<{
             onTouchEnd={handleTouchEnd}
             onClick={onClose}
         >
-            {/* Close Button */}
+            {/* Nút đóng */}
             <button onClick={onClose} className="absolute top-6 right-6 z-50 w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-md transition-colors"><i className="fa-solid fa-xmark text-xl"></i></button>
 
-            {/* Counter */}
+            {/* Bộ đếm */}
             <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 text-white font-bold text-xs bg-white/10 px-4 py-1.5 rounded-full backdrop-blur-md border border-white/10">
                 {currentIndex + 1} / {images.length}
             </div>
 
-            {/* Nav Arrows (Desktop) */}
+            {/* Nút điều hướng (Chỉ hiện trên Desktop) */}
             {currentIndex > 0 && (
                 <button onClick={(e) => { e.stopPropagation(); setIsAnimating(true); setOffset({ x: viewportWidth, y: 0 }); setTimeout(() => { setIsAnimating(false); setCurrentIndex(c => c - 1); setOffset({x:0, y:0})}, 300); }} className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full items-center justify-center text-white z-50 backdrop-blur-md transition-colors">
                     <i className="fa-solid fa-chevron-left"></i>
@@ -180,10 +182,10 @@ const ImageLightbox: React.FC<{
                 </button>
             )}
 
-            {/* Carousel Container */}
+            {/* Container chứa ảnh (Carousel) */}
             <div className="relative w-full h-full" onClick={e => e.stopPropagation()}>
                 
-                {/* PREVIOUS IMAGE */}
+                {/* ẢNH TRƯỚC (Preload bên trái) */}
                 {currentIndex > 0 && (
                     <div 
                         className="absolute inset-0 flex items-center justify-center pointer-events-none"
@@ -196,7 +198,7 @@ const ImageLightbox: React.FC<{
                     </div>
                 )}
 
-                {/* CURRENT IMAGE */}
+                {/* ẢNH HIỆN TẠI */}
                 <div 
                     className="absolute inset-0 flex items-center justify-center"
                     style={{ 
@@ -207,7 +209,7 @@ const ImageLightbox: React.FC<{
                     <img src={images[currentIndex]} className="max-w-full max-h-full object-contain shadow-2xl select-none" draggable={false} alt="Current" />
                 </div>
 
-                {/* NEXT IMAGE */}
+                {/* ẢNH SAU (Preload bên phải) */}
                 {currentIndex < images.length - 1 && (
                     <div 
                         className="absolute inset-0 flex items-center justify-center pointer-events-none"
@@ -247,7 +249,9 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   // Image State
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [expandedImage, setExpandedImage] = useState<string | null>(null); // Trigger for Lightbox
+  
+  // Trạng thái trigger Lightbox: lưu URL ảnh đang xem
+  const [expandedImage, setExpandedImage] = useState<string | null>(null); 
 
   // Refs for Click Outside
   const emojiPickerRef = useRef<HTMLDivElement>(null);
@@ -586,21 +590,16 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       if(fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Prepare images for lightbox
+  // Chuẩn bị dữ liệu cho Lightbox: Lấy toàn bộ ảnh trong cuộc hội thoại
   const allImages = messages.filter(m => m.type === 'image');
   const imageUrls = allImages.map(m => m.content);
+  // Tìm index của ảnh hiện tại đang được click
   const initialIndex = expandedImage ? imageUrls.indexOf(expandedImage) : -1;
 
   // Safe zone for padding (Admin does not need right padding for Widget Button)
-  // Logic: 
-  // - Master: No extra padding (widget hidden).
-  // - User Mobile: No extra padding (widget does not obstruct full screen view or keyboard area significantly, prioritize space).
-  // - User Desktop: Large right padding (pr-28) to avoid overlap with fixed Widget button.
   const inputPadding = user.role === 'master' ? '' : 'md:pr-28';
 
   return (
-    // Height adjusted for Mobile: h-[calc(100vh-16rem)] and min-h-[300px]
-    // Desktop maintains previous height: md:h-[calc(100vh-10rem)] md:min-h-[500px]
     <>
     <div className="h-[calc(100vh-16rem)] md:h-[calc(100vh-10rem)] min-h-[300px] md:min-h-[500px] flex gap-6 animate-in fade-in duration-500 pb-2 relative">
         <style>{`
