@@ -76,10 +76,11 @@ const compressImage = async (file: File): Promise<File> => {
 
 // === COMPONENTS ===
 
-// SafeImage với cơ chế Retry thông minh và Callback khi load xong
+// SafeImage với cơ chế check Cache và Retry thông minh
 const SafeImage: React.FC<{ src: string; alt: string; className?: string; onClick?: () => void; onImageLoaded?: () => void }> = ({ src, alt, className, onClick, onImageLoaded }) => {
     const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
     const [retryCount, setRetryCount] = useState(0);
+    const imgRef = useRef<HTMLImageElement>(null);
     
     // Reset khi src thay đổi
     useEffect(() => { 
@@ -87,12 +88,21 @@ const SafeImage: React.FC<{ src: string; alt: string; className?: string; onClic
         setRetryCount(0);
     }, [src]);
 
+    // Check ngay lập tức nếu ảnh đã có trong cache browser (Fix lỗi refresh trang)
+    useEffect(() => {
+        if (imgRef.current && imgRef.current.complete) {
+            if (imgRef.current.naturalWidth > 0) {
+                setStatus('loaded');
+                if (onImageLoaded) onImageLoaded();
+            }
+        }
+    }, []);
+
     const handleError = () => {
         // Nếu lỗi, thử lại tối đa 3 lần, mỗi lần cách nhau 1.5s
         if (retryCount < 3) {
             setTimeout(() => {
                 setRetryCount(prev => prev + 1);
-                // Giữ trạng thái loading để không hiện lỗi
                 setStatus('loading');
             }, 1500 + (retryCount * 1000));
         } else {
@@ -123,6 +133,7 @@ const SafeImage: React.FC<{ src: string; alt: string; className?: string; onClic
             )}
             
             <img 
+                ref={imgRef}
                 src={displaySrc} 
                 alt={alt} 
                 loading="lazy"
