@@ -50,14 +50,42 @@ const ImageLightbox: React.FC<{
     // Touch tracking state
     const [offset, setOffset] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
+    const [isAnimating, setIsAnimating] = useState(false); // Controls transition
     const touchStart = useRef<{ x: number, y: number } | null>(null);
+    const pendingNav = useRef<'prev' | 'next' | null>(null);
 
     // Thresholds
-    const DISMISS_THRESHOLD = 150; // Pixels to pull down to close
-    const NAV_THRESHOLD = 100; // Pixels to swipe to navigate
+    const DISMISS_THRESHOLD = 150; 
+    const NAV_THRESHOLD = 80;
+
+    // Handle Image Change Animation (Entry)
+    useEffect(() => {
+        if (pendingNav.current) {
+            const direction = pendingNav.current;
+            pendingNav.current = null;
+            
+            // 1. Snap new image to start position (off-screen)
+            const startX = direction === 'next' ? window.innerWidth : -window.innerWidth;
+            setIsAnimating(false); // Disable transition for instant snap
+            setOffset({ x: startX, y: 0 });
+
+            // 2. Animate to center
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    setIsAnimating(true); // Enable transition
+                    setOffset({ x: 0, y: 0 });
+                });
+            });
+        } else {
+            // Initial mount or non-swipe update
+            setOffset({ x: 0, y: 0 });
+        }
+    }, [src]);
 
     const handleTouchStart = (e: React.TouchEvent) => {
+        if (e.touches.length > 1) return;
         setIsDragging(true);
+        setIsAnimating(false); // Disable spring transition during drag
         touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     };
 
@@ -66,8 +94,10 @@ const ImageLightbox: React.FC<{
         const dx = e.touches[0].clientX - touchStart.current.x;
         const dy = e.touches[0].clientY - touchStart.current.y;
         
-        // Prevent default scrolling behavior on mobile
-        // e.preventDefault(); // Note: React synthetic events might not support this directly in all cases without passive: false
+        // Block vertical scroll if mostly horizontal
+        if (Math.abs(dx) > Math.abs(dy)) {
+             if (e.cancelable) e.preventDefault();
+        }
         
         setOffset({ x: dx, y: dy });
     };
@@ -77,6 +107,7 @@ const ImageLightbox: React.FC<{
         if (!touchStart.current) return;
 
         const { x, y } = offset;
+        const w = window.innerWidth;
 
         // Vertical Logic (Close)
         if (Math.abs(y) > DISMISS_THRESHOLD) {
@@ -86,15 +117,26 @@ const ImageLightbox: React.FC<{
 
         // Horizontal Logic (Next/Prev)
         // Only navigate if horizontal movement is dominant
-        if (Math.abs(x) > Math.abs(y) && Math.abs(x) > NAV_THRESHOLD) {
-            if (x > 0 && hasPrev) {
-                onPrev();
-            } else if (x < 0 && hasNext) {
-                onNext();
+        if (Math.abs(x) > NAV_THRESHOLD && Math.abs(x) > Math.abs(y)) {
+            if (x < 0 && hasNext) {
+                // Swipe Left -> Next
+                setIsAnimating(true);
+                setOffset({ x: -w, y: 0 }); // Slide out completely to left
+                pendingNav.current = 'next';
+                setTimeout(() => onNext(), 250); // Wait for slide out, then switch
+                return;
+            } else if (x > 0 && hasPrev) {
+                // Swipe Right -> Prev
+                setIsAnimating(true);
+                setOffset({ x: w, y: 0 }); // Slide out completely to right
+                pendingNav.current = 'prev';
+                setTimeout(() => onPrev(), 250);
+                return;
             }
         }
 
-        // Reset if no action taken (snap back)
+        // Reset if no action taken (snap back to center)
+        setIsAnimating(true);
         setOffset({ x: 0, y: 0 });
         touchStart.current = null;
     };
@@ -110,8 +152,12 @@ const ImageLightbox: React.FC<{
     }, [hasPrev, hasNext, onPrev, onNext, onClose]);
 
     // Calculate dynamic styles for iPhone-like feel
-    const opacity = Math.max(0, 1 - Math.abs(offset.y) / (window.innerHeight * 0.7)); // Fade out bg
-    const scale = Math.max(0.8, 1 - Math.abs(offset.y) / 1000); // Shrink image slightly on drag
+    const opacity = Math.max(0, 1 - Math.abs(offset.y) / (window.innerHeight * 0.7)); // Fade out bg on vertical drag
+    const scale = Math.max(0.8, 1 - Math.abs(offset.y) / 1000); // Shrink image slightly on vertical drag
+
+    const transitionStyle = isDragging || (!isAnimating && offset.x !== 0 && offset.y !== 0)
+        ? 'none' 
+        : 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)';
 
     return createPortal(
         <div 
@@ -149,13 +195,12 @@ const ImageLightbox: React.FC<{
                 onClick={(e) => e.stopPropagation()} 
             >
                 <img 
-                    key={src} // Important: Resets transform when src changes
                     src={src} 
                     alt="Expanded View" 
-                    className="max-w-full max-h-full md:rounded-xl shadow-2xl object-contain select-none"
+                    className="max-w-full max-h-full md:rounded-xl shadow-2xl object-contain select-none will-change-transform"
                     style={{
-                        transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
-                        transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)', // iOS-like spring curve
+                        transform: `translate3d(${offset.x}px, ${offset.y}px, 0) scale(${scale})`,
+                        transition: transitionStyle,
                         cursor: isDragging ? 'grabbing' : 'grab'
                     }}
                     draggable={false}
