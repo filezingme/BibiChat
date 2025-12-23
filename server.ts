@@ -35,8 +35,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }) as any);
 
-app.use(express.json({ limit: '50mb' }) as any);
-app.use(express.urlencoded({ limit: '50mb', extended: true }) as any);
+// INCREASE LIMIT TO 100MB TO BE SAFE WITH BASE64 IMAGES
+app.use(express.json({ limit: '100mb' }) as any);
+app.use(express.urlencoded({ limit: '100mb', extended: true }) as any);
 
 // --- MONGODB OPTIMIZATION ---
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/bibichat_local";

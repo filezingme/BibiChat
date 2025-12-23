@@ -46,8 +46,8 @@ const compressImage = async (file: File): Promise<File> => {
             img.src = event.target?.result as string;
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                // Reduced max width to 1024px for efficient Base64 storage
-                const maxWidth = 1024; 
+                // Limit to 800px for safer Base64 storage size (approx 100-200KB)
+                const maxWidth = 800; 
                 let width = img.width;
                 let height = img.height;
                 
@@ -61,12 +61,12 @@ const compressImage = async (file: File): Promise<File> => {
                 const ctx = canvas.getContext('2d');
                 ctx?.drawImage(img, 0, 0, width, height);
                 
-                // Reduced quality to 0.5 for smaller payload
+                // Compress quality to 0.6
                 canvas.toBlob((blob) => {
                     if (blob) {
                         resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() }));
                     } else reject(new Error('Compression failed'));
-                }, 'image/jpeg', 0.5); 
+                }, 'image/jpeg', 0.6); 
             };
             img.onerror = (err) => reject(err);
         };
@@ -76,17 +76,16 @@ const compressImage = async (file: File): Promise<File> => {
 
 // === COMPONENTS ===
 
-// Simplified SafeImage - Focus on reliability
+// Improved SafeImage
 const SafeImage: React.FC<{ src: string; alt: string; className?: string; onClick?: () => void; onImageLoaded?: () => void }> = ({ src, alt, className, onClick, onImageLoaded }) => {
     const [isLoaded, setIsLoaded] = useState(false);
     const [hasError, setHasError] = useState(false);
     const imgRef = useRef<HTMLImageElement>(null);
 
+    // Reset state when src changes
     useEffect(() => {
-        if (imgRef.current && imgRef.current.complete && imgRef.current.naturalWidth > 0) {
-            setIsLoaded(true);
-            if(onImageLoaded) onImageLoaded();
-        }
+        setIsLoaded(false);
+        setHasError(false);
     }, [src]);
 
     return (
@@ -113,7 +112,10 @@ const SafeImage: React.FC<{ src: string; alt: string; className?: string; onClic
                     setIsLoaded(true);
                     if(onImageLoaded) onImageLoaded();
                 }}
-                onError={() => setHasError(true)}
+                onError={() => {
+                    console.error("Image failed to load:", src.substring(0, 50) + "...");
+                    setHasError(true);
+                }}
                 draggable={false}
                 loading="lazy"
             />
@@ -121,7 +123,7 @@ const SafeImage: React.FC<{ src: string; alt: string; className?: string; onClic
     );
 };
 
-// Lightbox đã fix nháy đen và bỏ hiệu ứng ánh sáng gây khó chịu
+// Lightbox
 const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose: () => void; }> = ({ images, initialIndex, onClose }) => {
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -136,18 +138,6 @@ const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose:
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Preload next/prev images to prevent white flashes
-    useEffect(() => {
-        const preload = (idx: number) => {
-            if (idx >= 0 && idx < images.length) {
-                const img = new Image();
-                img.src = images[idx];
-            }
-        };
-        preload(currentIndex + 1);
-        preload(currentIndex - 1);
-    }, [currentIndex, images]);
-
     const handleTouchStart = (e: React.TouchEvent) => {
         if (e.touches.length > 1) return;
         setIsDragging(true);
@@ -159,8 +149,6 @@ const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose:
         if (!isDragging || !touchStart.current) return;
         const dx = e.touches[0].clientX - touchStart.current.x;
         const dy = e.touches[0].clientY - touchStart.current.y;
-        
-        // Lock vertical drag if moving mostly horizontal
         if (Math.abs(dy) > Math.abs(dx) * 1.5 && Math.abs(dy) > 10) setOffset({ x: 0, y: dy });
         else if (Math.abs(offset.y) < 10) setOffset({ x: dx, y: 0 });
     };
@@ -170,17 +158,10 @@ const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose:
         setIsAnimating(true);
         if (!touchStart.current) return;
         const { x, y } = offset;
-        
         if (Math.abs(y) > 150) { onClose(); return; }
-        
         if (Math.abs(x) > viewportWidth * 0.25 && y === 0) {
-            if (x < 0 && currentIndex < images.length - 1) {
-                changeImage(1);
-                return;
-            } else if (x > 0 && currentIndex > 0) {
-                changeImage(-1);
-                return;
-            }
+            if (x < 0 && currentIndex < images.length - 1) changeImage(1);
+            else if (x > 0 && currentIndex > 0) changeImage(-1);
         }
         setOffset({ x: 0, y: 0 });
         touchStart.current = null;
@@ -189,26 +170,14 @@ const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose:
     const changeImage = (dir: 1 | -1) => {
         setIsAnimating(true);
         setOffset({ x: dir === 1 ? -viewportWidth - 40 : viewportWidth + 40, y: 0 });
-        
         setTimeout(() => {
-            setIsAnimating(false); // Disable transition to snap back instantly
+            setIsAnimating(false);
             setCurrentIndex(c => c + dir);
             setOffset({ x: 0, y: 0 });
-        }, 300); // Match this with CSS transition duration
+        }, 300);
     };
 
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'ArrowLeft' && currentIndex > 0) changeImage(-1);
-            if (e.key === 'ArrowRight' && currentIndex < images.length - 1) changeImage(1);
-            if (e.key === 'Escape') onClose();
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [currentIndex, images.length, viewportWidth]);
-
     const bgOpacity = Math.max(0, 1 - Math.abs(offset.y) / (window.innerHeight * 0.7));
-    // Scale only on vertical drag (close gesture), NOT on horizontal swipe
     const scale = offset.y !== 0 ? Math.max(0.7, 1 - Math.abs(offset.y) / 1000) : 1;
     const transition = isAnimating ? 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none';
     const GAP = 40; 
@@ -224,29 +193,13 @@ const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose:
         >
             <button onClick={onClose} className="absolute top-6 right-6 z-50 w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-md"><i className="fa-solid fa-xmark"></i></button>
             <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 text-white font-bold text-xs bg-white/10 px-4 py-1.5 rounded-full backdrop-blur-md">{currentIndex + 1} / {images.length}</div>
-            
             {currentIndex > 0 && <button onClick={(e) => { e.stopPropagation(); changeImage(-1); }} className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full items-center justify-center text-white z-50 backdrop-blur-md"><i className="fa-solid fa-chevron-left"></i></button>}
             {currentIndex < images.length - 1 && <button onClick={(e) => { e.stopPropagation(); changeImage(1); }} className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full items-center justify-center text-white z-50 backdrop-blur-md"><i className="fa-solid fa-chevron-right"></i></button>}
 
             <div className="relative w-full h-full" onClick={e => e.stopPropagation()}>
-                {/* Previous Image - No scale to prevent stutter */}
-                {currentIndex > 0 && (
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none will-change-transform" style={{ transform: `translateX(${offset.x - viewportWidth - GAP}px)`, transition }}>
-                        <img src={images[currentIndex - 1]} className="max-w-full max-h-full object-contain" alt="Prev" draggable={false} decoding="async" />
-                    </div>
-                )}
-
-                {/* Current Image - Has scale for drag-to-close */}
                 <div className="absolute inset-0 flex items-center justify-center will-change-transform" style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`, transition }}>
-                    <img src={images[currentIndex]} className="max-w-full max-h-full object-contain shadow-2xl select-none" draggable={false} alt="Current" decoding="async" />
+                    <img src={images[currentIndex]} className="max-w-full max-h-full object-contain shadow-2xl select-none" draggable={false} alt="Current" />
                 </div>
-
-                {/* Next Image - No scale to prevent stutter */}
-                {currentIndex < images.length - 1 && (
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none will-change-transform" style={{ transform: `translateX(${offset.x + viewportWidth + GAP}px)`, transition }}>
-                        <img src={images[currentIndex + 1]} className="max-w-full max-h-full object-contain" alt="Next" draggable={false} decoding="async" />
-                    </div>
-                )}
             </div>
         </div>, document.body
     );
@@ -288,7 +241,6 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
   // --- HELPER FUNCTIONS ---
   
-  // Update URL param when active chat changes
   const updateChatUrl = (userId: string | null) => {
       const url = new URL(window.location.href);
       if (userId) {
@@ -448,11 +400,9 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       if (type === 'text' && content.trim()) await executeSend(content, 'text');
       else if (type === 'sticker') await executeSend(content, 'sticker');
 
-      // Gửi ảnh đã upload (Optimistic Update)
       const readyImages = pendingImages.filter(img => !img.uploading && img.serverUrl);
       
       if (readyImages.length > 0) {
-          // XÓA NGAY LẬP TỨC pendingImages khỏi UI để ẩn thanh cuộn ngang
           const idsToSend = new Set(readyImages.map(i => i.id));
           setPendingImages(prev => prev.filter(img => !idsToSend.has(img.id)));
 
@@ -473,11 +423,10 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
           
           setMessages(prev => [...prev, ...tempImages]);
 
-          // Send in background
           for (const img of readyImages) {
               if (img.serverUrl) {
                   try {
-                      const sentMsg = await apiService.sendDirectMessage(
+                      await apiService.sendDirectMessage(
                           user.id, 
                           activeChatUser.id, 
                           img.serverUrl, 
@@ -485,14 +434,8 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                           undefined, 
                           batchGroupId
                       );
-                      
-                      // Update temp message with real ID (Optional but good practice, though complex to map 1-1 reliably here without UUID)
-                      // For now, socket will bring back the real message. We trust socket deduplication or simple key updates.
-                      // Actually, let's rely on socket event to dedupe or replace.
-                      
                   } catch (e) {
                       console.error("Failed to send image", e);
-                      // In a real app, we'd mark these as 'failed' in the UI
                   }
               }
           }
@@ -536,7 +479,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       }
   };
 
-  // --- GROUPING LOGIC (STRICT GROUP ID) ---
+  // --- GROUPING LOGIC ---
   const groupedMessages = useMemo(() => {
       const groups: Array<DirectMessage | { type: 'image-group', id: string, senderId: string, timestamp: number, msgs: DirectMessage[] }> = [];
       let currentGroup: DirectMessage[] = [];
@@ -599,15 +542,12 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
     socketService.on('message_sent', (msg: DirectMessage) => {
          if (activeChatUser && msg.receiverId === activeChatUser.id) {
              setMessages(prev => {
-                 // Check if duplicated by content and recent timestamp (for images specifically)
-                 // This handles the case where we optimistically added it, and now socket confirms it
                  const exists = prev.find(m => 
                      (m.id === msg.id) || 
                      (m.type === 'image' && m.content === msg.content && Math.abs(m.timestamp - msg.timestamp) < 5000)
                  );
-                 if(exists) return prev; // Avoid duplicating logic if ID or Content+Time matches
+                 if(exists) return prev; 
 
-                 // Handle text duplicate check (if temp ID vs real ID)
                  if (msg.type === 'text') {
                      const isDuplicateText = prev.some(m => 
                          m.content === msg.content && 
@@ -648,7 +588,6 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
     if (activeChatUser) loadMessages(activeChatUser.id);
   }, [activeChatUser]);
 
-  // Scroll to bottom on updates with slight delay to ensure rendering
   const scrollToBottom = () => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -656,14 +595,11 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   };
 
   useEffect(() => {
-    // Immediate scroll
     scrollToBottom();
-    // Delayed scroll for safety
     const timer = setTimeout(scrollToBottom, 100);
     return () => clearTimeout(timer);
   }, [messages.length, activeChatUser, replyingTo, pendingImages.length]);
 
-  // Handle auto-scroll when image loads
   const handleImageLoad = () => {
       if (scrollRef.current) {
           const { scrollHeight, scrollTop, clientHeight } = scrollRef.current;
