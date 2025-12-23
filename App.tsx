@@ -645,7 +645,8 @@ const StandaloneChatWidget: React.FC<{ settings: WidgetSettings, userId: string 
 
     return (
         // REMOVED 'overflow-hidden' from here to allow shadow to bleed out naturally in the 90px container
-        <div className={`h-full w-full flex flex-col justify-end ${alignClass} p-2 sm:p-4 bg-transparent`}>
+        // REMOVED PADDING ON MOBILE (sm:p-4) to allow full screen fit
+        <div className={`h-full w-full flex flex-col justify-end ${alignClass} p-0 sm:p-4 bg-transparent`}>
             {isOpen && (
                 <div className="w-full h-full flex flex-col relative z-20 animate-in slide-in-from-bottom-5 fade-in duration-300">
                     <ChatWidget settings={settings} userId={userId} forceOpen={true} onClose={() => setIsOpen(false)} isEmbed={true} />
@@ -655,7 +656,7 @@ const StandaloneChatWidget: React.FC<{ settings: WidgetSettings, userId: string 
                  <button 
                     onClick={() => setIsOpen(true)} 
                     // Fixed width to w-14 (56px) to fit comfortably in 90px container with padding
-                    className="w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-white text-2xl transition-all hover:scale-110 active:scale-95 duration-300 relative group z-20 border-2 border-white/20" 
+                    className="w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-white text-2xl transition-all hover:scale-110 active:scale-95 duration-300 relative group z-20 border-2 border-white/20 m-2 sm:m-0" 
                     style={{ backgroundColor: settings.primaryColor || '#8b5cf6' }}
                 >
                     <span className="absolute inset-0 rounded-full bg-white opacity-20 group-hover:animate-ping"></span>

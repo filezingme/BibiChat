@@ -224,36 +224,55 @@ app.get('/widget.js', (req, res) => {
 
   window.addEventListener('message', function(event) {
     if (event.data === 'bibichat-open') {
-       container.style.width = '380px';
-       container.style.height = '600px';
+       container.style.pointerEvents = 'auto';
+       // Reset standard styles
        container.style.borderRadius = '24px';
        container.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.25)';
-       container.style.pointerEvents = 'auto';
+       
        if(window.innerWidth < 480) {
-         container.style.width = '100%';
-         container.style.height = '100%';
+         // Mobile Fullscreen Logic
+         container.style.width = '100vw'; // Ensure full viewport width
+         container.style.height = '100dvh'; // Use dynamic viewport height if supported
+         if (!CSS.supports('height: 100dvh')) container.style.height = '100vh';
+         
          container.style.bottom = '0';
          container.style.right = '0';
          container.style.left = '0';
+         container.style.top = '0';
          container.style.borderRadius = '0';
+         container.style.margin = '0';
+         container.style.maxWidth = 'none';
+         container.style.maxHeight = 'none';
+       } else {
+         // Desktop/Tablet Popover Logic
+         container.style.width = '380px';
+         container.style.height = '600px';
+         // Reset position properties that might have been set by mobile logic
+         container.style.top = 'auto';
+         container.style.bottom = '20px';
+         // Check explicit position message for left/right
        }
     } else if (event.data === 'bibichat-close') {
-       // Reset to slightly larger size for shadow
+       // Reset to button size
        container.style.width = '90px';
        container.style.height = '90px';
        container.style.borderRadius = '0';
        container.style.boxShadow = 'none';
        container.style.bottom = '20px';
-       container.style.pointerEvents = 'none'; // Reset to allow click through around the button
-       // Reset position logic handled by position message
+       container.style.top = 'auto';
+       // Position handled by next message or maintained
+       container.style.pointerEvents = 'none'; 
     } else if (event.data && event.data.type === 'bibichat-position') {
-       // Force update position
-       if (event.data.position === 'left') {
-          container.style.left = '20px';
-          container.style.right = 'auto'; // Clear right to allow left to take effect
-       } else {
-          container.style.right = '20px';
-          container.style.left = 'auto'; // Clear left to allow right to take effect
+       // Only apply left/right positioning when closed or desktop open
+       // On mobile open, we force full screen (inset: 0)
+       if (container.style.width !== '100vw') {
+           if (event.data.position === 'left') {
+              container.style.left = '20px';
+              container.style.right = 'auto'; 
+           } else {
+              container.style.right = '20px';
+              container.style.left = 'auto'; 
+           }
        }
     }
   });

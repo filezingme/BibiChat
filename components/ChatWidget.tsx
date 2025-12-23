@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { WidgetSettings, Message, User } from '../types';
 import { apiService } from '../services/apiService';
@@ -111,7 +112,7 @@ const ChatWidget: React.FC<Props> = ({ settings, userId, forceOpen, onClose, isE
   if (isEmbed) {
       // Specialized Render for Embed Iframe (Full Height/Width of container)
       return (
-        <div className="w-full h-full bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-slate-100/50">
+        <div className="w-full h-full bg-white rounded-none sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-slate-100/50">
           {/* Header */}
           <div className="p-4 text-white relative overflow-hidden shrink-0" style={{ backgroundColor: settings.primaryColor }}>
             <div className="absolute top-0 right-0 p-4 opacity-10">
