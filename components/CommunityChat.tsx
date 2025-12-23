@@ -48,32 +48,51 @@ const ImageLightbox: React.FC<{
     total: number;
 }> = ({ src, onClose, onPrev, onNext, hasPrev, hasNext, current, total }) => {
     // Touch state for swipe detection
-    const [touchStart, setTouchStart] = useState<number | null>(null);
-    const [touchEnd, setTouchEnd] = useState<number | null>(null);
+    const [touchStart, setTouchStart] = useState<{x: number, y: number} | null>(null);
     const minSwipeDistance = 50; // Minimum distance to trigger swipe
+    const minCloseDistance = 80; // Minimum distance to trigger close (vertical)
+
+    // Animation Direction State
+    const prevIndexRef = useRef(current);
+    const [direction, setDirection] = useState<'initial' | 'left' | 'right'>('initial');
+
+    useEffect(() => {
+        if (current > prevIndexRef.current) setDirection('right'); // Moving to next
+        else if (current < prevIndexRef.current) setDirection('left'); // Moving to prev
+        else setDirection('initial');
+        prevIndexRef.current = current;
+    }, [current]);
 
     const onTouchStart = (e: React.TouchEvent) => {
-        setTouchEnd(null); // Reset touch end
-        setTouchStart(e.targetTouches[0].clientX);
+        setTouchStart({ x: e.targetTouches[0].clientX, y: e.targetTouches[0].clientY });
     };
 
-    const onTouchMove = (e: React.TouchEvent) => {
-        setTouchEnd(e.targetTouches[0].clientX);
-    };
-
-    const onTouchEnd = () => {
-        if (!touchStart || !touchEnd) return;
+    const onTouchEnd = (e: React.TouchEvent) => {
+        if (!touchStart) return;
         
-        const distance = touchStart - touchEnd;
-        const isLeftSwipe = distance > minSwipeDistance;
-        const isRightSwipe = distance < -minSwipeDistance;
+        const touchEndX = e.changedTouches[0].clientX;
+        const touchEndY = e.changedTouches[0].clientY;
+        
+        const diffX = touchStart.x - touchEndX;
+        const diffY = touchStart.y - touchEndY;
 
-        if (isLeftSwipe && hasNext) {
-            onNext();
+        // Check if vertical swipe (Close)
+        // Ensure vertical movement is significantly more than horizontal to avoid accidental closes when swiping diagonally
+        if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > minCloseDistance) {
+            onClose();
+            return;
         }
-        if (isRightSwipe && hasPrev) {
-            onPrev();
+
+        // Check if horizontal swipe (Nav)
+        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > minSwipeDistance) {
+            if (diffX > 0 && hasNext) {
+                onNext();
+            } else if (diffX < 0 && hasPrev) {
+                onPrev();
+            }
         }
+        
+        setTouchStart(null);
     };
 
     useEffect(() => {
@@ -86,17 +105,21 @@ const ImageLightbox: React.FC<{
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [hasPrev, hasNext, onPrev, onNext, onClose]);
 
+    // Determine animation class based on direction
+    let animClass = "animate-in zoom-in duration-300";
+    if (direction === 'right') animClass = "animate-in slide-in-from-right duration-300 fade-in";
+    if (direction === 'left') animClass = "animate-in slide-in-from-left duration-300 fade-in";
+
     return createPortal(
         <div 
-            className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300 group touch-none"
+            className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-md flex items-center justify-center p-0 md:p-4 animate-in fade-in duration-300 group touch-none"
             onClick={onClose}
             onTouchStart={onTouchStart}
-            onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
         >
             <button 
                 onClick={onClose}
-                className="absolute top-6 right-6 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors z-50"
+                className="absolute top-6 right-6 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors z-50 backdrop-blur-sm"
             >
                 <i className="fa-solid fa-xmark text-xl"></i>
             </button>
@@ -104,36 +127,41 @@ const ImageLightbox: React.FC<{
             {hasPrev && (
                 <button 
                     onClick={(e) => { e.stopPropagation(); onPrev(); }}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 hidden md:flex items-center justify-center text-white transition-colors z-50 backdrop-blur-md opacity-0 group-hover:opacity-100 duration-300"
+                    className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/10 hover:bg-white/20 hidden md:flex items-center justify-center text-white transition-colors z-50 backdrop-blur-md opacity-0 group-hover:opacity-100 duration-300"
                 >
                     <i className="fa-solid fa-chevron-left text-xl"></i>
                 </button>
             )}
             
-            <img 
-                src={src} 
-                alt="Expanded View" 
-                className="max-w-full max-h-full rounded-xl shadow-2xl animate-in zoom-in duration-300 object-contain select-none"
-                onClick={(e) => e.stopPropagation()} 
-                draggable={false}
-            />
+            {/* Image Container with Key for Re-render Animation */}
+            <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+                <img 
+                    key={src}
+                    src={src} 
+                    alt="Expanded View" 
+                    className={`max-w-full max-h-full md:rounded-xl shadow-2xl object-contain select-none ${animClass}`}
+                    onClick={(e) => e.stopPropagation()} 
+                    draggable={false}
+                />
+            </div>
 
             {hasNext && (
                 <button 
                     onClick={(e) => { e.stopPropagation(); onNext(); }}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 hidden md:flex items-center justify-center text-white transition-colors z-50 backdrop-blur-md opacity-0 group-hover:opacity-100 duration-300"
+                    className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/10 hover:bg-white/20 hidden md:flex items-center justify-center text-white transition-colors z-50 backdrop-blur-md opacity-0 group-hover:opacity-100 duration-300"
                 >
                     <i className="fa-solid fa-chevron-right text-xl"></i>
                 </button>
             )}
 
             {/* Image Counter & Mobile Hint */}
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none opacity-0 group-hover:opacity-100 duration-300 transition-opacity">
-                <div className="bg-black/50 px-4 py-1.5 rounded-full text-white text-xs font-bold backdrop-blur-md">
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none opacity-0 group-hover:opacity-100 duration-300 transition-opacity">
+                <div className="bg-white/10 border border-white/20 px-4 py-1.5 rounded-full text-white text-xs font-bold backdrop-blur-md">
                     {current + 1} / {total}
                 </div>
-                <div className="md:hidden text-white/50 text-[10px] font-medium">
-                    Vuốt để xem ảnh khác
+                <div className="md:hidden text-white/50 text-[10px] font-medium flex gap-3">
+                    <span><i className="fa-solid fa-arrows-left-right mr-1"></i> Vuốt ngang đổi ảnh</span>
+                    <span><i className="fa-solid fa-arrows-up-down mr-1"></i> Vuốt dọc để đóng</span>
                 </div>
             </div>
         </div>,
