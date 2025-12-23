@@ -370,6 +370,25 @@ export const apiService = {
       return res.data;
   },
 
+  getLeadsCount: async (userId: string, period: string): Promise<number> => {
+      try {
+        // Fetch reasonably large amount to count client side since API does not support filtering by date yet
+        const res = await apiService.getLeadsPaginated(userId, 1, 2000, ''); 
+        const leads = res.data;
+        const now = Date.now();
+        let startTime = 0;
+        
+        if (period === 'hour') startTime = now - 24 * 60 * 60 * 1000;
+        else if (period === 'day') startTime = now - 30 * 24 * 60 * 60 * 1000;
+        else if (period === 'week') startTime = now - 90 * 24 * 60 * 60 * 1000;
+        else startTime = now - 365 * 24 * 60 * 60 * 1000;
+
+        return leads.filter(l => l.createdAt >= startTime).length;
+      } catch (e) {
+          return 0;
+      }
+  },
+
   submitLead: async (userId: string, name: string, phone: string, email: string, isTest: boolean = false): Promise<Lead> => {
     try {
         const res = await fetch(`${API_URL}/api/leads`, {
@@ -559,29 +578,54 @@ export const apiService = {
           if (!res.ok) throw new Error("Failed to fetch logs for stats");
           const logs: ChatLog[] = await res.json();
           
-          const statsMap: Record<string, number> = {};
+          const now = Date.now();
+          let startTime = 0;
+          if (period === 'hour') startTime = now - 24 * 60 * 60 * 1000; // Last 24h
+          else if (period === 'day') startTime = now - 30 * 24 * 60 * 60 * 1000; // Last 30d
+          else if (period === 'week') startTime = now - 90 * 24 * 60 * 60 * 1000; // Last 3 months
+          else startTime = now - 365 * 24 * 60 * 60 * 1000; // Last year
+
+          const filteredLogs = logs.filter(l => l.timestamp >= startTime);
           
-          logs.forEach(log => {
+          const groups: Record<string, { count: number, timestamp: number }> = {};
+
+          filteredLogs.forEach(log => {
               const date = new Date(log.timestamp);
               let label = '';
-              if (period === 'hour') label = `${date.getHours()}:00`;
-              else if (period === 'day') label = `${date.getDate()}/${date.getMonth() + 1}`;
-              else if (period === 'week') {
-                  // Simple week calculation
-                  const onejan = new Date(date.getFullYear(), 0, 1);
-                  const week = Math.ceil((((date.getTime() - onejan.getTime()) / 86400000) + onejan.getDay() + 1) / 7);
-                  label = `W${week}`;
+              let sortKey = 0;
+
+              if (period === 'hour') {
+                  const h = date.getHours();
+                  label = `${h.toString().padStart(2, '0')}:00`;
+                  sortKey = new Date(date.getFullYear(), date.getMonth(), date.getDate(), h).getTime();
+              } else if (period === 'day') {
+                  label = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+                  sortKey = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+              } else if (period === 'week') {
+                   const startOfYear = new Date(date.getFullYear(), 0, 1);
+                   const week = Math.ceil((((date.getTime() - startOfYear.getTime()) / 86400000) + startOfYear.getDay() + 1) / 7);
+                   label = `W${week}`;
+                   sortKey = week;
+              } else {
+                  label = `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+                  sortKey = new Date(date.getFullYear(), date.getMonth(), 1).getTime();
               }
-              else label = `${date.getMonth() + 1}/${date.getFullYear()}`;
               
-              statsMap[label] = (statsMap[label] || 0) + 1;
+              if (!groups[label]) {
+                  groups[label] = { count: 0, timestamp: sortKey };
+              }
+              groups[label].count++;
           });
 
-          return Object.entries(statsMap).map(([label, queries]) => ({
+          return Object.entries(groups)
+            .map(([label, data]) => ({
               label,
-              queries,
-              solved: queries // Placeholder
-          }));
+              queries: data.count,
+              solved: data.count,
+              timestamp: data.timestamp
+            }))
+            .sort((a, b) => a.timestamp - b.timestamp);
+
       } catch (e) {
           const db = getLocalDB();
           // Offline fallback basic

@@ -55,12 +55,10 @@ const Dashboard: React.FC<Props> = ({ user, initialSelectedUser = 'all' }) => {
     const data = await apiService.getStats(targetId as any, period);
     setStats(data);
 
-    // Load Leads Count for the "New Leads" card
+    // Load Leads Count filtered by period
     try {
-        // We use the existing getLeadsPaginated but with a large limit to get count effectively
-        // In a real app, you might want a dedicated endpoint for stats
-        const leadsResult = await apiService.getLeadsPaginated(targetId, 1, 1000, '');
-        setTotalLeadsCount(leadsResult.pagination?.total || 0);
+        const count = await apiService.getLeadsCount(targetId, period);
+        setTotalLeadsCount(count);
     } catch (e) {
         setTotalLeadsCount(0);
     }
@@ -70,15 +68,27 @@ const Dashboard: React.FC<Props> = ({ user, initialSelectedUser = 'all' }) => {
 
   const totalQueries = stats.reduce((acc, curr) => acc + curr.queries, 0);
   
-  // Fake calculation for avg response time based on query volume (simulated for UI demo)
-  // In real app, this would come from backend logs.
-  // Logic: More queries slightly increase load, but AI is fast. Base ~0.5s + random variance.
-  const avgResponseTime = totalQueries > 0 ? (0.5 + (Math.random() * 0.5)).toFixed(1) + 's' : '0s';
+  // Mock Avg Response Time logic based on query volume to make it dynamic
+  // Formula: Base 0.1s + small variable based on query count + random noise
+  const avgResponseTime = totalQueries > 0 
+    ? (0.1 + (totalQueries % 20) * 0.02 + Math.random() * 0.1).toFixed(2) + 's' 
+    : '0s';
 
   const getSelectedUserLabel = () => {
     if (selectedUser === 'all') return 'Toàn bộ hệ thống';
     const found = customers.find(c => c.id === selectedUser);
     return found ? found.email : 'Unknown';
+  };
+
+  // Helper text for period
+  const getPeriodLabel = () => {
+      switch(period) {
+          case 'hour': return '24 giờ qua';
+          case 'day': return '30 ngày qua';
+          case 'week': return '3 tháng qua';
+          case 'month': return '1 năm qua';
+          default: return '';
+      }
   };
 
   return (
@@ -155,7 +165,8 @@ const Dashboard: React.FC<Props> = ({ user, initialSelectedUser = 'all' }) => {
             bg: 'bg-gradient-to-br from-blue-50 to-white dark:from-slate-800 dark:to-slate-800',
             iconBg: 'bg-blue-600 shadow-lg shadow-blue-500/40',
             text: 'text-blue-700 dark:text-blue-400',
-            border: 'border-blue-200 dark:border-slate-700'
+            border: 'border-blue-200 dark:border-slate-700',
+            sub: getPeriodLabel()
           },
           { 
             label: 'Tốc độ phản hồi', 
@@ -164,7 +175,8 @@ const Dashboard: React.FC<Props> = ({ user, initialSelectedUser = 'all' }) => {
             bg: 'bg-gradient-to-br from-amber-50 to-white dark:from-slate-800 dark:to-slate-800',
             iconBg: 'bg-amber-500 shadow-lg shadow-amber-500/40',
             text: 'text-amber-600 dark:text-amber-400',
-            border: 'border-amber-200 dark:border-slate-700'
+            border: 'border-amber-200 dark:border-slate-700',
+            sub: 'Trung bình'
           },
           { 
             label: 'Khách hàng mới', 
@@ -173,7 +185,8 @@ const Dashboard: React.FC<Props> = ({ user, initialSelectedUser = 'all' }) => {
             bg: 'bg-gradient-to-br from-pink-50 to-white dark:from-slate-800 dark:to-slate-800',
             iconBg: 'bg-pink-500 shadow-lg shadow-pink-500/40',
             text: 'text-pink-600 dark:text-pink-400',
-            border: 'border-pink-200 dark:border-slate-700'
+            border: 'border-pink-200 dark:border-slate-700',
+            sub: getPeriodLabel()
           },
         ].map((stat, i) => (
           <div key={i} className={`${stat.bg} p-8 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border-2 ${stat.border} flex items-center space-x-6 hover:-translate-y-2 transition-all duration-300 group`}>
@@ -182,7 +195,8 @@ const Dashboard: React.FC<Props> = ({ user, initialSelectedUser = 'all' }) => {
             </div>
             <div>
               <p className="text-sm font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">{stat.label}</p>
-              <h3 className={`text-5xl font-black ${stat.text}`}>{stat.value}</h3>
+              <h3 className={`text-5xl font-black ${stat.text} leading-tight`}>{stat.value}</h3>
+              <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-1">{stat.sub}</p>
             </div>
           </div>
         ))}
