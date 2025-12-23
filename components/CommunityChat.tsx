@@ -36,9 +36,8 @@ const ONLINE_THRESHOLD = 5 * 60 * 1000;
 
 // === UTILS ===
 
-// Tối ưu hóa nén ảnh mạnh hơn: Max Full HD (1920px) và Quality 0.5 (~200KB)
 const compressImage = async (file: File): Promise<File> => {
-    if (file.type === 'image/gif') return file; // Giữ nguyên GIF
+    if (file.type === 'image/gif') return file;
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -47,7 +46,7 @@ const compressImage = async (file: File): Promise<File> => {
             img.src = event.target?.result as string;
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const maxWidth = 1920; // Full HD
+                const maxWidth = 1920; 
                 let width = img.width;
                 let height = img.height;
                 
@@ -61,7 +60,6 @@ const compressImage = async (file: File): Promise<File> => {
                 const ctx = canvas.getContext('2d');
                 ctx?.drawImage(img, 0, 0, width, height);
                 
-                // Nén JPEG chất lượng 0.5 (Khá thấp nhưng đủ chat, dung lượng rất nhẹ)
                 canvas.toBlob((blob) => {
                     if (blob) {
                         resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() }));
@@ -76,9 +74,32 @@ const compressImage = async (file: File): Promise<File> => {
 
 // === COMPONENTS ===
 
+// SafeImage với cơ chế Retry thông minh
 const SafeImage: React.FC<{ src: string; alt: string; className?: string; onClick?: () => void; }> = ({ src, alt, className, onClick }) => {
     const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
-    useEffect(() => { setStatus('loading'); }, [src]);
+    const [retryCount, setRetryCount] = useState(0);
+    
+    // Reset khi src thay đổi
+    useEffect(() => { 
+        setStatus('loading'); 
+        setRetryCount(0);
+    }, [src]);
+
+    const handleError = () => {
+        // Nếu lỗi, thử lại tối đa 3 lần, mỗi lần cách nhau 1.5s
+        if (retryCount < 3) {
+            setTimeout(() => {
+                setRetryCount(prev => prev + 1);
+                // Giữ trạng thái loading để không hiện lỗi
+                setStatus('loading');
+            }, 1500 + (retryCount * 1000));
+        } else {
+            setStatus('error');
+        }
+    };
+
+    // Thêm timestamp vào src để force reload nếu đang retry
+    const displaySrc = retryCount > 0 ? `${src}?retry=${retryCount}` : src;
 
     return (
         <div className={`relative overflow-hidden ${className}`} onClick={onClick}>
@@ -94,15 +115,20 @@ const SafeImage: React.FC<{ src: string; alt: string; className?: string; onClic
                 </div>
             )}
             <img 
-                src={src} alt={alt} loading="lazy"
+                src={displaySrc} 
+                alt={alt} 
+                loading="lazy"
+                decoding="async"
                 className={`w-full h-full object-cover transition-opacity duration-300 ${status === 'loaded' ? 'opacity-100' : 'opacity-0'}`} 
-                onLoad={() => setStatus('loaded')} onError={() => setStatus('error')} draggable={false}
+                onLoad={() => setStatus('loaded')} 
+                onError={handleError} 
+                draggable={false}
             />
         </div>
     );
 };
 
-// Lightbox với hiệu ứng Slide mượt mà
+// Lightbox đã fix nháy đen
 const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose: () => void; }> = ({ images, initialIndex, onClose }) => {
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -195,19 +221,19 @@ const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose:
                 {/* Previous Image */}
                 {currentIndex > 0 && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ transform: `translateX(${offset.x - viewportWidth - GAP}px) scale(${scale})`, transition }}>
-                        <img src={images[currentIndex - 1]} className="max-w-full max-h-full object-contain opacity-50" alt="Prev" draggable={false} />
+                        <img src={images[currentIndex - 1]} className="max-w-full max-h-full object-contain opacity-50" alt="Prev" draggable={false} decoding="async" />
                     </div>
                 )}
 
                 {/* Current Image */}
                 <div className="absolute inset-0 flex items-center justify-center" style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`, transition }}>
-                    <img src={images[currentIndex]} className="max-w-full max-h-full object-contain shadow-2xl select-none" draggable={false} alt="Current" />
+                    <img src={images[currentIndex]} className="max-w-full max-h-full object-contain shadow-2xl select-none" draggable={false} alt="Current" decoding="async" />
                 </div>
 
                 {/* Next Image */}
                 {currentIndex < images.length - 1 && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ transform: `translateX(${offset.x + viewportWidth + GAP}px) scale(${scale})`, transition }}>
-                        <img src={images[currentIndex + 1]} className="max-w-full max-h-full object-contain opacity-50" alt="Next" draggable={false} />
+                        <img src={images[currentIndex + 1]} className="max-w-full max-h-full object-contain opacity-50" alt="Next" draggable={false} decoding="async" />
                     </div>
                 )}
             </div>
@@ -337,7 +363,6 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   // --- UPLOAD LOGIC (SEQUENTIAL 1-BY-1) ---
   
   useEffect(() => {
-      // Logic upload tuần tự: Chỉ chạy nếu không có file nào đang upload
       if (!uploadQueueRunning) {
           const nextImageToUpload = pendingImages.find(img => img.uploading && !img.serverUrl && !img.error);
           if (nextImageToUpload) {
@@ -361,7 +386,6 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
               p.id === img.id ? { ...p, uploading: false, error: true } : p
           ));
       } finally {
-          // Giải phóng lock để useEffect kích hoạt upload file tiếp theo (nếu có)
           setUploadQueueRunning(false);
       }
   };
@@ -395,26 +419,23 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       const readyImages = pendingImages.filter(img => !img.uploading && img.serverUrl);
       
       if (readyImages.length > 0) {
+          // XÓA NGAY LẬP TỨC pendingImages khỏi UI để ẩn thanh cuộn ngang
+          const idsToSend = new Set(readyImages.map(i => i.id));
+          setPendingImages(prev => prev.filter(img => !idsToSend.has(img.id)));
+
           const batchGroupId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-          // Gửi từng ảnh một, nhưng không cập nhật giao diện ngay lập tức để tránh duplicate
+          
           for (const img of readyImages) {
               if (img.serverUrl) {
-                  // Gọi API gửi, nhưng KHÔNG gọi setMessages (tránh optimistic duplicate)
-                  // Socket sẽ trả về tin nhắn và tự động render
                   await apiService.sendDirectMessage(user.id, activeChatUser.id, img.serverUrl, 'image', undefined, batchGroupId);
               }
           }
-          // Xóa ảnh đã gửi khỏi danh sách chờ
-          const sentIds = new Set(readyImages.map(i => i.id));
-          setPendingImages(prev => prev.filter(img => !sentIds.has(img.id)));
       }
   };
 
   const executeSend = async (msgContent: string, msgType: 'text' | 'sticker' | 'image', replyId?: string, groupId?: string) => {
       if (!activeChatUser) return;
       
-      // Chỉ cập nhật Optimistic UI cho Text và Sticker
-      // Ảnh sẽ được cập nhật thông qua Socket để tránh duplicate
       if (msgType !== 'image') {
           const tempId = Date.now().toString() + Math.random().toString();
           const actualReplyId = replyId || (replyingTo ? replyingTo.id : undefined);
@@ -436,14 +457,12 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
           setMessages(prev => [...prev, tempMsg]);
       }
       
-      // Reset input
       setNewMessage('');
       setReplyingTo(null);
       setShowStickerPicker(false);
       setShowEmojiPicker(false);
 
       try {
-          // Gọi API (Server sẽ emit socket event trả về tin nhắn thật)
           const actualReplyId = replyId || (replyingTo ? replyingTo.id : undefined);
           await apiService.sendDirectMessage(user.id, activeChatUser.id, msgContent, msgType, actualReplyId, groupId);
       } catch (e) {
@@ -463,7 +482,6 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
               if (currentGroup.length === 0) {
                   currentGroup.push(msg);
               } else {
-                  // Chỉ gom nhóm nếu cùng groupId chính xác
                   if (currentGroup[0].groupId === msg.groupId) {
                       currentGroup.push(msg);
                   } else {
@@ -478,7 +496,6 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                   }
               }
           } else {
-              // Nếu gặp tin nhắn không phải ảnh group, xả nhóm cũ
               if (currentGroup.length > 0) {
                   groups.push({
                       type: 'image-group',
@@ -492,7 +509,6 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
               groups.push(msg);
           }
       }
-      // Xả nhóm cuối cùng
       if (currentGroup.length > 0) {
           groups.push({
               type: 'image-group',
@@ -509,24 +525,17 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   useEffect(() => {
     loadConversations();
     
-    // Khi nhận tin nhắn mới từ người khác
     socketService.on('direct_message', (msg: DirectMessage) => {
         if (activeChatUser && msg.senderId === activeChatUser.id) setMessages(prev => [...prev, msg]);
         loadConversations();
     });
     
-    // Khi tin nhắn CỦA MÌNH được server xác nhận
     socketService.on('message_sent', (msg: DirectMessage) => {
          if (activeChatUser && msg.receiverId === activeChatUser.id) {
              setMessages(prev => {
                  if(prev.find(m => m.id === msg.id)) return prev;
+                 if (msg.type === 'image') return [...prev, msg];
                  
-                 // Chấp nhận ảnh luôn vì ta không render optimistic
-                 if (msg.type === 'image') {
-                     return [...prev, msg];
-                 }
-                 
-                 // Lọc duplicate text
                  const isDuplicateText = prev.some(m => 
                      m.content === msg.content && 
                      m.type === msg.type && 
@@ -656,8 +665,9 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                
                                return (
                                    <div key={group.id} className={`flex w-full group ${isMe ? 'justify-end' : 'justify-start'} mb-1`}>
-                                       <div className={`relative max-w-[70%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                                           <div className={`grid gap-1 overflow-hidden rounded-2xl ${count === 1 ? 'grid-cols-1 w-64' : 'grid-cols-2 w-64'}`}>
+                                       <div className={`relative max-w-[85%] md:max-w-[70%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                                           {/* Updated Grid for Mobile */}
+                                           <div className={`grid gap-1 overflow-hidden rounded-2xl w-full max-w-[16rem] ${count === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
                                                {images.slice(0, 4).map((img, idx) => {
                                                    const isOverlay = count > 4 && idx === 3;
                                                    let spanClass = '';
@@ -686,7 +696,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
                            return (
                                <div key={msg.id} className={`flex w-full group ${isMe ? 'justify-end' : 'justify-start'} ${msg.reactions && msg.reactions.length > 0 ? 'mb-5' : 'mb-1'}`}>
-                                   <div className={`relative max-w-[70%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                                   <div className={`relative max-w-[85%] md:max-w-[70%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                                        {/* Hover Toolbar */}
                                        <div className={`absolute -top-8 ${isMe ? 'right-0' : 'left-0'} hidden group-hover:flex items-center gap-1 bg-white dark:bg-slate-800 p-1 rounded-full shadow-lg border border-slate-100 dark:border-slate-700 z-20 animate-in fade-in zoom-in duration-200`}>
                                             <button onClick={() => handleReplyClick(msg)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors" title="Trả lời">
