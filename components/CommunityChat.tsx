@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { apiService } from '../services/apiService';
 import { User, ConversationUser, DirectMessage } from '../types';
@@ -227,6 +227,15 @@ const ImageLightbox: React.FC<{
     );
 };
 
+// Define extended type for grouped visual rendering
+type GroupedMessageItem = DirectMessage | {
+    type: 'image-group';
+    id: string;
+    senderId: string;
+    timestamp: number;
+    msgs: DirectMessage[];
+};
+
 const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTargetUser }) => {
   const [conversations, setConversations] = useState<ConversationUser[]>([]);
   const [activeChatUser, setActiveChatUser] = useState<ConversationUser | null>(null);
@@ -418,6 +427,74 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       }
   };
 
+  // Improved Group Messages Logic using groupId
+  const groupedMessages = useMemo(() => {
+      const groups: GroupedMessageItem[] = [];
+      let currentImageGroup: DirectMessage[] = [];
+
+      for (let i = 0; i < messages.length; i++) {
+          const msg = messages[i];
+          const isImage = msg.type === 'image';
+          
+          if (isImage) {
+              currentImageGroup.push(msg);
+              const nextMsg = messages[i+1];
+              
+              // Logic to decide whether to continue grouping or flush
+              let shouldFlush = false;
+              
+              if (!nextMsg || nextMsg.type !== 'image' || nextMsg.senderId !== msg.senderId) {
+                  shouldFlush = true;
+              } else {
+                  // Check Group ID Logic:
+                  // 1. If both have groupId, they MUST match to stay in same group.
+                  // 2. If one has and one doesn't, they are separate.
+                  // 3. If neither has, they are merged (legacy behavior).
+                  if (msg.groupId && nextMsg.groupId) {
+                      if (msg.groupId !== nextMsg.groupId) shouldFlush = true;
+                  } else if (msg.groupId || nextMsg.groupId) {
+                      // One has, one doesn't -> Split
+                      shouldFlush = true;
+                  }
+                  // Else (both undefined) -> Keep merging (legacy)
+              }
+
+              if (shouldFlush) {
+                  if (currentImageGroup.length === 1) {
+                      groups.push(currentImageGroup[0]);
+                  } else {
+                      groups.push({
+                          type: 'image-group',
+                          id: currentImageGroup[0].id, 
+                          senderId: currentImageGroup[0].senderId,
+                          timestamp: currentImageGroup[currentImageGroup.length-1].timestamp, 
+                          msgs: [...currentImageGroup]
+                      } as any);
+                  }
+                  currentImageGroup = [];
+              }
+          } else {
+              // Flush any pending group first
+              if (currentImageGroup.length > 0) {
+                  if (currentImageGroup.length === 1) {
+                      groups.push(currentImageGroup[0]);
+                  } else {
+                      groups.push({
+                          type: 'image-group',
+                          id: currentImageGroup[0].id,
+                          senderId: currentImageGroup[0].senderId,
+                          timestamp: currentImageGroup[currentImageGroup.length - 1].timestamp,
+                          msgs: [...currentImageGroup]
+                      } as any);
+                  }
+                  currentImageGroup = [];
+              }
+              groups.push(msg);
+          }
+      }
+      return groups;
+  }, [messages]);
+
   const handleSendMessage = async (content: string, type: 'text' | 'sticker' | 'image' = 'text') => {
       if (!activeChatUser) return;
 
@@ -428,14 +505,19 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
           await executeSend(content, 'sticker');
       }
 
-      // 2. Send Pending Images
+      // 2. Send Pending Images with Batch Grouping
       if (pendingImages.length > 0) {
           // Filter successfully uploaded images
           const readyImages = pendingImages.filter(img => img.serverUrl && !img.uploading);
           
-          for (const img of readyImages) {
-              if (img.serverUrl) {
-                  await executeSend(img.serverUrl, 'image');
+          if (readyImages.length > 0) {
+              // Create a unique groupId for this batch
+              const batchGroupId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+              
+              for (const img of readyImages) {
+                  if (img.serverUrl) {
+                      await executeSend(img.serverUrl, 'image', undefined, batchGroupId);
+                  }
               }
           }
           // Clear all pending images after attempting to send
@@ -443,10 +525,10 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       }
   };
 
-  const executeSend = async (msgContent: string, msgType: 'text' | 'sticker' | 'image') => {
+  const executeSend = async (msgContent: string, msgType: 'text' | 'sticker' | 'image', replyId?: string, groupId?: string) => {
       if (!activeChatUser) return;
-      const tempId = Date.now().toString() + Math.random().toString(); // Ensure unique
-      const replyId = replyingTo ? replyingTo.id : undefined;
+      const tempId = Date.now().toString() + Math.random().toString(); 
+      const actualReplyId = replyId || (replyingTo ? replyingTo.id : undefined);
 
       const tempMsg: DirectMessage = {
           id: tempId,
@@ -456,9 +538,10 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
           timestamp: Date.now(),
           isRead: false,
           type: msgType,
-          replyToId: replyId,
+          replyToId: actualReplyId,
           replyToContent: replyingTo ? (replyingTo.type === 'sticker' ? '[Sticker]' : (replyingTo.type === 'image' ? '[Hình ảnh]' : replyingTo.content)) : undefined,
-          reactions: []
+          reactions: [],
+          groupId: groupId // Pass groupId to optimistic update
       };
       
       setMessages(prev => [...prev, tempMsg]);
@@ -468,7 +551,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       setShowEmojiPicker(false);
 
       try {
-          await apiService.sendDirectMessage(user.id, activeChatUser.id, msgContent, msgType, replyId);
+          await apiService.sendDirectMessage(user.id, activeChatUser.id, msgContent, msgType, actualReplyId, groupId);
           loadConversations(); 
       } catch (e) {
           console.error("Failed to send", e);
@@ -660,7 +743,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
        <div className={`w-full md:w-80 bg-white dark:bg-slate-800 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 shadow-xl overflow-hidden flex-col shrink-0 ${activeChatUser ? 'hidden md:flex' : 'flex'}`}>
            <div className="p-6 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
                <h3 className="font-black text-xl text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-                   <i className="fa-solid fa-comments text-indigo-500"></i> Trò chuyện
+                   <i className="fa-solid fa-comments text-indigo-500"></i> Chat hỗ trợ
                </h3>
                
                {/* Search User Input */}
@@ -772,8 +855,51 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
                    {/* Messages List */}
                    <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50 dark:bg-slate-900" ref={scrollRef}>
-                       {messages.map((msg) => {
+                       {groupedMessages.map((item) => {
+                           // Type Narrowing
+                           const isGroup = 'type' in item && item.type === 'image-group';
+                           const msg = isGroup ? (item as { msgs: DirectMessage[] }).msgs[0] : item as DirectMessage;
                            const isMe = msg.senderId === user.id;
+                           
+                           // Handle Render for Image Group Grid
+                           if (isGroup) {
+                               const group = item as { type: 'image-group'; id: string; senderId: string; timestamp: number; msgs: DirectMessage[] };
+                               const images = group.msgs;
+                               const count = images.length;
+                               
+                               return (
+                                   <div key={group.id} className={`flex w-full group ${isMe ? 'justify-end' : 'justify-start'} mb-1`}>
+                                       <div className={`relative max-w-[70%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                                           <div className={`grid gap-1 overflow-hidden rounded-2xl ${count === 1 ? 'grid-cols-1 w-64' : 'grid-cols-2 w-64'}`}>
+                                               {images.slice(0, 4).map((img, idx) => {
+                                                   const isOverlay = count > 4 && idx === 3;
+                                                   // Grid Span Logic
+                                                   let spanClass = '';
+                                                   if (count === 3 && idx === 0) spanClass = 'col-span-2 aspect-[2/1]';
+                                                   else spanClass = 'aspect-square';
+
+                                                   return (
+                                                       <div key={img.id} className={`relative cursor-pointer group/img ${spanClass}`} onClick={() => setExpandedImage(img.content)}>
+                                                           <img src={img.content} className="w-full h-full object-cover hover:opacity-90 transition-opacity" alt="img" />
+                                                           {isOverlay && (
+                                                               <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-bold text-xl backdrop-blur-[2px]">
+                                                                   +{count - 3}
+                                                               </div>
+                                                           )}
+                                                       </div>
+                                                   );
+                                               })}
+                                           </div>
+                                           {/* Timestamp for Group */}
+                                           <div className={`text-[9px] font-bold mt-1 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity`}>
+                                                {new Date(msg.timestamp).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}
+                                           </div>
+                                       </div>
+                                   </div>
+                               );
+                           }
+
+                           // Standard Message Handling
                            const hasReactions = msg.reactions && msg.reactions.length > 0;
                            const isEmoji = msg.type === 'text' && isEmojiOnly(msg.content);
                            const emojiSizeClass = isEmoji ? getEmojiSizeClass(msg.content) : '';
@@ -1038,7 +1164,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                       type="text" 
                                       value={newMessage}
                                       onChange={(e) => setNewMessage(e.target.value)}
-                                      onKeyDown={(e) => e.key === 'Enter' && handleSendMessage(newMessage, 'text')}
+                                      onKeyDown={(e) => { if (e.key === 'Enter') handleSendMessage(newMessage, 'text'); }}
                                       onPaste={handlePaste}
                                       placeholder="Nhập tin nhắn..." 
                                       className="flex-1 px-3 py-3 md:px-4 md:py-3 bg-transparent outline-none text-sm font-medium text-slate-800 dark:text-white min-w-0"
