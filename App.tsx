@@ -85,7 +85,7 @@ const App: React.FC = () => {
     [View.CHAT_HISTORY]: 'Lịch sử chat',
     [View.NOTIFICATION_MANAGER]: 'Quản lý thông báo',
     [View.LEADS]: 'Khách hàng tiềm năng',
-    [View.DIRECT_MESSAGES]: 'Chat hỗ trợ'
+    [View.DIRECT_MESSAGES]: 'Trò chuyện cộng đồng'
   };
 
   useEffect(() => {

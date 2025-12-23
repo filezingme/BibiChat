@@ -113,12 +113,12 @@ export const apiService = {
       }
   },
 
-  sendDirectMessage: async (senderId: string, receiverId: string, content: string, type: 'text' | 'sticker' | 'image' = 'text', replyToId?: string, groupId?: string): Promise<DirectMessage> => {
+  sendDirectMessage: async (senderId: string, receiverId: string, content: string, type: 'text' | 'sticker' | 'image' = 'text', replyToId?: string): Promise<DirectMessage> => {
       try {
           const res = await fetch(`${API_URL}/api/dm/send`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ senderId, receiverId, content, type, replyToId, groupId })
+              body: JSON.stringify({ senderId, receiverId, content, type, replyToId })
           });
           return await res.json();
       } catch (e) {

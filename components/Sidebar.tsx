@@ -17,7 +17,7 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange, isOpen, onClose, 
 
   const menuItems = [
     { id: View.DASHBOARD, label: 'Tổng quan', icon: 'fa-solid fa-chart-pie' },
-    { id: View.DIRECT_MESSAGES, label: 'Chat hỗ trợ', icon: 'fa-solid fa-comments' }, // Renamed
+    { id: View.DIRECT_MESSAGES, label: 'Trò chuyện', icon: 'fa-solid fa-comments' }, // Renamed for brevity
     ...(isMaster ? [
       { id: View.CUSTOMER_MANAGEMENT, label: 'Quản lý Khách hàng', icon: 'fa-solid fa-users-gear' },
       { id: View.NOTIFICATION_MANAGER, label: 'Quản lý Thông báo', icon: 'fa-solid fa-bell' },

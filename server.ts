@@ -29,8 +29,9 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }) as any);
 // --- MONGODB CONNECTION ---
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/bibichat_local";
 
-// Set strictQuery to false to handle Mongoose v7+ behavior changes gracefully
-mongoose.set('strictQuery', false);
+mongoose.connect(MONGODB_URI)
+  .then(() => console.log('✅ Đã kết nối cơ sở dữ liệu thành công!'))
+  .catch(err => console.error('❌ Lỗi kết nối MongoDB:', err));
 
 // --- SCHEMAS & MODELS ---
 const userSchema = new mongoose.Schema({
@@ -108,8 +109,7 @@ const directMessageSchema = new mongoose.Schema({
   isRead: { type: Boolean, default: false },
   type: { type: String, default: 'text' }, // text, sticker, image
   replyToId: String,
-  reactions: [{ userId: String, emoji: String }],
-  groupId: String // New field for batch grouping
+  reactions: [{ userId: String, emoji: String }]
 });
 
 // Models
@@ -120,46 +120,33 @@ const Lead = mongoose.model('Lead', leadSchema);
 const Notification = mongoose.model('Notification', notificationSchema);
 const DirectMessage = mongoose.model('DirectMessage', directMessageSchema);
 
-// --- INIT DB LOGIC ---
+// --- INIT ADMIN USER ---
 const initDB = async () => {
-  try {
-    const count = await User.countDocuments();
-    if (count === 0) {
-      console.log("Initializing Admin User...");
-      // Fix: Cast object to any to avoid strict Mongoose type checking errors
-      await User.create({
-        id: 'admin',
-        email: 'admin@bibichat.io',
-        password: '123456',
-        role: 'master',
-        botSettings: { botName: 'BibiBot', primaryColor: '#ec4899', welcomeMessage: 'Xin chào Admin!' },
-        plugins: {
-           autoOpen: { enabled: false, delay: 5 },
-           social: { enabled: true, zalo: '0979116118', phone: '0979116118' },
-           leadForm: { enabled: true, title: 'Để lại thông tin nhé!', trigger: 'manual' }
-        }
-      } as any);
-      
-      await Notification.create({
-        id: '1', userId: 'all', title: 'Hệ thống sẵn sàng', desc: 'BibiChat đã kết nối cơ sở dữ liệu thành công!', 
-        time: Date.now(), scheduledAt: Date.now(), readBy: [], icon: 'fa-rocket', color: 'text-emerald-500', bg: 'bg-emerald-100'
-      } as any);
-    }
-  } catch (e) {
-    console.error("❌ Init DB failed:", e);
+  const count = await User.countDocuments();
+  if (count === 0) {
+    console.log("Initializing Admin User...");
+    // Fix: Cast object to any to avoid strict Mongoose type checking errors
+    await User.create({
+      id: 'admin',
+      email: 'admin@bibichat.io',
+      password: '123456',
+      role: 'master',
+      botSettings: { botName: 'BibiBot', primaryColor: '#ec4899', welcomeMessage: 'Xin chào Admin!' },
+      plugins: {
+         autoOpen: { enabled: false, delay: 5 },
+         social: { enabled: true, zalo: '0979116118', phone: '0979116118' },
+         leadForm: { enabled: true, title: 'Để lại thông tin nhé!', trigger: 'manual' }
+      }
+    } as any);
+    // Sample Notification - UPDATED TEXT
+    // Fix: Cast object to any to avoid strict Mongoose type checking errors
+    await Notification.create({
+      id: '1', userId: 'all', title: 'Hệ thống sẵn sàng', desc: 'BibiChat đã kết nối cơ sở dữ liệu thành công!', 
+      time: Date.now(), scheduledAt: Date.now(), readBy: [], icon: 'fa-rocket', color: 'text-emerald-500', bg: 'bg-emerald-100'
+    } as any);
   }
 };
-
-// --- CONNECT AND START ---
-mongoose.connect(MONGODB_URI)
-  .then(async () => {
-    console.log('✅ Đã kết nối cơ sở dữ liệu thành công!');
-    await initDB();
-  })
-  .catch(err => {
-    console.error('❌ Lỗi kết nối MongoDB:', err);
-    console.log('⚠️ Server sẽ tiếp tục chạy nhưng các tính năng DB sẽ không hoạt động.');
-  });
+initDB();
 
 // Multer for memory storage
 const upload = multer({ storage: multer.memoryStorage() });
@@ -548,7 +535,7 @@ app.get('/api/dm/history/:userId/:otherUserId', async (req, res) => {
 
 // Send Message
 app.post('/api/dm/send', async (req, res) => {
-    const { senderId, receiverId, content, type, replyToId, groupId } = req.body;
+    const { senderId, receiverId, content, type, replyToId } = req.body;
     // Fix: Cast object to any to avoid strict Mongoose type checking errors
     const newMessage = await DirectMessage.create({
         id: Math.random().toString(36).substr(2, 9),
@@ -559,8 +546,7 @@ app.post('/api/dm/send', async (req, res) => {
         isRead: false,
         type: type || 'text',
         replyToId: replyToId || null,
-        reactions: [],
-        groupId: groupId || null
+        reactions: []
     } as any);
     res.json(newMessage);
 });

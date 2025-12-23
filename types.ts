@@ -115,7 +115,6 @@ export interface DirectMessage {
   replyToId?: string; // New field
   replyToContent?: string; // Optional: populated on frontend for display
   reactions?: Reaction[]; // New field
-  groupId?: string; // New field for batch grouping
 }
 
 export interface ConversationUser {
