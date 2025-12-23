@@ -199,9 +199,9 @@ app.get('/widget.js', (req, res) => {
   // Default to Right initially, will update via message
   container.style.right = '20px'; 
   container.style.left = 'auto';
-  // Increased width/height to 90px to accommodate shadow without clipping
-  container.style.width = '90px';
-  container.style.height = '90px';
+  // Increased width/height to 100px to accommodate shadow/hover without overflow
+  container.style.width = '100px';
+  container.style.height = '100px';
   container.style.border = 'none';
   container.style.transition = 'all 0.3s ease';
   container.style.background = 'transparent'; // Ensure container is transparent
@@ -213,11 +213,13 @@ app.get('/widget.js', (req, res) => {
   iframe.style.width = '100%';
   iframe.style.height = '100%';
   iframe.style.border = 'none';
-  iframe.style.borderRadius = '20px';
+  iframe.style.borderRadius = '0';
   iframe.style.background = 'transparent'; // Ensure iframe background is transparent
   iframe.allow = "microphone";
   iframe.setAttribute('allowTransparency', 'true'); // For older browsers
+  iframe.setAttribute('scrolling', 'no'); // CRITICAL: Stop scrollbars
   iframe.style.pointerEvents = 'auto'; // Re-enable pointer events for the iframe itself
+  iframe.style.overflow = 'hidden'; // Ensure no scrollbars
   
   container.appendChild(iframe);
   document.body.appendChild(container);
@@ -253,9 +255,9 @@ app.get('/widget.js', (req, res) => {
          // Check explicit position message for left/right
        }
     } else if (event.data === 'bibichat-close') {
-       // Reset to button size
-       container.style.width = '90px';
-       container.style.height = '90px';
+       // Reset to button size (100px for safety against shadow clipping)
+       container.style.width = '100px';
+       container.style.height = '100px';
        container.style.borderRadius = '0';
        container.style.boxShadow = 'none';
        container.style.bottom = '20px';
