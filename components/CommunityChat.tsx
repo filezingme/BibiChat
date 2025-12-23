@@ -37,54 +37,38 @@ const REACTIONS = ['❤️', '😆', '😮', '😢', '😡', '👍'];
 // Thời gian tối đa để coi là "Online" (5 phút)
 const ONLINE_THRESHOLD = 5 * 60 * 1000;
 
-// Component hiển thị ảnh an toàn (Optimized Loading State)
+// Component hiển thị ảnh an toàn (fallback khi ảnh chết/hết hạn)
 const SafeImage: React.FC<{ 
     src: string; 
     alt: string; 
     className?: string; 
     onClick?: () => void;
 }> = ({ src, alt, className, onClick }) => {
-    // status: 'loading' | 'loaded' | 'error'
-    const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
+    const [hasError, setHasError] = useState(false);
 
-    // Reset status if src changes (e.g. reused component)
-    useEffect(() => {
-        setStatus('loading');
-    }, [src]);
+    if (hasError) {
+        return (
+            <div 
+                className={`${className} bg-slate-100 dark:bg-slate-800 flex flex-col items-center justify-center text-slate-400 dark:text-slate-600 border-2 border-dashed border-slate-200 dark:border-slate-700 p-2 select-none overflow-hidden`}
+                onClick={onClick}
+                title="Ảnh gốc đã hết hạn hoặc bị xóa"
+            >
+                <div className="w-8 h-8 mb-1 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
+                    <i className="fa-solid fa-ghost animate-pulse"></i>
+                </div>
+                <span className="text-[9px] font-bold text-center leading-tight opacity-70 uppercase tracking-wide">Đã bay màu</span>
+            </div>
+        );
+    }
 
     return (
-        <div className={`relative overflow-hidden ${className}`} onClick={onClick}>
-            
-            {/* 1. Loading Skeleton - Hiện ngay lập tức */}
-            {status === 'loading' && (
-                <div className="absolute inset-0 bg-slate-200 dark:bg-slate-700 animate-pulse flex items-center justify-center z-10">
-                    <i className="fa-solid fa-image text-slate-400 text-2xl animate-bounce"></i>
-                </div>
-            )}
-
-            {/* 2. Error State (Ghost) - Chỉ hiện khi thực sự lỗi */}
-            {status === 'error' && (
-                <div 
-                    className="absolute inset-0 bg-slate-100 dark:bg-slate-800 flex flex-col items-center justify-center text-slate-400 dark:text-slate-600 border-2 border-dashed border-slate-200 dark:border-slate-700 p-2 select-none z-20"
-                    title="Ảnh gốc đã hết hạn hoặc bị xóa"
-                >
-                    <div className="w-8 h-8 mb-1 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
-                        <i className="fa-solid fa-ghost"></i>
-                    </div>
-                    <span className="text-[9px] font-bold text-center leading-tight opacity-70 uppercase tracking-wide">Đã bay màu</span>
-                </div>
-            )}
-
-            {/* 3. The Image - Ẩn đi cho đến khi load xong để tránh xấu */}
-            <img 
-                src={src} 
-                alt={alt} 
-                className={`w-full h-full object-cover transition-opacity duration-500 ease-in-out ${status === 'loaded' ? 'opacity-100' : 'opacity-0'}`} 
-                onLoad={() => setStatus('loaded')}
-                onError={() => setStatus('error')}
-                draggable={false}
-            />
-        </div>
+        <img 
+            src={src} 
+            alt={alt} 
+            className={className} 
+            onClick={onClick} 
+            onError={() => setHasError(true)} 
+        />
     );
 };
 
@@ -607,7 +591,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       // 2. Send Pending Images with Batch Grouping
       if (pendingImages.length > 0) {
           // Filter successfully uploaded images
-          const readyImages = pendingImages.filter(img => !img.uploading); 
+          const readyImages = pendingImages.filter(img => !img.uploading); // Check for already uploaded local state might not be enough, see below
           
           if (readyImages.length > 0) {
               // Create a unique groupId for this batch
@@ -617,6 +601,9 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
               // This prevents flooding the server/proxy with concurrent requests which causes 429/Connection errors
               for (const img of readyImages) {
                   // Ensure upload is finished or retry if needed. 
+                  // But wait! processFiles already started uploads. 
+                  // If they failed, serverUrl is undefined.
+                  
                   if (img.serverUrl) {
                       await executeSend(img.serverUrl, 'image', undefined, batchGroupId);
                   }
@@ -778,9 +765,9 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
       setPendingImages(prev => [...prev, ...newImages]);
 
-      // OPTIMIZATION: Use Promise.all to upload in parallel instead of sequential loop
-      // This speeds up the "Ready to Send" state significantly for multiple images
-      await Promise.all(newImages.map(async (img) => {
+      // Trigger upload for each new image SEQUENTIALLY to avoid overloading the proxy/server
+      // Using loop with await inside ensures strict ordering and flow control
+      for (const img of newImages) {
           try {
               const result = await apiService.uploadFile(img.file);
               setPendingImages(prev => prev.map(p => 
@@ -788,11 +775,10 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
               ));
           } catch (e) {
               console.error("Upload failed", e);
-              // Remove failed images from list or mark error
               setPendingImages(prev => prev.filter(p => p.id !== img.id));
-              // Optional: Show toast error here
+              alert(`Không thể tải ảnh ${img.file.name}. Vui lòng thử lại.`);
           }
-      }));
+      }
   };
 
   const removePendingImage = (id: string) => {
