@@ -470,9 +470,9 @@ const App: React.FC = () => {
                {/* Notification Dropdown via Portal - Fix for z-index issues on mobile */}
                {showNotifications && createPortal(
                  <>
-                 <div className="fixed inset-0 z-[9999] bg-transparent" onClick={() => setShowNotifications(false)}></div>
+                 <div className="fixed inset-0 z-[99999] bg-transparent" onClick={() => setShowNotifications(false)}></div>
                  <div 
-                    className="fixed w-[280px] sm:w-[320px] bg-white/90 dark:bg-slate-900/95 backdrop-blur-2xl rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border-[3px] border-white/60 dark:border-slate-700 overflow-hidden animate-in fade-in zoom-in-95 duration-200 z-[10000] ring-4 ring-pink-100/50 dark:ring-pink-900/20 origin-top-right"
+                    className="fixed w-[280px] sm:w-[320px] bg-white/90 dark:bg-slate-900/95 backdrop-blur-2xl rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border-[3px] border-white/60 dark:border-slate-700 overflow-hidden animate-in fade-in zoom-in-95 duration-200 z-[100000] ring-4 ring-pink-100/50 dark:ring-pink-900/20 origin-top-right"
                     style={getNotifDropdownStyle()}
                     ref={notifRef}
                  >
@@ -574,9 +574,9 @@ const App: React.FC = () => {
                 {/* Portal Profile Dropdown to Body to avoid Z-Index Issues */}
                 {isProfileOpen && createPortal(
                   <>
-                    <div className="fixed inset-0 z-[90] bg-transparent" onClick={() => setIsProfileOpen(false)}></div>
+                    <div className="fixed inset-0 z-[99999] bg-transparent" onClick={() => setIsProfileOpen(false)}></div>
                     <div 
-                        className="fixed w-64 bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden animate-in fade-in zoom-in duration-200 z-[100]"
+                        className="fixed w-64 bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden animate-in fade-in zoom-in duration-200 z-[100000]"
                         style={getDropdownStyle()}
                         ref={profileRef}
                     >
