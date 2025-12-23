@@ -109,9 +109,9 @@ const SafeImage: React.FC<{ src: string; alt: string; className?: string; onClic
     const displaySrc = retryCount > 0 ? `${src}?retry=${retryCount}` : src;
 
     return (
-        <div className={`relative overflow-hidden ${className}`} onClick={onClick}>
-            {/* Loading Placeholder - Luôn hiển thị khi đang load */}
-            <div className={`absolute inset-0 bg-slate-200 dark:bg-slate-700 flex items-center justify-center z-10 w-full h-full transition-opacity duration-500 ${status === 'loaded' ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        <div className={`relative overflow-hidden bg-slate-200 dark:bg-slate-700 ${className}`} onClick={onClick}>
+            {/* Loading Placeholder - Luôn hiển thị layer dưới cùng */}
+            <div className={`absolute inset-0 flex items-center justify-center z-0`}>
                 <i className="fa-solid fa-image text-slate-300 dark:text-slate-600 text-3xl animate-pulse"></i>
             </div>
             
@@ -121,12 +121,13 @@ const SafeImage: React.FC<{ src: string; alt: string; className?: string; onClic
                     <span className="text-[9px] font-bold uppercase">Lỗi ảnh</span>
                 </div>
             )}
+            
             <img 
                 src={displaySrc} 
                 alt={alt} 
                 loading="lazy"
                 decoding="async"
-                className={`w-full h-full object-cover transition-opacity duration-300 ${status === 'loaded' ? 'opacity-100' : 'opacity-0'}`} 
+                className={`w-full h-full object-cover relative z-10 transition-opacity duration-300 ${status === 'loaded' ? 'opacity-100' : 'opacity-0'}`} 
                 onLoad={handleLoad} 
                 onError={handleError} 
                 draggable={false}
@@ -745,7 +746,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                                    else spanClass = 'aspect-square';
 
                                                    return (
-                                                       <div key={img.id} className={`relative cursor-pointer group/img overflow-hidden ${spanClass}`} onClick={() => openLightbox(groupImageUrls, idx)}>
+                                                       <div key={img.id} className={`relative cursor-pointer group/img overflow-hidden ${spanClass} bg-slate-200 dark:bg-slate-700`} onClick={() => openLightbox(groupImageUrls, idx)}>
                                                            <SafeImage onImageLoaded={handleImageLoad} src={img.content} alt="img" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
                                                            {isOverlay && (
                                                                <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-xl backdrop-blur-[2px] pointer-events-none">
