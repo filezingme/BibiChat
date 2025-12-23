@@ -776,8 +776,10 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                        {msg.type === 'sticker' ? (
                                            <div className="relative inline-block group hover:scale-105 transition-transform"><img src={msg.content} alt="Sticker" className="w-32 h-32 object-contain" /></div>
                                        ) : msg.type === 'image' ? (
-                                            <div className="relative inline-block group cursor-pointer" onClick={() => openLightbox([msg.content], 0)}>
-                                                <SafeImage onImageLoaded={handleImageLoad} src={msg.content} alt="Image" className="w-64 h-auto rounded-2xl border-2 border-slate-200 dark:border-slate-700 hover:opacity-90 transition-opacity" />
+                                            <div className="relative w-full max-w-[16rem] cursor-pointer group" onClick={() => openLightbox([msg.content], 0)}>
+                                                <div className="aspect-square rounded-2xl overflow-hidden border-2 border-slate-200 dark:border-slate-700 relative">
+                                                     <SafeImage onImageLoaded={handleImageLoad} src={msg.content} alt="Image" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                                                </div>
                                             </div>
                                        ) : isEmojiOnly(msg.content) ? (
                                            <div className={`px-2 ${isMe ? 'text-right' : 'text-left'} text-5xl`}>{msg.content}</div>
