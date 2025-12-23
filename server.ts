@@ -75,7 +75,7 @@ const userSchema = new mongoose.Schema({
     botName: { type: String, default: 'Trợ lý AI' },
     primaryColor: { type: String, default: '#8b5cf6' },
     welcomeMessage: { type: String, default: 'Xin chào! Tôi có thể giúp gì cho bạn?' },
-    position: { type: String, default: 'right' },
+    position: { type: String, default: 'bottom-right' },
     avatarUrl: { type: String, default: '' }
   },
   plugins: {
@@ -195,10 +195,13 @@ app.get('/widget.js', (req, res) => {
   container.id = 'bibichat-widget-container';
   container.style.position = 'fixed';
   container.style.zIndex = '2147483647';
+  
+  // INITIAL POSITION - Default to Bottom Right to avoid jump
   container.style.bottom = '20px';
-  // Default to Right initially, will update via message
   container.style.right = '20px'; 
   container.style.left = 'auto';
+  container.style.top = 'auto';
+
   // Increased width/height to 100px to accommodate shadow/hover without overflow
   container.style.width = '100px';
   container.style.height = '100px';
@@ -224,54 +227,86 @@ app.get('/widget.js', (req, res) => {
   container.appendChild(iframe);
   document.body.appendChild(container);
 
+  var currentPos = 'bottom-right';
+
+  function applyPosition(pos) {
+      currentPos = pos;
+      // Reset all
+      container.style.top = 'auto';
+      container.style.bottom = 'auto';
+      container.style.left = 'auto';
+      container.style.right = 'auto';
+
+      if (pos === 'top-left') {
+          container.style.top = '20px';
+          container.style.left = '20px';
+      } else if (pos === 'top-right') {
+          container.style.top = '20px';
+          container.style.right = '20px';
+      } else if (pos === 'bottom-left') {
+          container.style.bottom = '20px';
+          container.style.left = '20px';
+      } else {
+          // Default bottom-right
+          container.style.bottom = '20px';
+          container.style.right = '20px';
+      }
+  }
+
   window.addEventListener('message', function(event) {
     if (event.data === 'bibichat-open') {
        container.style.pointerEvents = 'auto';
        
        if(window.innerWidth < 480) {
          // Mobile Logic: Float with margins instead of full screen
-         container.style.width = 'calc(100vw - 32px)'; // 16px margin each side
-         // Use dynamic viewport height minus margin
+         container.style.width = 'calc(100vw - 32px)'; 
          container.style.height = 'calc(100dvh - 32px)'; 
          if (!CSS.supports('height: 100dvh')) container.style.height = 'calc(100vh - 32px)';
          
-         container.style.bottom = '16px';
-         container.style.right = '16px';
-         container.style.left = 'auto'; // Let width + right handle positioning, or use left: 16px
-         container.style.top = 'auto';
-         container.style.borderRadius = '24px'; // Rounded corners on mobile
+         // On Mobile Open, force centering/margin logic regardless of corner
+         // Actually, let's stick to the corner but expand
+         if (currentPos.includes('bottom')) {
+             container.style.bottom = '16px';
+             container.style.top = 'auto';
+         } else {
+             container.style.top = '16px';
+             container.style.bottom = 'auto';
+         }
+         
+         if (currentPos.includes('right')) {
+             container.style.right = '16px';
+             container.style.left = 'auto';
+         } else {
+             container.style.left = '16px';
+             container.style.right = 'auto';
+         }
+
+         container.style.borderRadius = '24px'; 
          container.style.margin = '0';
-         container.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.35)'; // Stronger shadow for floating effect
+         container.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.35)'; 
        } else {
          // Desktop/Tablet Popover Logic
          container.style.width = '380px';
          container.style.height = '600px';
          container.style.borderRadius = '24px';
          container.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.25)';
-         container.style.top = 'auto';
-         container.style.bottom = '20px';
+         // Position is already handled by applyPosition, width/height expands from that anchor
        }
     } else if (event.data === 'bibichat-close') {
-       // Reset to button size (100px for safety against shadow clipping)
+       // Reset to button size
        container.style.width = '100px';
        container.style.height = '100px';
        container.style.borderRadius = '0';
        container.style.boxShadow = 'none';
-       container.style.bottom = '20px';
-       container.style.top = 'auto';
-       // Position handled by next message or maintained
+       
+       // Re-apply position to ensure it snaps back correctly if mobile messed it up
+       applyPosition(currentPos);
+       
        container.style.pointerEvents = 'none'; 
     } else if (event.data && event.data.type === 'bibichat-position') {
-       // Only apply left/right positioning when closed or desktop open
-       // On mobile open, we generally force right-aligned/centered logic via margins
-       if (window.innerWidth >= 480 || container.style.height === '100px') {
-           if (event.data.position === 'left') {
-              container.style.left = '20px';
-              container.style.right = 'auto'; 
-           } else {
-              container.style.right = '20px';
-              container.style.left = 'auto'; 
-           }
+       // Handle 4 positions
+       if (container.style.width !== '100vw' && container.style.width !== 'calc(100vw - 32px)') {
+           applyPosition(event.data.position);
        }
     }
   });

@@ -79,7 +79,7 @@ const App: React.FC = () => {
     primaryColor: '#8b5cf6', 
     botName: 'Trợ lý AI',
     welcomeMessage: 'Xin chào! Tôi có thể giúp gì cho bạn?',
-    position: 'right', // Mặc định
+    position: 'bottom-right', // Mặc định
     avatarUrl: 'https://picsum.photos/100/100'
   });
   
@@ -652,12 +652,17 @@ const StandaloneChatWidget: React.FC<{ settings: WidgetSettings, userId: string 
         
     }, [isOpen, settings.position]);
 
-    const alignClass = settings.position === 'left' ? 'items-start' : 'items-end';
+    // Update Flex Layout based on 4 corners
+    const isTop = settings.position.includes('top');
+    const isLeft = settings.position.includes('left');
+    
+    const flexColClass = isTop ? 'justify-start' : 'justify-end';
+    const alignClass = isLeft ? 'items-start' : 'items-end';
 
     return (
-        <div className={`h-full w-full flex flex-col justify-end ${alignClass} p-0 sm:p-4 bg-transparent pointer-events-auto`}>
+        <div className={`h-full w-full flex flex-col ${flexColClass} ${alignClass} p-0 sm:p-4 bg-transparent pointer-events-auto`}>
             {isOpen && (
-                <div className="w-full h-full flex flex-col relative z-20 animate-in slide-in-from-bottom-5 fade-in duration-300">
+                <div className={`w-full h-full flex flex-col relative z-20 animate-in fade-in duration-300 ${isTop ? 'slide-in-from-top-5' : 'slide-in-from-bottom-5'}`}>
                     <ChatWidget 
                         settings={settings} 
                         userId={userId} 

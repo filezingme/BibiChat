@@ -113,6 +113,7 @@ const ChatWidget: React.FC<Props> = ({ settings, userId, forceOpen, onClose, isE
       }
   };
 
+  // --- EMBEDDED MODE RENDER ---
   if (isEmbed) {
       // Specialized Render for Embed Iframe (Full Height/Width of container)
       return (
@@ -211,9 +212,40 @@ const ChatWidget: React.FC<Props> = ({ settings, userId, forceOpen, onClose, isE
       );
   }
 
-  // Normal Render
+  // --- STANDARD PREVIEW/DEMO RENDER (NOT EMBED) ---
+  
+  // Calculate positioning classes based on 4 corners
+  let buttonPositionClass = '';
+  let windowPositionClass = '';
+  let animateClass = '';
+
+  const pos = settings.position || 'bottom-right';
+
+  // Determine button fixed position
+  if (pos === 'bottom-right' || pos === 'right' as any) buttonPositionClass = 'bottom-6 right-6';
+  else if (pos === 'bottom-left' || pos === 'left' as any) buttonPositionClass = 'bottom-6 left-6';
+  else if (pos === 'top-right') buttonPositionClass = 'top-6 right-6';
+  else if (pos === 'top-left') buttonPositionClass = 'top-6 left-6';
+
+  // Determine window absolute position relative to button anchor area
+  // Note: For simplicity in preview mode, we might need absolute positioning relative to a parent or fixed relative to screen.
+  // Using fixed to match button logic for demo.
+  if (pos === 'bottom-right' || pos === 'right' as any) {
+      windowPositionClass = 'bottom-24 right-6';
+      animateClass = 'slide-in-from-bottom-10';
+  } else if (pos === 'bottom-left' || pos === 'left' as any) {
+      windowPositionClass = 'bottom-24 left-6';
+      animateClass = 'slide-in-from-bottom-10';
+  } else if (pos === 'top-right') {
+      windowPositionClass = 'top-24 right-6';
+      animateClass = 'slide-in-from-top-10';
+  } else if (pos === 'top-left') {
+      windowPositionClass = 'top-24 left-6';
+      animateClass = 'slide-in-from-top-10';
+  }
+
   return (
-    <div className={`fixed bottom-6 ${settings.position === 'right' ? 'right-6' : 'left-6'} z-[9999] font-sans`}>
+    <div className={`fixed ${buttonPositionClass} z-[9999] font-sans`}>
       <button 
         onClick={() => setIsOpen(!isOpen)} 
         className="w-16 h-16 rounded-full shadow-2xl flex items-center justify-center text-white text-2xl transition-all hover:scale-110 active:scale-95 duration-300 relative group" 
@@ -224,7 +256,8 @@ const ChatWidget: React.FC<Props> = ({ settings, userId, forceOpen, onClose, isE
       </button>
 
       {isOpen && (
-        <div className={`absolute bottom-24 ${settings.position === 'right' ? 'right-0' : 'left-0'} w-[calc(100vw-3rem)] sm:w-[380px] h-[550px] bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-10 duration-300 border border-slate-100/50`}>
+        // Render window fixed relative to viewport for demo/standard usage to ensure it overlays content
+        <div className={`fixed ${windowPositionClass} w-[calc(100vw-3rem)] sm:w-[380px] h-[550px] bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in ${animateClass} duration-300 border border-slate-100/50`}>
           {/* Header */}
           <div className="p-4 text-white relative overflow-hidden shrink-0" style={{ backgroundColor: settings.primaryColor }}>
             <div className="absolute top-0 right-0 p-4 opacity-10">

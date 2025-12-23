@@ -1,4 +1,3 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { User, Document, WidgetSettings, ChatLog, UserRole, Notification, Lead, PluginConfig, DirectMessage, ConversationUser, Reaction } from "../types";
 
@@ -16,7 +15,7 @@ const MASTER_USER: User = {
     botName: 'BibiBot', 
     primaryColor: '#ec4899', 
     welcomeMessage: 'Xin chào! Hệ thống quản trị Master (Chế độ Offline).', 
-    position: 'right', 
+    position: 'bottom-right', 
     avatarUrl: '' 
   }
 };
@@ -170,7 +169,7 @@ export const apiService = {
         password,
         role: 'user',
         createdAt: Date.now(),
-        botSettings: { botName: 'Trợ lý AI', primaryColor: '#8b5cf6', welcomeMessage: 'Xin chào!', position: 'right', avatarUrl: '' }
+        botSettings: { botName: 'Trợ lý AI', primaryColor: '#8b5cf6', welcomeMessage: 'Xin chào!', position: 'bottom-right', avatarUrl: '' }
       };
       db.users.push(newUser);
       saveLocalDB(db);

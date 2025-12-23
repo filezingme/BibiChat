@@ -99,7 +99,7 @@ const WidgetConfig: React.FC<Props> = ({ settings, setSettings, user, onConfigSa
           <div className="absolute top-6 right-6 z-10 hidden lg:block animate-bounce-slow">
               <div className="bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2 opacity-80">
                   Nhìn xuống dưới kia kìa 
-                  <i className={`fa-solid fa-arrow-right-long transform ${settings.position === 'right' ? 'rotate-45' : 'rotate-[135deg]'}`}></i>
+                  <i className={`fa-solid fa-arrow-right-long transform ${settings.position.includes('right') ? 'rotate-45' : 'rotate-[135deg]'}`}></i>
               </div>
           </div>
 
@@ -151,21 +151,33 @@ const WidgetConfig: React.FC<Props> = ({ settings, setSettings, user, onConfigSa
                         </div>
                     </div>
 
-                    {/* Position */}
+                    {/* Position - Updated to 4 Corners */}
                     <div className="space-y-4">
                         <label className="block text-sm font-extrabold text-slate-500 dark:text-slate-400 uppercase ml-1">Vị trí xuất hiện</label>
                         <div className="grid grid-cols-2 gap-4">
                             <button 
-                            onClick={() => setSettings({ ...settings, position: 'left' })}
-                            className={`py-5 rounded-2xl text-sm font-bold transition-all border-2 flex items-center justify-center gap-3 ${settings.position === 'left' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
+                                onClick={() => setSettings({ ...settings, position: 'top-left' })}
+                                className={`py-5 rounded-2xl text-sm font-bold transition-all border-2 flex flex-col items-center justify-center gap-2 ${settings.position === 'top-left' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
                             >
-                            <i className="fa-solid fa-arrow-left text-lg"></i> Góc Trái
+                                <i className="fa-solid fa-arrow-up-long -rotate-45 text-lg"></i> Trên Trái
                             </button>
                             <button 
-                            onClick={() => setSettings({ ...settings, position: 'right' })}
-                            className={`py-5 rounded-2xl text-sm font-bold transition-all border-2 flex items-center justify-center gap-3 ${settings.position === 'right' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
+                                onClick={() => setSettings({ ...settings, position: 'top-right' })}
+                                className={`py-5 rounded-2xl text-sm font-bold transition-all border-2 flex flex-col items-center justify-center gap-2 ${settings.position === 'top-right' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
                             >
-                            Góc Phải <i className="fa-solid fa-arrow-right text-lg"></i>
+                                <i className="fa-solid fa-arrow-up-long rotate-45 text-lg"></i> Trên Phải
+                            </button>
+                            <button 
+                                onClick={() => setSettings({ ...settings, position: 'bottom-left' })}
+                                className={`py-5 rounded-2xl text-sm font-bold transition-all border-2 flex flex-col items-center justify-center gap-2 ${settings.position === 'bottom-left' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
+                            >
+                                <i className="fa-solid fa-arrow-down-long rotate-45 text-lg"></i> Dưới Trái
+                            </button>
+                            <button 
+                                onClick={() => setSettings({ ...settings, position: 'bottom-right' })}
+                                className={`py-5 rounded-2xl text-sm font-bold transition-all border-2 flex flex-col items-center justify-center gap-2 ${settings.position === 'bottom-right' || settings.position === 'right' as any ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
+                            >
+                                <i className="fa-solid fa-arrow-down-long -rotate-45 text-lg"></i> Dưới Phải
                             </button>
                         </div>
                     </div>
