@@ -1070,7 +1070,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                        Xóa tất cả
                                    </button>
                                </div>
-                               <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar-hover">
+                               <div className="flex gap-3 overflow-x-auto pb-2 pt-2 custom-scrollbar-hover pl-1">
                                    {pendingImages.map((img) => (
                                        <div key={img.id} className="relative group shrink-0 w-16 h-16">
                                            <img src={img.localUrl} alt="Preview" className="w-full h-full object-cover rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm" />
@@ -1082,10 +1082,10 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                               </div>
                                            )}
 
-                                           {/* Remove Button */}
+                                           {/* Remove Button - Fixed Clipping & Mobile Hover Issue */}
                                            <button 
                                                onClick={() => removePendingImage(img.id)} 
-                                               className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity scale-90 hover:scale-110"
+                                               className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-sm hover:scale-110 transition-transform z-10"
                                                disabled={img.uploading}
                                            >
                                                <i className="fa-solid fa-xmark text-[10px]"></i>
