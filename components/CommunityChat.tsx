@@ -656,22 +656,21 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       if (pendingImages.length > 0) {
           // Filter successfully uploaded images
           const readyImages = pendingImages.filter(img => !img.uploading && img.serverUrl); 
-          const failedImages = pendingImages.filter(img => !img.uploading && !img.serverUrl);
           
           if (readyImages.length > 0) {
               // Create a unique groupId for this batch
               const batchGroupId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+              const sentIds = new Set(readyImages.map(img => img.id));
               
-              // CRITICAL FIX: Iterate sequentially instead of Promise.all or forEach
-              // This prevents flooding the server/proxy with concurrent requests which causes 429/Connection errors
+              // Use sequential sending for robustness
               for (const img of readyImages) {
-                  // Ensure upload is finished or retry if needed. 
                   if (img.serverUrl) {
                       await executeSend(img.serverUrl, 'image', undefined, batchGroupId);
                   }
               }
-              // Only remove successful images. Keep failed ones.
-              setPendingImages(failedImages);
+              
+              // Only remove images that were actually sent in this batch
+              setPendingImages(prev => prev.filter(img => !sentIds.has(img.id)));
           }
       }
   };
@@ -825,11 +824,13 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
           file: file
       }));
 
+      // Add to state first
       setPendingImages(prev => [...prev, ...newImages]);
 
-      // OPTIMIZATION: Use Promise.all to upload in parallel
-      // FIX: Do not automatically remove image on error, so user can see it failed
-      await Promise.all(newImages.map(async (img) => {
+      // FIX: Use sequential uploading instead of parallel Promise.all
+      // This prevents browser network congestion when uploading many files (e.g. 16 images)
+      // which causes false positive errors.
+      for (const img of newImages) {
           try {
               // OPTIMIZATION: Compress image before upload
               const compressedFile = await compressImage(img.file);
@@ -840,12 +841,12 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
               ));
           } catch (e) {
               console.error("Upload failed", e);
-              // Stop spinner but keep image in list
+              // Stop spinner but keep image in list so user can see/retry
               setPendingImages(prev => prev.map(p => 
                   p.id === img.id ? { ...p, uploading: false } : p
               ));
           }
-      }));
+      }
   };
 
   const removePendingImage = (id: string) => {
