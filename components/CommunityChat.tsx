@@ -110,11 +110,11 @@ const SafeImage: React.FC<{ src: string; alt: string; className?: string; onClic
 
     return (
         <div className={`relative overflow-hidden ${className}`} onClick={onClick}>
-            {status === 'loading' && (
-                <div className="absolute inset-0 bg-slate-200 dark:bg-slate-700 animate-pulse flex items-center justify-center z-10 w-full h-full">
-                    <i className="fa-solid fa-image text-slate-400 text-2xl animate-bounce"></i>
-                </div>
-            )}
+            {/* Loading Placeholder - Luôn hiển thị khi đang load */}
+            <div className={`absolute inset-0 bg-slate-200 dark:bg-slate-700 flex items-center justify-center z-10 w-full h-full transition-opacity duration-500 ${status === 'loaded' ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+                <i className="fa-solid fa-image text-slate-300 dark:text-slate-600 text-3xl animate-pulse"></i>
+            </div>
+            
             {status === 'error' && (
                 <div className="absolute inset-0 bg-slate-100 dark:bg-slate-800 flex flex-col items-center justify-center text-slate-400 dark:text-slate-600 border-2 border-dashed border-slate-200 dark:border-slate-700 p-2 z-20 w-full h-full">
                     <i className="fa-solid fa-ghost mb-1"></i>
@@ -150,6 +150,18 @@ const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose:
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    // Preload next/prev images to prevent white flashes
+    useEffect(() => {
+        const preload = (idx: number) => {
+            if (idx >= 0 && idx < images.length) {
+                const img = new Image();
+                img.src = images[idx];
+            }
+        };
+        preload(currentIndex + 1);
+        preload(currentIndex - 1);
+    }, [currentIndex, images]);
+
     const handleTouchStart = (e: React.TouchEvent) => {
         if (e.touches.length > 1) return;
         setIsDragging(true);
@@ -162,6 +174,7 @@ const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose:
         const dx = e.touches[0].clientX - touchStart.current.x;
         const dy = e.touches[0].clientY - touchStart.current.y;
         
+        // Lock vertical drag if moving mostly horizontal
         if (Math.abs(dy) > Math.abs(dx) * 1.5 && Math.abs(dy) > 10) setOffset({ x: 0, y: dy });
         else if (Math.abs(offset.y) < 10) setOffset({ x: dx, y: 0 });
     };
@@ -176,12 +189,10 @@ const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose:
         
         if (Math.abs(x) > viewportWidth * 0.25 && y === 0) {
             if (x < 0 && currentIndex < images.length - 1) {
-                setOffset({ x: -viewportWidth - 20, y: 0 });
-                setTimeout(() => { setIsAnimating(false); setCurrentIndex(c => c + 1); setOffset({x:0, y:0})}, 300);
+                changeImage(1);
                 return;
             } else if (x > 0 && currentIndex > 0) {
-                setOffset({ x: viewportWidth + 20, y: 0 });
-                setTimeout(() => { setIsAnimating(false); setCurrentIndex(c => c - 1); setOffset({x:0, y:0})}, 300);
+                changeImage(-1);
                 return;
             }
         }
@@ -189,18 +200,21 @@ const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose:
         touchStart.current = null;
     };
 
+    const changeImage = (dir: 1 | -1) => {
+        setIsAnimating(true);
+        setOffset({ x: dir === 1 ? -viewportWidth - 40 : viewportWidth + 40, y: 0 });
+        
+        setTimeout(() => {
+            setIsAnimating(false); // Disable transition to snap back instantly
+            setCurrentIndex(c => c + dir);
+            setOffset({ x: 0, y: 0 });
+        }, 300); // Match this with CSS transition duration
+    };
+
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'ArrowLeft' && currentIndex > 0) {
-                setIsAnimating(true);
-                setOffset({ x: viewportWidth, y: 0 });
-                setTimeout(() => { setIsAnimating(false); setCurrentIndex(c => c - 1); setOffset({x:0, y:0})}, 300);
-            }
-            if (e.key === 'ArrowRight' && currentIndex < images.length - 1) {
-                setIsAnimating(true);
-                setOffset({ x: -viewportWidth, y: 0 });
-                setTimeout(() => { setIsAnimating(false); setCurrentIndex(c => c + 1); setOffset({x:0, y:0})}, 300);
-            }
+            if (e.key === 'ArrowLeft' && currentIndex > 0) changeImage(-1);
+            if (e.key === 'ArrowRight' && currentIndex < images.length - 1) changeImage(1);
             if (e.key === 'Escape') onClose();
         };
         window.addEventListener('keydown', handleKeyDown);
@@ -208,6 +222,7 @@ const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose:
     }, [currentIndex, images.length, viewportWidth]);
 
     const bgOpacity = Math.max(0, 1 - Math.abs(offset.y) / (window.innerHeight * 0.7));
+    // Scale only on vertical drag (close gesture), NOT on horizontal swipe
     const scale = offset.y !== 0 ? Math.max(0.7, 1 - Math.abs(offset.y) / 1000) : 1;
     const transition = isAnimating ? 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none';
     const GAP = 40; 
@@ -224,25 +239,25 @@ const ImageLightbox: React.FC<{ images: string[]; initialIndex: number; onClose:
             <button onClick={onClose} className="absolute top-6 right-6 z-50 w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-md"><i className="fa-solid fa-xmark"></i></button>
             <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 text-white font-bold text-xs bg-white/10 px-4 py-1.5 rounded-full backdrop-blur-md">{currentIndex + 1} / {images.length}</div>
             
-            {currentIndex > 0 && <button onClick={(e) => { e.stopPropagation(); setIsAnimating(true); setOffset({ x: viewportWidth, y: 0 }); setTimeout(() => { setIsAnimating(false); setCurrentIndex(c => c - 1); setOffset({x:0, y:0})}, 300); }} className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full items-center justify-center text-white z-50 backdrop-blur-md"><i className="fa-solid fa-chevron-left"></i></button>}
-            {currentIndex < images.length - 1 && <button onClick={(e) => { e.stopPropagation(); setIsAnimating(true); setOffset({ x: -viewportWidth, y: 0 }); setTimeout(() => { setIsAnimating(false); setCurrentIndex(c => c + 1); setOffset({x:0, y:0})}, 300); }} className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full items-center justify-center text-white z-50 backdrop-blur-md"><i className="fa-solid fa-chevron-right"></i></button>}
+            {currentIndex > 0 && <button onClick={(e) => { e.stopPropagation(); changeImage(-1); }} className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full items-center justify-center text-white z-50 backdrop-blur-md"><i className="fa-solid fa-chevron-left"></i></button>}
+            {currentIndex < images.length - 1 && <button onClick={(e) => { e.stopPropagation(); changeImage(1); }} className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full items-center justify-center text-white z-50 backdrop-blur-md"><i className="fa-solid fa-chevron-right"></i></button>}
 
             <div className="relative w-full h-full" onClick={e => e.stopPropagation()}>
-                {/* Previous Image */}
+                {/* Previous Image - No scale to prevent stutter */}
                 {currentIndex > 0 && (
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ transform: `translateX(${offset.x - viewportWidth - GAP}px) scale(${scale})`, transition }}>
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none will-change-transform" style={{ transform: `translateX(${offset.x - viewportWidth - GAP}px)`, transition }}>
                         <img src={images[currentIndex - 1]} className="max-w-full max-h-full object-contain" alt="Prev" draggable={false} decoding="async" />
                     </div>
                 )}
 
-                {/* Current Image */}
-                <div className="absolute inset-0 flex items-center justify-center" style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`, transition }}>
+                {/* Current Image - Has scale for drag-to-close */}
+                <div className="absolute inset-0 flex items-center justify-center will-change-transform" style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`, transition }}>
                     <img src={images[currentIndex]} className="max-w-full max-h-full object-contain shadow-2xl select-none" draggable={false} alt="Current" decoding="async" />
                 </div>
 
-                {/* Next Image */}
+                {/* Next Image - No scale to prevent stutter */}
                 {currentIndex < images.length - 1 && (
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ transform: `translateX(${offset.x + viewportWidth + GAP}px) scale(${scale})`, transition }}>
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none will-change-transform" style={{ transform: `translateX(${offset.x + viewportWidth + GAP}px)`, transition }}>
                         <img src={images[currentIndex + 1]} className="max-w-full max-h-full object-contain" alt="Next" draggable={false} decoding="async" />
                     </div>
                 )}
@@ -776,8 +791,9 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
                                        {msg.type === 'sticker' ? (
                                            <div className="relative inline-block group hover:scale-105 transition-transform"><img src={msg.content} alt="Sticker" className="w-32 h-32 object-contain" /></div>
                                        ) : msg.type === 'image' ? (
+                                            /* Normalizing single image to look exactly like the grid cells: square aspect ratio, fixed width */
                                             <div className="relative w-full max-w-[16rem] cursor-pointer group" onClick={() => openLightbox([msg.content], 0)}>
-                                                <div className="aspect-square rounded-2xl overflow-hidden border-2 border-slate-200 dark:border-slate-700 relative">
+                                                <div className="aspect-square rounded-2xl overflow-hidden border-2 border-slate-200 dark:border-slate-700 relative bg-slate-200 dark:bg-slate-800">
                                                      <SafeImage onImageLoaded={handleImageLoad} src={msg.content} alt="Image" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
                                                 </div>
                                             </div>
