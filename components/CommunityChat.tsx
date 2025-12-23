@@ -427,7 +427,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       }
   };
 
-  // Group Messages Logic (Including Image Grid Grouping)
+  // Improved Group Messages Logic using groupId
   const groupedMessages = useMemo(() => {
       const groups: GroupedMessageItem[] = [];
       let currentImageGroup: DirectMessage[] = [];
@@ -435,21 +435,37 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       for (let i = 0; i < messages.length; i++) {
           const msg = messages[i];
           const isImage = msg.type === 'image';
-          const nextMsg = messages[i+1];
-          const isNextImage = nextMsg?.type === 'image' && nextMsg.senderId === msg.senderId;
-
+          
           if (isImage) {
               currentImageGroup.push(msg);
-              if (!isNextImage) {
-                  // Flush group
+              const nextMsg = messages[i+1];
+              
+              // Logic to decide whether to continue grouping or flush
+              let shouldFlush = false;
+              
+              if (!nextMsg || nextMsg.type !== 'image' || nextMsg.senderId !== msg.senderId) {
+                  shouldFlush = true;
+              } else {
+                  // Both are images and same sender. Check grouping criteria.
+                  // If both have groupId, they MUST match.
+                  // If one has and one doesn't, flush (break group).
+                  // If neither has, default to old behavior (merge).
+                  if (msg.groupId && nextMsg.groupId) {
+                      if (msg.groupId !== nextMsg.groupId) shouldFlush = true;
+                  } else if ((msg.groupId && !nextMsg.groupId) || (!msg.groupId && nextMsg.groupId)) {
+                      shouldFlush = true;
+                  }
+              }
+
+              if (shouldFlush) {
                   if (currentImageGroup.length === 1) {
                       groups.push(currentImageGroup[0]);
                   } else {
                       groups.push({
                           type: 'image-group',
-                          id: currentImageGroup[0].id, // use first id for key
+                          id: currentImageGroup[0].id, 
                           senderId: currentImageGroup[0].senderId,
-                          timestamp: currentImageGroup[currentImageGroup.length-1].timestamp, // use last timestamp
+                          timestamp: currentImageGroup[currentImageGroup.length-1].timestamp, 
                           msgs: [...currentImageGroup]
                       });
                   }
@@ -472,14 +488,19 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
           await executeSend(content, 'sticker');
       }
 
-      // 2. Send Pending Images
+      // 2. Send Pending Images with Batch Grouping
       if (pendingImages.length > 0) {
           // Filter successfully uploaded images
           const readyImages = pendingImages.filter(img => img.serverUrl && !img.uploading);
           
-          for (const img of readyImages) {
-              if (img.serverUrl) {
-                  await executeSend(img.serverUrl, 'image');
+          if (readyImages.length > 0) {
+              // Create a unique groupId for this batch
+              const batchGroupId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+              
+              for (const img of readyImages) {
+                  if (img.serverUrl) {
+                      await executeSend(img.serverUrl, 'image', undefined, batchGroupId);
+                  }
               }
           }
           // Clear all pending images after attempting to send
@@ -487,10 +508,10 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       }
   };
 
-  const executeSend = async (msgContent: string, msgType: 'text' | 'sticker' | 'image') => {
+  const executeSend = async (msgContent: string, msgType: 'text' | 'sticker' | 'image', replyId?: string, groupId?: string) => {
       if (!activeChatUser) return;
-      const tempId = Date.now().toString() + Math.random().toString(); // Ensure unique
-      const replyId = replyingTo ? replyingTo.id : undefined;
+      const tempId = Date.now().toString() + Math.random().toString(); 
+      const actualReplyId = replyId || (replyingTo ? replyingTo.id : undefined);
 
       const tempMsg: DirectMessage = {
           id: tempId,
@@ -500,9 +521,10 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
           timestamp: Date.now(),
           isRead: false,
           type: msgType,
-          replyToId: replyId,
+          replyToId: actualReplyId,
           replyToContent: replyingTo ? (replyingTo.type === 'sticker' ? '[Sticker]' : (replyingTo.type === 'image' ? '[Hình ảnh]' : replyingTo.content)) : undefined,
-          reactions: []
+          reactions: [],
+          groupId: groupId // Pass groupId to optimistic update
       };
       
       setMessages(prev => [...prev, tempMsg]);
@@ -512,7 +534,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
       setShowEmojiPicker(false);
 
       try {
-          await apiService.sendDirectMessage(user.id, activeChatUser.id, msgContent, msgType, replyId);
+          await apiService.sendDirectMessage(user.id, activeChatUser.id, msgContent, msgType, actualReplyId, groupId);
           loadConversations(); 
       } catch (e) {
           console.error("Failed to send", e);
@@ -704,7 +726,7 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
        <div className={`w-full md:w-80 bg-white dark:bg-slate-800 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 shadow-xl overflow-hidden flex-col shrink-0 ${activeChatUser ? 'hidden md:flex' : 'flex'}`}>
            <div className="p-6 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
                <h3 className="font-black text-xl text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-                   <i className="fa-solid fa-comments text-indigo-500"></i> Trò chuyện
+                   <i className="fa-solid fa-comments text-indigo-500"></i> Chat hỗ trợ
                </h3>
                
                {/* Search User Input */}
