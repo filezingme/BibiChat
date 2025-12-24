@@ -10,9 +10,11 @@ interface Props {
   onClose?: () => void; // New Prop for Embed Mode
   isEmbed?: boolean; // New Prop to adjust layout
   initialPlugins?: PluginConfig | null; // Pass plugins from parent to avoid double fetch/logic split
+  onToggleAutoOpen?: () => void; // New prop for toggling auto-open preference
+  isAutoOpenBlocked?: boolean; // New prop for auto-open state
 }
 
-const ChatWidget: React.FC<Props> = ({ settings, userId, forceOpen, onClose, isEmbed, initialPlugins }) => {
+const ChatWidget: React.FC<Props> = ({ settings, userId, forceOpen, onClose, isEmbed, initialPlugins, onToggleAutoOpen, isAutoOpenBlocked }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     { id: '1', role: 'model', text: settings.welcomeMessage, timestamp: Date.now() }
@@ -139,9 +141,20 @@ const ChatWidget: React.FC<Props> = ({ settings, userId, forceOpen, onClose, isE
                 </div>
                 
                 <div className="flex items-center gap-2">
+                    {/* NEW: Auto-Open Toggle Button */}
+                    {onToggleAutoOpen && (
+                        <button 
+                            onClick={onToggleAutoOpen}
+                            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors border ${isAutoOpenBlocked ? 'bg-white text-rose-500 border-white' : 'bg-white/20 text-white hover:bg-white/40 border-white/20'}`}
+                            title={isAutoOpenBlocked ? "Bật lại tự động mở chat" : "Tắt tự động mở chat khi vào trang"}
+                        >
+                            <i className={`fa-solid ${isAutoOpenBlocked ? 'fa-bell-slash' : 'fa-bell' } text-xs`}></i>
+                        </button>
+                    )}
+
                     {/* Social Plugin Icons for Embed Mode */}
                     {plugins?.social?.enabled && (
-                        <div className="flex gap-2 mr-2">
+                        <div className="flex gap-2">
                              {plugins.social.phone && (
                                  <a href={`tel:${plugins.social.phone}`} className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center transition-colors border border-white/20" title="Gọi Hotline" target="_blank" rel="noreferrer">
                                      <i className="fa-solid fa-phone text-xs"></i>
@@ -156,7 +169,7 @@ const ChatWidget: React.FC<Props> = ({ settings, userId, forceOpen, onClose, isE
                     )}
 
                     {/* Close Button for Embed */}
-                    <button onClick={handleToggle} className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center transition-colors">
+                    <button onClick={handleToggle} className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center transition-colors ml-1">
                         <i className="fa-solid fa-xmark text-sm"></i>
                     </button>
                 </div>

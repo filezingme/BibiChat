@@ -8,6 +8,7 @@ import { GoogleGenAI } from "@google/genai";
 import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import { Buffer } from 'buffer';
 
 dotenv.config();
 

@@ -653,6 +653,21 @@ const StandaloneChatWidget: React.FC<{ settings: WidgetSettings, userId: string 
     const [isOpen, setIsOpen] = useState(false);
     const [plugins, setPlugins] = useState<PluginConfig | null>(null);
     
+    // Check local storage for auto-open preference
+    const [autoOpenBlocked, setAutoOpenBlocked] = useState(() => {
+        return !!localStorage.getItem('bibichat_auto_open_blocked');
+    });
+
+    const toggleAutoOpenBlock = () => {
+        const newValue = !autoOpenBlocked;
+        setAutoOpenBlocked(newValue);
+        if (newValue) {
+            localStorage.setItem('bibichat_auto_open_blocked', 'true');
+        } else {
+            localStorage.removeItem('bibichat_auto_open_blocked');
+        }
+    };
+    
     // Fetch Plugins at the top level to control Auto Open from here
     useEffect(() => {
         const fetchPlugins = async () => {
@@ -661,7 +676,8 @@ const StandaloneChatWidget: React.FC<{ settings: WidgetSettings, userId: string 
                 setPlugins(data);
                 
                 // Handle Auto Open logic here in the container
-                if (data.autoOpen?.enabled) {
+                // ONLY if not blocked by user preference
+                if (data.autoOpen?.enabled && !autoOpenBlocked) {
                     setTimeout(() => setIsOpen(true), data.autoOpen.delay * 1000);
                 }
             } catch (e) {
@@ -700,6 +716,8 @@ const StandaloneChatWidget: React.FC<{ settings: WidgetSettings, userId: string 
                         onClose={() => setIsOpen(false)} 
                         isEmbed={true}
                         initialPlugins={plugins} // Pass fetched plugins down to avoid refetch/delay
+                        onToggleAutoOpen={toggleAutoOpenBlock} // Pass toggle function
+                        isAutoOpenBlocked={autoOpenBlocked} // Pass state
                     />
                 </div>
             )}
