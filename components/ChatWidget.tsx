@@ -231,7 +231,7 @@ const ChatWidget: React.FC<Props> = ({ settings, userId, forceOpen, onClose, isE
 
   // --- STANDARD PREVIEW/DEMO RENDER (NOT EMBED) ---
   
-  // Calculate positioning classes based on 4 corners
+  // Calculate positioning classes based on corners and centers
   let buttonPositionClass = '';
   let windowPositionClass = '';
   let animateClass = '';
@@ -239,26 +239,53 @@ const ChatWidget: React.FC<Props> = ({ settings, userId, forceOpen, onClose, isE
   const pos = settings.position || 'bottom-right';
 
   // Determine button fixed position
-  if (pos === 'bottom-right' || pos === 'right' as any) buttonPositionClass = 'bottom-6 right-6';
-  else if (pos === 'bottom-left' || pos === 'left' as any) buttonPositionClass = 'bottom-6 left-6';
-  else if (pos === 'top-right') buttonPositionClass = 'top-6 right-6';
-  else if (pos === 'top-left') buttonPositionClass = 'top-6 left-6';
-
-  // Determine window absolute position relative to button anchor area
-  // Note: For simplicity in preview mode, we might need absolute positioning relative to a parent or fixed relative to screen.
-  // Using fixed to match button logic for demo.
-  if (pos === 'bottom-right' || pos === 'right' as any) {
-      windowPositionClass = 'bottom-24 right-6';
-      animateClass = 'slide-in-from-bottom-10';
-  } else if (pos === 'bottom-left' || pos === 'left' as any) {
-      windowPositionClass = 'bottom-24 left-6';
-      animateClass = 'slide-in-from-bottom-10';
-  } else if (pos === 'top-right') {
-      windowPositionClass = 'top-24 right-6';
-      animateClass = 'slide-in-from-top-10';
-  } else if (pos === 'top-left') {
-      windowPositionClass = 'top-24 left-6';
-      animateClass = 'slide-in-from-top-10';
+  switch (pos) {
+      case 'bottom-right':
+      case 'right' as any:
+          buttonPositionClass = 'bottom-6 right-6';
+          windowPositionClass = 'bottom-24 right-6';
+          animateClass = 'slide-in-from-bottom-10';
+          break;
+      case 'bottom-left':
+      case 'left' as any:
+          buttonPositionClass = 'bottom-6 left-6';
+          windowPositionClass = 'bottom-24 left-6';
+          animateClass = 'slide-in-from-bottom-10';
+          break;
+      case 'top-right':
+          buttonPositionClass = 'top-6 right-6';
+          windowPositionClass = 'top-24 right-6';
+          animateClass = 'slide-in-from-top-10';
+          break;
+      case 'top-left':
+          buttonPositionClass = 'top-6 left-6';
+          windowPositionClass = 'top-24 left-6';
+          animateClass = 'slide-in-from-top-10';
+          break;
+      case 'top-center':
+          buttonPositionClass = 'top-6 left-1/2 -translate-x-1/2';
+          windowPositionClass = 'top-24 left-1/2 -translate-x-1/2';
+          animateClass = 'slide-in-from-top-10';
+          break;
+      case 'bottom-center':
+          buttonPositionClass = 'bottom-6 left-1/2 -translate-x-1/2';
+          windowPositionClass = 'bottom-24 left-1/2 -translate-x-1/2';
+          animateClass = 'slide-in-from-bottom-10';
+          break;
+      case 'left-center':
+          buttonPositionClass = 'top-1/2 left-6 -translate-y-1/2';
+          windowPositionClass = 'bottom-24 left-6'; // Window defaults to bottom-left area even for center button to avoid covering too much
+          animateClass = 'slide-in-from-bottom-10';
+          break;
+      case 'right-center':
+          buttonPositionClass = 'top-1/2 right-6 -translate-y-1/2';
+          windowPositionClass = 'bottom-24 right-6'; // Window defaults to bottom-right area
+          animateClass = 'slide-in-from-bottom-10';
+          break;
+      default:
+          buttonPositionClass = 'bottom-6 right-6';
+          windowPositionClass = 'bottom-24 right-6';
+          animateClass = 'slide-in-from-bottom-10';
   }
 
   return (

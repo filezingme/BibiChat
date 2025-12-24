@@ -75,7 +75,7 @@ export interface WidgetSettings {
   primaryColor: string;
   botName: string;
   welcomeMessage: string;
-  position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
+  position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | 'top-center' | 'bottom-center' | 'left-center' | 'right-center';
   avatarUrl: string;
 }
 

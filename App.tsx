@@ -698,17 +698,24 @@ const StandaloneChatWidget: React.FC<{ settings: WidgetSettings, userId: string 
         
     }, [isOpen, settings.position]);
 
-    // Update Flex Layout based on 4 corners
-    const isTop = settings.position.includes('top');
-    const isLeft = settings.position.includes('left');
-    
-    const flexColClass = isTop ? 'justify-start' : 'justify-end';
-    const alignClass = isLeft ? 'items-start' : 'items-end';
+    // Update Flex Layout based on 8 positions
+    let flexColClass = 'justify-end';
+    let alignClass = 'items-end';
+
+    // Vertical alignment
+    if (settings.position.includes('top')) flexColClass = 'justify-start';
+    else if (settings.position.includes('bottom')) flexColClass = 'justify-end';
+    else flexColClass = 'justify-center'; // left-center, right-center
+
+    // Horizontal alignment
+    if (settings.position.includes('left')) alignClass = 'items-start';
+    else if (settings.position.includes('right')) alignClass = 'items-end';
+    else alignClass = 'items-center'; // top-center, bottom-center
 
     return (
         <div className={`h-full w-full flex flex-col ${flexColClass} ${alignClass} p-0 sm:p-4 bg-transparent pointer-events-auto`}>
             {isOpen && (
-                <div className={`w-full h-full flex flex-col relative z-20 animate-in fade-in duration-300 ${isTop ? 'slide-in-from-top-5' : 'slide-in-from-bottom-5'}`}>
+                <div className={`w-full h-full flex flex-col relative z-20 animate-in fade-in duration-300 ${settings.position.includes('top') ? 'slide-in-from-top-5' : 'slide-in-from-bottom-5'}`}>
                     <ChatWidget 
                         settings={settings} 
                         userId={userId} 

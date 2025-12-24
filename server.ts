@@ -241,6 +241,7 @@ app.get('/widget.js', (req, res) => {
       container.style.bottom = 'auto';
       container.style.left = 'auto';
       container.style.right = 'auto';
+      container.style.transform = 'none'; // Reset transform
 
       if (pos === 'top-left') {
           container.style.top = '20px';
@@ -251,6 +252,22 @@ app.get('/widget.js', (req, res) => {
       } else if (pos === 'bottom-left') {
           container.style.bottom = '20px';
           container.style.left = '20px';
+      } else if (pos === 'top-center') {
+          container.style.top = '20px';
+          container.style.left = '50%';
+          container.style.transform = 'translateX(-50%)';
+      } else if (pos === 'bottom-center') {
+          container.style.bottom = '20px';
+          container.style.left = '50%';
+          container.style.transform = 'translateX(-50%)';
+      } else if (pos === 'left-center') {
+          container.style.left = '20px';
+          container.style.top = '50%';
+          container.style.transform = 'translateY(-50%)';
+      } else if (pos === 'right-center') {
+          container.style.right = '20px';
+          container.style.top = '50%';
+          container.style.transform = 'translateY(-50%)';
       } else {
           // Default bottom-right
           container.style.bottom = '20px';
@@ -268,22 +285,19 @@ app.get('/widget.js', (req, res) => {
          container.style.height = 'calc(100dvh - 32px)'; 
          if (!CSS.supports('height: 100dvh')) container.style.height = 'calc(100vh - 32px)';
          
-         // On Mobile Open, force centering/margin logic regardless of corner
-         // Actually, let's stick to the corner but expand
-         if (currentPos.includes('bottom')) {
-             container.style.bottom = '16px';
-             container.style.top = 'auto';
-         } else {
+         // On Mobile Open, force simple layout to avoid complexities with transforms
+         container.style.transform = 'none'; 
+         container.style.left = '16px';
+         container.style.right = 'auto'; // Reset
+         
+         // Respect Top/Bottom preference but force X alignment
+         if (currentPos.includes('top')) {
              container.style.top = '16px';
              container.style.bottom = 'auto';
-         }
-         
-         if (currentPos.includes('right')) {
-             container.style.right = '16px';
-             container.style.left = 'auto';
          } else {
-             container.style.left = '16px';
-             container.style.right = 'auto';
+             // Default bottom alignment for most mobile modals
+             container.style.bottom = '16px';
+             container.style.top = 'auto';
          }
 
          container.style.borderRadius = '24px'; 
@@ -296,6 +310,7 @@ app.get('/widget.js', (req, res) => {
          container.style.borderRadius = '24px';
          container.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.25)';
          // Position is already handled by applyPosition, width/height expands from that anchor
+         // If transforms are used (centers), expanding width/height works fine from center point
        }
     } else if (event.data === 'bibichat-close') {
        // Reset to button size
@@ -309,7 +324,7 @@ app.get('/widget.js', (req, res) => {
        
        container.style.pointerEvents = 'none'; 
     } else if (event.data && event.data.type === 'bibichat-position') {
-       // Handle 4 positions
+       // Handle 8 positions
        if (container.style.width !== '100vw' && container.style.width !== 'calc(100vw - 32px)') {
            applyPosition(event.data.position);
        }
