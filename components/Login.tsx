@@ -31,6 +31,7 @@ const Login: React.FC<Props> = ({ onLogin }) => {
           setIsRegister(false);
           setError('Đăng ký thành công! Đăng nhập đi nè.');
         } else {
+          // Token is saved inside apiService.login/register
           onLogin(result.user);
         }
       } else {

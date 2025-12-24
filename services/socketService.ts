@@ -1,7 +1,7 @@
 
 import { io, Socket } from 'socket.io-client';
+import { apiService } from './apiService';
 
-// Use the same URL logic as apiService
 const SERVER_URL = process.env.SERVER_URL || 'https://fuzzy-cosette-filezingme-org-64d51f5d.koyeb.app';
 
 class SocketService {
@@ -10,19 +10,32 @@ class SocketService {
   connect(userId: string) {
     if (this.socket) return;
 
+    const token = apiService.getToken();
+    if (!token) {
+        console.error("Socket Auth Failed: No Token");
+        return;
+    }
+
+    // SECURITY UPDATE: Pass token in 'auth' object, not userId in query
     this.socket = io(SERVER_URL, {
-      query: { userId },
-      transports: ['websocket'], // Force websocket to reduce HTTP overhead
+      auth: {
+        token: token 
+      },
+      transports: ['websocket'],
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
     });
 
     this.socket.on('connect', () => {
-      console.log('⚡ Connected to Real-time Server');
+      console.log('⚡ Connected to Secure Socket Layer');
+    });
+
+    this.socket.on('connect_error', (err) => {
+      console.error("Socket Connection Error:", err.message);
     });
 
     this.socket.on('disconnect', () => {
-      console.log('🔌 Disconnected from Real-time Server');
+      console.log('🔌 Disconnected');
     });
   }
 
@@ -33,13 +46,11 @@ class SocketService {
     }
   }
 
-  // Generic event listener
   on(event: string, callback: (data: any) => void) {
     if (!this.socket) return;
     this.socket.on(event, callback);
   }
 
-  // Generic event emitter
   emit(event: string, data: any) {
     if (!this.socket) return;
     this.socket.emit(event, data);
