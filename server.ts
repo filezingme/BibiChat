@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { Buffer } from 'buffer';
+import { randomUUID } from 'crypto';
 
 dotenv.config();
 
@@ -419,7 +420,7 @@ app.get('/api/leads/:userId', async (req, res) => {
 app.post('/api/leads', async (req, res) => {
     const { userId, name, phone, email, isTest } = req.body;
     const newLead = await Lead.create({
-        id: Math.random().toString(36).substr(2, 9),
+        id: randomUUID(),
         userId, name, phone, email, source: 'chat_form', status: 'new', createdAt: Date.now(), isTest: !!isTest
     } as any);
     
@@ -487,7 +488,7 @@ app.post('/api/notifications/read-all', async (req, res) => {
 app.post('/api/notifications/create', async (req, res) => {
     const scheduledTime = Number(req.body.scheduledAt) || Date.now();
     const newNotif = await Notification.create({
-        id: Math.random().toString(36).substr(2, 9),
+        id: randomUUID(),
         userId: req.body.userId || 'all',
         title: req.body.title,
         desc: req.body.desc,
@@ -627,7 +628,7 @@ app.get('/api/dm/history/:userId/:otherUserId', async (req, res) => {
 app.post('/api/dm/send', async (req, res) => {
     const { senderId, receiverId, content, type, replyToId, groupId } = req.body;
     const newMessage = await DirectMessage.create({
-        id: Math.random().toString(36).substr(2, 9),
+        id: randomUUID(),
         senderId, receiverId, content, timestamp: Date.now(), isRead: false,
         type: type || 'text', replyToId: replyToId || null, reactions: [], groupId: groupId || null
     } as any);
@@ -732,7 +733,7 @@ app.post('/api/register', async (req, res) => {
     if (existing) return res.status(400).json({ success: false, message: 'Email đã tồn tại' });
     
     const newUser = await User.create({
-        id: Math.random().toString(36).substr(2, 9),
+        id: randomUUID(),
         email, password, role: 'user', createdAt: Date.now()
     } as any);
     res.json({ success: true, user: newUser });
@@ -789,7 +790,7 @@ app.post('/api/settings/:userId', async (req, res) => {
 app.post('/api/documents/text', async (req, res) => {
     const { name, content, userId } = req.body;
     const newDoc = await Document.create({
-        id: Math.random().toString(36).substr(2, 9), userId, name, content, type: 'text', status: 'indexed', createdAt: Date.now()
+        id: randomUUID(), userId, name, content, type: 'text', status: 'indexed', createdAt: Date.now()
     } as any);
     res.json(newDoc);
 });
@@ -798,7 +799,7 @@ app.post('/api/documents/upload', upload.single('file') as any, async (req: any,
     if (!req.file || !req.body.userId) return res.status(400).send('Missing file/userId');
     const content = req.file.buffer.toString('utf-8');
     const newDoc = await Document.create({
-        id: Math.random().toString(36).substr(2, 9), userId: req.body.userId, name: req.file.originalname, content, type: 'file', status: 'indexed', createdAt: Date.now()
+        id: randomUUID(), userId: req.body.userId, name: req.file.originalname, content, type: 'file', status: 'indexed', createdAt: Date.now()
     } as any);
     res.json(newDoc);
 });
@@ -826,7 +827,7 @@ app.post('/api/chat', async (req, res) => {
         const reply = response.text || "Tôi không thể trả lời.";
         
         await ChatLog.create({
-            id: Math.random().toString(36).substr(2, 9),
+            id: randomUUID(),
             userId, customerSessionId: sessionId || 'anon', query: message, answer: reply, timestamp: Date.now(), tokens: message.length, isSolved: !reply.includes("không có thông tin")
         } as any);
         

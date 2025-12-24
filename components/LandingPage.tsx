@@ -9,9 +9,16 @@ interface Props {
 
 const LandingPage: React.FC<Props> = ({ onNavigate }) => {
   const [showScrollTop, setShowScrollTop] = useState(false);
+  // Generate a random UUID for the demo to look realistic and secure
+  const [demoWidgetId, setDemoWidgetId] = useState('7f8e9d1c-2b3a-4c5d-6e7f-8a9b0c1d2e3f');
   const SERVER_URL = process.env.SERVER_URL || "https://fuzzy-cosette-filezingme-org-64d51f5d.koyeb.app";
 
   useEffect(() => {
+    // Client-side UUID generation for demo visual
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        setDemoWidgetId(crypto.randomUUID());
+    }
+
     const handleScroll = () => {
       if (window.scrollY > 300) {
         setShowScrollTop(true);
@@ -254,7 +261,7 @@ const LandingPage: React.FC<Props> = ({ onNavigate }) => {
                 <div className="text-slate-400">
                   <span className="text-pink-400">&lt;script&gt;</span><br/>
                   &nbsp;&nbsp;window.BibiChatConfig = {'{'}<br/>
-                  &nbsp;&nbsp;&nbsp;&nbsp;widgetId: <span className="text-emerald-400">"YOUR_ID"</span><br/>
+                  &nbsp;&nbsp;&nbsp;&nbsp;widgetId: <span className="text-emerald-400">"{demoWidgetId}"</span><br/>
                   &nbsp;&nbsp;{'}'};<br/>
                   <span className="text-pink-400">&lt;/script&gt;</span><br/>
                   <span className="text-pink-400">&lt;script src="{SERVER_URL}/widget.js" async defer&gt;&lt;/script&gt;</span>

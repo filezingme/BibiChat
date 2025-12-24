@@ -45,6 +45,19 @@ const getApiKey = () => {
     return process.env.API_KEY || localStorage.getItem('API_KEY') || localStorage.getItem('omnichat_api_key') || '';
 };
 
+// Helper to generate UUID v4
+const generateUUID = () => {
+    // Native crypto support in modern browsers
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    // Fallback for older environments
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+};
+
 export const apiService = {
   // --- SYSTEM CHECK ---
   checkHealth: async (): Promise<{ online: boolean, message: string }> => {
@@ -165,7 +178,7 @@ export const apiService = {
       const db = getLocalDB();
       if (db.users.find((u: any) => u.email === email)) return { success: false, message: 'Email này đã được đăng ký (Chế độ Offline)' };
       const newUser: User = {
-        id: Math.random().toString(36).substring(2, 11),
+        id: generateUUID(),
         email,
         password,
         role: 'user',
@@ -401,7 +414,7 @@ export const apiService = {
         const db = getLocalDB();
         if (!db.leads) db.leads = [];
         const newLead: Lead = { 
-            id: Math.random().toString(36).substr(2, 9), 
+            id: generateUUID(), 
             userId, 
             name, 
             phone, 
@@ -468,7 +481,7 @@ export const apiService = {
     } catch (e) {
       const db = getLocalDB();
       const newDoc: Document = {
-        id: Math.random().toString(36).substring(2, 11),
+        id: generateUUID(),
         userId,
         name,
         content,
@@ -657,24 +670,28 @@ export const apiService = {
           return await res.json();
       } catch (e) {
           const db = getLocalDB();
-          return (db.notifications || []).filter((n: any) => n.userId === 'all' || n.userId === userId).map((n: any) => ({...n, isRead: (n.readBy||[]).includes(userId)}));
+          return (db.notifications || []).filter((n: any) => n.userId === 'all' || n.userId === userId);
       }
   },
 
-  markNotificationRead: async (id: string, userId: string) => {
+  markNotificationRead: async (notifId: string, userId: string) => {
       try {
-          await fetch(`${API_URL}/api/notifications/${id}/read`, {
+          await fetch(`${API_URL}/api/notifications/${notifId}/read`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ userId })
           });
       } catch (e) {
           const db = getLocalDB();
-          const n = db.notifications?.find((x: any) => x.id === id);
-          if(n) {
-              if(!n.readBy) n.readBy = [];
-              if(!n.readBy.includes(userId)) n.readBy.push(userId);
-              saveLocalDB(db);
+          if (db.notifications) {
+              const idx = db.notifications.findIndex((n: any) => n.id === notifId);
+              if (idx !== -1) {
+                  if (!db.notifications[idx].readBy) db.notifications[idx].readBy = [];
+                  if (!db.notifications[idx].readBy.includes(userId)) {
+                      db.notifications[idx].readBy.push(userId);
+                      saveLocalDB(db);
+                  }
+              }
           }
       }
   },
@@ -687,31 +704,39 @@ export const apiService = {
               body: JSON.stringify({ userId })
           });
       } catch (e) {
-           const db = getLocalDB();
-           if(db.notifications) {
-               db.notifications.forEach((n: any) => {
-                   if(n.userId === 'all' || n.userId === userId) {
-                       if(!n.readBy) n.readBy = [];
-                       if(!n.readBy.includes(userId)) n.readBy.push(userId);
-                   }
-               });
-               saveLocalDB(db);
-           }
+          const db = getLocalDB();
+          if (db.notifications) {
+              db.notifications.forEach((n: any) => {
+                  if (n.userId === 'all' || n.userId === userId) {
+                      if (!n.readBy) n.readBy = [];
+                      if (!n.readBy.includes(userId)) n.readBy.push(userId);
+                  }
+              });
+              saveLocalDB(db);
+          }
       }
   },
 
-  createSystemNotification: async (notification: any) => {
+  createSystemNotification: async (notif: Partial<Notification>) => {
       try {
-          await fetch(`${API_URL}/api/notifications/create`, {
+          const res = await fetch(`${API_URL}/api/notifications/create`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(notification)
+              body: JSON.stringify(notif)
           });
+          return await res.json();
       } catch (e) {
           const db = getLocalDB();
-          if(!db.notifications) db.notifications = [];
-          db.notifications.push({ ...notification, id: Date.now().toString(), readBy: [] });
+          const newNotif = {
+              id: generateUUID(),
+              readBy: [],
+              time: notif.scheduledAt || Date.now(),
+              ...notif
+          };
+          if (!db.notifications) db.notifications = [];
+          db.notifications.push(newNotif);
           saveLocalDB(db);
+          return newNotif;
       }
   },
 
@@ -721,10 +746,11 @@ export const apiService = {
           const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
           const response = await ai.models.generateContent({
               model: 'gemini-3-flash-preview',
-              contents: `Suggest a single FontAwesome 6 icon class (e.g., fa-bell) for: "${context}". Return ONLY the class name.`,
+              contents: `Suggest a FontAwesome 6 free solid icon class name (e.g., 'fa-bell', 'fa-user', 'fa-check') for this notification content: "${context}". Only return the class name string, nothing else. If you are unsure, return 'fa-bell'.`,
           });
           return response.text?.trim() || 'fa-bell';
       } catch (e) {
+          console.error("AI Icon suggestion failed", e);
           return 'fa-bell';
       }
   }
