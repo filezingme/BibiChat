@@ -19,7 +19,6 @@ const initialIcons = [
   { class: 'fa-circle-info', label: 'Thông tin' },
   { class: 'fa-check-circle', label: 'Hoàn tất' },
   { class: 'fa-fire', label: 'Hot' },
-  // Extended Icons
   { class: 'fa-envelope', label: 'Thư' },
   { class: 'fa-camera', label: 'Ảnh' },
   { class: 'fa-gamepad', label: 'Game' },
@@ -47,7 +46,6 @@ const colors = [
   { text: 'text-amber-500', bg: 'bg-amber-100 dark:bg-amber-900/30' },
   { text: 'text-violet-500', bg: 'bg-violet-100 dark:bg-violet-900/30' },
   { text: 'text-rose-500', bg: 'bg-rose-100 dark:bg-rose-900/30' },
-  // Extended Colors
   { text: 'text-cyan-500', bg: 'bg-cyan-100 dark:bg-cyan-900/30' },
   { text: 'text-teal-500', bg: 'bg-teal-100 dark:bg-teal-900/30' },
   { text: 'text-lime-500', bg: 'bg-lime-100 dark:bg-lime-900/30' },
@@ -64,26 +62,17 @@ const targetOptions = [
 const NotificationManager: React.FC<Props> = ({ user }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  
-  // AI Loading State
   const [isAiLoading, setIsAiLoading] = useState(false);
 
-  // Form State
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
-  
-  // Icon List State (to support dynamic AI additions)
   const [iconList, setIconList] = useState(initialIcons);
   const [selectedIcon, setSelectedIcon] = useState('fa-bell');
-  
   const [selectedColor, setSelectedColor] = useState(colors[0]);
   const [targetUser, setTargetUser] = useState('all');
-  
-  // Schedule Logic Changes
   const [sendImmediately, setSendImmediately] = useState(true);
   const [scheduleTime, setScheduleTime] = useState('');
 
-  // Dropdown State
   const [isTargetDropdownOpen, setIsTargetDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -108,9 +97,7 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
     if (showSuccess) {
-        timer = setTimeout(() => {
-            handleCloseSuccess();
-        }, 2500);
+        timer = setTimeout(() => { handleCloseSuccess(); }, 2500);
     }
     return () => clearTimeout(timer);
   }, [showSuccess]);
@@ -139,21 +126,14 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
     if (!title || !desc) return;
 
     setIsSubmitting(true);
-
     const scheduledTimestamp = (!sendImmediately && scheduleTime) ? new Date(scheduleTime).getTime() : Date.now();
 
     const newNotif = {
-      title,
-      desc,
-      icon: selectedIcon,
-      color: selectedColor.text,
-      bg: selectedColor.bg,
-      userId: targetUser,
-      scheduledAt: scheduledTimestamp
+      title, desc, icon: selectedIcon, color: selectedColor.text, bg: selectedColor.bg,
+      userId: targetUser, scheduledAt: scheduledTimestamp
     };
 
     await apiService.createSystemNotification(newNotif);
-    // Removed artificial delay
     setShowSuccess(true); 
     setIsSubmitting(false);
   };
@@ -163,7 +143,6 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
   return (
     <>
     <div className="space-y-8 animate-in fade-in duration-500 pb-12 relative">
-       {/* Header */}
        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-800 p-6 rounded-[2rem] border border-white dark:border-slate-700 shadow-lg shadow-indigo-50/50 dark:shadow-none">
           <div className="flex items-center gap-4">
               <span className="w-12 h-12 rounded-2xl bg-indigo-100 dark:bg-indigo-900/50 text-indigo-500 dark:text-indigo-300 flex items-center justify-center text-xl">
@@ -177,7 +156,6 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
        </div>
 
        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Left Column: Create Form (Expanded to 8 columns) */}
           <div className="lg:col-span-8 bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 h-fit">
              <h3 className="font-bold text-lg text-slate-800 dark:text-white mb-6 flex items-center gap-2">
                 <i className="fa-solid fa-pen-nib text-pink-500"></i> Soạn thông báo mới
@@ -223,7 +201,6 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
                    />
                 </div>
 
-                {/* Target Dropdown */}
                 <div className="relative" ref={dropdownRef}>
                     <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 ml-2">Gửi tới ai?</label>
                     <button 
@@ -256,14 +233,12 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
                     )}
                 </div>
 
-                {/* Styled Date Picker with Toggle */}
                 <div>
                     <div className="flex justify-between items-center mb-2 ml-2">
                         <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Thời gian gửi</label>
                     </div>
                     
                     <div className="flex flex-col sm:flex-row gap-4">
-                        {/* Toggle Send Immediately */}
                         <div 
                         onClick={() => setSendImmediately(!sendImmediately)}
                         className={`flex-1 cursor-pointer flex items-center gap-3 p-3 rounded-2xl border-2 transition-all ${sendImmediately ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800' : 'bg-slate-50 border-slate-200 dark:bg-slate-900 dark:border-slate-700 hover:border-emerald-200'}`}
@@ -274,7 +249,6 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
                         <span className={`text-xs font-bold ${sendImmediately ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}>Gửi ngay lập tức</span>
                         </div>
 
-                        {/* Date Input - Shows only if not immediate */}
                         <div className={`flex-1 transition-all duration-300 ${sendImmediately ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
                         <div className="relative">
                             <input 
@@ -292,7 +266,6 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
                     </div>
                 </div>
 
-                {/* Icon Selector */}
                 <div>
                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-3 ml-2">Chọn biểu tượng</label>
                    <div className="flex flex-wrap gap-3">
@@ -310,7 +283,6 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
                    </div>
                 </div>
                 
-                 {/* Color Selector */}
                 <div>
                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-3 ml-2">Chọn màu sắc</label>
                    <div className="flex flex-wrap gap-3">
@@ -347,7 +319,6 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
              </form>
           </div>
 
-          {/* Right Column: Creative Center - Preview Updated to Dropdown Style */}
           <div className="lg:col-span-4 space-y-8 sticky top-6 h-fit">
              <div className="bg-slate-100 dark:bg-slate-800/50 p-6 rounded-[2.5rem] border border-slate-200 dark:border-slate-700 shadow-xl relative overflow-hidden group">
                 <div className="absolute inset-0 bg-slate-200/50 dark:bg-slate-900/50 backdrop-blur-sm z-0 pointer-events-none"></div>
@@ -356,7 +327,6 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
                     <i className="fa-regular fa-eye"></i> Xem trước hiển thị
                 </h3>
 
-                {/* Dropdown Preview Container */}
                 <div className="relative z-10 w-full max-w-sm mx-auto bg-white/90 dark:bg-slate-900/95 backdrop-blur-2xl rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border-[3px] border-white/60 dark:border-slate-700 overflow-hidden ring-4 ring-pink-100/50 dark:ring-pink-900/20 transform hover:scale-[1.02] transition-transform duration-300">
                     <div className="px-5 py-3 border-b border-slate-100/50 dark:border-slate-700/50 flex justify-between items-center bg-gradient-to-r from-white/50 to-pink-50/50 dark:from-slate-800/50 dark:to-slate-800/30">
                        <h3 className="font-black text-base text-slate-800 dark:text-white flex items-center gap-2">
@@ -369,7 +339,6 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
                     </div>
 
                     <div className="bg-slate-50/50 dark:bg-slate-900/20 p-2 space-y-2">
-                        {/* Sample Notification Item */}
                         <div className="relative p-3 rounded-[1.2rem] bg-white dark:bg-slate-800 border-white dark:border-slate-700 shadow-[0_4px_15px_-4px_rgba(236,72,153,0.15)] dark:shadow-none border-2 flex items-start gap-3 transform translate-y-0 hover:-translate-y-0.5 transition-transform duration-300 cursor-pointer">
                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${selectedColor.bg} ${selectedColor.text} shadow-sm border-2 border-white dark:border-slate-700 relative`}>
                                 <i className={`fa-solid ${selectedIcon} text-base`}></i>
@@ -383,56 +352,21 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
                                 <p className="text-[11px] leading-relaxed line-clamp-2 text-slate-600 dark:text-slate-400 font-medium">{desc || 'Nội dung chi tiết sẽ xuất hiện ở đây nè!'}</p>
                             </div>
                         </div>
-                        
-                        {/* Fake background items for realism */}
-                        <div className="opacity-40 pointer-events-none filter blur-[1px]">
-                             <div className="relative p-3 rounded-[1.2rem] bg-white/40 dark:bg-slate-800/40 border-transparent border-2 flex items-start gap-3">
-                                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-slate-200 dark:bg-slate-700 text-slate-400 shadow-sm border-2 border-white dark:border-slate-700">
-                                    <i className="fa-solid fa-check-circle text-base"></i>
-                                </div>
-                                <div className="flex-1 min-w-0 pt-0.5">
-                                    <div className="flex justify-between items-start gap-1 mb-0.5">
-                                        <h4 className="text-xs font-bold text-slate-600 dark:text-slate-300 leading-snug">Chào mừng bạn</h4>
-                                        <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500">10:00</span>
-                                    </div>
-                                    <p className="text-[11px] leading-relaxed line-clamp-2 text-slate-500 dark:text-slate-500">Hệ thống đã sẵn sàng sử dụng.</p>
-                                </div>
-                            </div>
-                        </div>
                     </div>
-                </div>
-
-                {/* Tips Card */}
-                <div className="mt-8 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-slate-700 dark:to-slate-700 p-6 rounded-[2.5rem] border border-amber-100 dark:border-slate-600 relative overflow-hidden group">
-                   <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-amber-200/50 dark:bg-slate-600 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700"></div>
-                   <h4 className="font-bold text-amber-800 dark:text-amber-400 mb-3 flex items-center gap-2 relative z-10">
-                      <i className="fa-solid fa-lightbulb text-xl animate-pulse"></i> Bí kíp của Bibi
-                   </h4>
-                   <ul className="space-y-3 text-xs font-bold text-slate-600 dark:text-slate-300 relative z-10">
-                      <li className="flex items-start gap-2">
-                         <span className="w-1.5 h-1.5 bg-amber-400 rounded-full mt-1.5 shrink-0"></span>
-                         <p>Thêm Emoji <span className="inline-block animate-bounce">✨</span> giúp tăng 20% tỷ lệ click đó nha!</p>
-                      </li>
-                      <li className="flex items-start gap-2">
-                         <span className="w-1.5 h-1.5 bg-amber-400 rounded-full mt-1.5 shrink-0"></span>
-                         Thông báo ngắn gọn (dưới 50 từ) sẽ dễ đọc hơn trên điện thoại.
-                      </li>
-                   </ul>
                 </div>
              </div>
           </div>
        </div>
     </div>
     
-    {/* Success Overlay - Rendered via Portal */}
     {showSuccess && createPortal(
         <div 
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/20 backdrop-blur-sm animate-in fade-in duration-300 cursor-pointer"
-          onClick={handleCloseSuccess} // Click backdrop to close
+          onClick={handleCloseSuccess}
         >
           <div 
             className="bg-white dark:bg-slate-800 p-10 rounded-[3rem] shadow-2xl flex flex-col items-center animate-in zoom-in duration-300 border-[8px] border-white dark:border-slate-700 cursor-default"
-            onClick={(e) => e.stopPropagation()} // Prevent close on content click
+            onClick={(e) => e.stopPropagation()}
           >
               <div className="w-28 h-28 bg-gradient-to-tr from-emerald-400 to-teal-500 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-emerald-200 dark:shadow-none">
                   <i className="fa-solid fa-paper-plane text-5xl text-white animate-bounce-slow"></i>

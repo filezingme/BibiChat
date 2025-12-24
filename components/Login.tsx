@@ -31,7 +31,6 @@ const Login: React.FC<Props> = ({ onLogin }) => {
           setIsRegister(false);
           setError('Đăng ký thành công! Đăng nhập đi nè.');
         } else {
-          // Token is saved inside apiService.login/register
           onLogin(result.user);
         }
       } else {
@@ -46,7 +45,6 @@ const Login: React.FC<Props> = ({ onLogin }) => {
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-[#f0f2f5] p-6 font-sans relative overflow-hidden">
-      {/* Background Decor - Vibrant Mesh */}
       <div className="absolute inset-0 z-0">
          <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-purple-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-40 animate-blob"></div>
          <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-blue-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-40 animate-blob animation-delay-2000"></div>
@@ -84,7 +82,15 @@ const Login: React.FC<Props> = ({ onLogin }) => {
                   required 
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)} 
-                  onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Vui lòng nhập email hợp lệ nhé!')}
+                  onInvalid={(e) => {
+                      const target = e.target as HTMLInputElement;
+                      target.setCustomValidity("");
+                      if (target.validity.valueMissing) {
+                          target.setCustomValidity("Vui lòng nhập email nhé!");
+                      } else if (target.validity.typeMismatch) {
+                          target.setCustomValidity("Email chưa đúng định dạng (thiếu @ hoặc domain)!");
+                      }
+                  }}
                   onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
                   className="block w-full pl-14 pr-6 py-4 bg-white border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-pink-100 focus:border-pink-500 outline-none text-base font-bold text-slate-800 placeholder:text-slate-400 transition-all" 
                   placeholder="Nhập địa chỉ email" 

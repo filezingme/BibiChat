@@ -14,7 +14,7 @@ import NotificationManager from './components/NotificationManager';
 import Leads from './components/Leads';
 import Login from './components/Login';
 import LandingPage from './components/LandingPage';
-import CommunityChat from './components/CommunityChat'; // Import new component
+import CommunityChat from './components/CommunityChat';
 import { TermsPage, PrivacyPage, ContactPage, DemoPage } from './components/LegalPages'; 
 import { View, Document, WidgetSettings, User, Notification, PluginConfig } from './types';
 import { apiService } from './services/apiService';
@@ -106,14 +106,12 @@ const App: React.FC = () => {
         else setIsOffline(true);
     });
 
-    // Logic riêng cho Embed Mode
     if (isEmbedMode && embedUserId) {
         document.body.style.backgroundColor = 'transparent';
         document.body.style.backgroundImage = 'none';
-        document.body.classList.remove('bg-slate-900', 'text-slate-100', 'dark:bg-slate-900'); // Remove dark mode/bg classes
+        document.body.classList.remove('bg-slate-900', 'text-slate-100', 'dark:bg-slate-900'); 
         document.documentElement.style.backgroundColor = 'transparent';
 
-        // Load settings
         const SERVER_URL = process.env.SERVER_URL || 'https://fuzzy-cosette-filezingme-org-64d51f5d.koyeb.app';
         fetch(`${SERVER_URL}/api/settings/${embedUserId}`)
             .then(r => r.json())
@@ -124,10 +122,9 @@ const App: React.FC = () => {
             })
             .catch(err => console.error("Failed to load settings in embed mode:", err));
             
-        return; // Stop further initialization if in embed mode
+        return; 
     }
 
-    // Logic Theme
     if (darkMode) {
       document.documentElement.classList.add('dark');
       localStorage.setItem('omnichat_theme', 'dark');
@@ -137,12 +134,10 @@ const App: React.FC = () => {
     }
   }, [darkMode, isEmbedMode, embedUserId]);
 
-  // Public Page Navigation Handler
   const handlePublicNavigate = (page: PublicViewType) => {
       window.location.hash = page === 'landing' ? '' : page;
   };
 
-  // Handle Hash Routing & Query Params
   useEffect(() => {
       const handleRouting = () => {
           const hash = window.location.hash.replace('#', '');
@@ -155,13 +150,11 @@ const App: React.FC = () => {
               } else if (hash === '' || hash === 'landing') {
                   setPublicView('landing');
               } else {
-                  // Default to landing for unknown routes in public mode
                   setPublicView('landing');
               }
               return;
           }
 
-          // If Logged In, redirect public routes to dashboard
           const publicViews: string[] = ['landing', 'login', 'terms', 'privacy', 'contact', 'demo'];
           if (publicViews.includes(hash) || hash === '') {
                window.location.hash = View.DASHBOARD;
@@ -170,11 +163,9 @@ const App: React.FC = () => {
 
           const chatUserParam = params.get('chatUser');
 
-          // Check Query Param for Chat User first
           if (chatUserParam) {
               setChatTargetId(chatUserParam);
               setCurrentView(View.DIRECT_MESSAGES);
-              // Ensure hash matches view if not already
               if(hash !== View.DIRECT_MESSAGES) {
                   window.history.replaceState(null, '', `#${View.DIRECT_MESSAGES}?chatUser=${chatUserParam}`);
               }
@@ -186,7 +177,6 @@ const App: React.FC = () => {
       };
 
       window.addEventListener('hashchange', handleRouting);
-      // Run once on load/change of auth state
       handleRouting(); 
       
       return () => {
@@ -194,20 +184,15 @@ const App: React.FC = () => {
       };
   }, [isLoggedIn]);
 
-  // --- RENDER FOR EMBED MODE ---
   if (isEmbedMode && embedUserId) {
       return (
-          // Use fixed positioning and pointer-events-none for the container to let clicks pass through
-          // Only the actual buttons/chat window will re-enable pointer-events
           <div className="bg-transparent h-screen w-full fixed inset-0 pointer-events-none flex items-end">
              <StandaloneChatWidget settings={settings} userId={embedUserId} />
           </div>
       );
   }
 
-  // --- NORMAL APP LOGIC (Only runs if NOT embed mode) ---
   useEffect(() => {
-    // Impersonation Logic
     const params = new URLSearchParams(window.location.search);
     const impersonateId = params.get('impersonate');
     
@@ -247,7 +232,6 @@ const App: React.FC = () => {
 
   }, []);
 
-  // Socket Listener
   useEffect(() => {
     if (isLoggedIn && currentUser && !isEmbedMode) {
       socketService.connect(currentUser.id);
@@ -314,14 +298,12 @@ const App: React.FC = () => {
     setIsLoggedIn(true);
     setCurrentUser(user);
     setSettings(user.botSettings);
-    // CRITICAL FIX: Ensure profile dropdown is closed when logging in or auto-logging in
     setIsProfileOpen(false); 
     
     localStorage.setItem('omnichat_user_id', user.id);
     localStorage.setItem('omnichat_user_role', user.role);
     const docs = await apiService.getDocuments(user.id);
     setDocuments(docs);
-    // Redirect to Dashboard on success
     window.location.hash = View.DASHBOARD;
   };
 
@@ -333,9 +315,7 @@ const App: React.FC = () => {
     setPublicView('landing'); 
     setNotifications([]); 
     socketService.disconnect();
-    window.location.hash = ''; // Return to landing
-    
-    // Clear query params on logout
+    window.location.hash = ''; 
     const url = new URL(window.location.href);
     url.search = '';
     window.history.replaceState({}, '', url.toString());
@@ -392,8 +372,6 @@ const App: React.FC = () => {
     window.location.hash = view;
     setIsMobileMenuOpen(false);
     if (view !== View.DASHBOARD) setSelectedCustomerIdForStats('all');
-    
-    // If navigating away from messages, clear the chatUser param
     if (view !== View.DIRECT_MESSAGES) {
         const url = new URL(window.location.href);
         url.searchParams.delete('chatUser');
@@ -409,11 +387,9 @@ const App: React.FC = () => {
 
   const handleStartChat = (userId: string) => {
       setChatTargetId(userId);
-      // Update URL immediately so reload works even before View loads fully
       const url = new URL(window.location.href);
       url.searchParams.set('chatUser', userId);
       window.history.pushState({}, '', url.toString());
-      
       handleViewChange(View.DIRECT_MESSAGES);
   };
 
@@ -457,7 +433,6 @@ const App: React.FC = () => {
     );
   }
 
-  // Main App Return (Dashboard, etc.)
   return (
     <div className={`flex h-screen w-full overflow-hidden relative font-sans antialiased transition-colors duration-500
       ${darkMode ? 'bg-slate-900 text-slate-100 selection:bg-purple-500 selection:text-white' : 'bg-[#f0f2f5] text-slate-700 selection:bg-pink-100 selection:text-pink-900'}
@@ -547,7 +522,6 @@ const App: React.FC = () => {
                     style={getNotifDropdownStyle()}
                     ref={notifRef}
                  >
-                    {/* ... (Existing Notification Popup Content) ... */}
                     <div className="px-5 py-3 border-b border-slate-100/50 dark:border-slate-700/50 flex justify-between items-center bg-gradient-to-r from-white/50 to-pink-50/50 dark:from-slate-800/50 dark:to-slate-800/30 relative z-20">
                        <h3 className="font-black text-base text-slate-800 dark:text-white flex items-center gap-2">
                           <span className="w-7 h-7 bg-pink-500 text-white rounded-lg flex items-center justify-center shadow-lg shadow-pink-200 dark:shadow-none text-xs"><i className="fa-solid fa-bell"></i></span>
@@ -601,13 +575,12 @@ const App: React.FC = () => {
                    <div className={`w-8 h-8 lg:w-9 lg:h-9 rounded-full flex items-center justify-center text-white text-xs lg:text-sm font-bold shadow-md border-2 border-white dark:border-slate-600 ${currentUser?.role === 'master' ? 'bg-gradient-to-tr from-slate-700 to-slate-900' : 'bg-gradient-to-tr from-pink-400 to-orange-400'}`}>
                       {currentUser?.email.substring(0, 1).toUpperCase()}
                    </div>
-                   {/* UPDATED: Profile Info */}
                    <div className="text-left hidden sm:block max-w-[150px]">
                       <p className="text-xs font-black text-slate-700 dark:text-slate-200 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transition-colors truncate">
                         {currentUser?.email}
                       </p>
                       <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 truncate">
-                        {currentUser?.role === 'master' ? 'System Admin' : currentUser?.botSettings.botName}
+                        {currentUser?.role === 'master' ? 'Quản trị viên' : currentUser?.botSettings.botName}
                       </p>
                    </div>
                    <i className={`fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform hidden sm:block ${isProfileOpen ? 'rotate-180' : ''}`}></i>
@@ -621,23 +594,21 @@ const App: React.FC = () => {
                         style={getDropdownStyle()}
                         ref={profileRef}
                     >
-                        {/* UPDATED: Profile Dropdown Design */}
                         <div className="p-5 bg-gradient-to-r from-pink-50 to-indigo-50 dark:from-slate-700/50 dark:to-slate-700 border-b border-slate-100 dark:border-slate-600 relative overflow-hidden flex items-center gap-4">
                             <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-md border-2 border-white dark:border-slate-600 shrink-0 ${currentUser?.role === 'master' ? 'bg-gradient-to-tr from-slate-700 to-slate-900' : 'bg-gradient-to-tr from-pink-400 to-orange-400'}`}>
                                 {currentUser?.email.substring(0, 1).toUpperCase()}
                             </div>
                             <div className="flex-1 min-w-0 z-10">
                                 <p className="text-sm font-black text-slate-800 dark:text-white truncate">
-                                    {currentUser?.role === 'master' ? 'Master Admin' : currentUser?.botSettings?.botName || 'Bibi Bot'}
+                                    {currentUser?.role === 'master' ? 'Quản trị viên cấp cao' : currentUser?.botSettings?.botName || 'Bibi Bot'}
                                 </p>
                                 <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate mb-1">
                                     {currentUser?.email}
                                 </p>
                                 <span className={`inline-block px-2 py-0.5 rounded-md text-[9px] font-bold border ${currentUser?.role === 'master' ? 'bg-slate-800 text-white border-slate-600' : 'bg-white/60 dark:bg-slate-800/60 text-indigo-500 border-indigo-100 dark:border-slate-600'}`}>
-                                    {currentUser?.role === 'master' ? 'System Access' : 'Business Account'}
+                                    {currentUser?.role === 'master' ? 'Quản trị hệ thống' : 'Tài khoản doanh nghiệp'}
                                 </span>
                             </div>
-                            {/* Decorative Blur */}
                             <div className="absolute top-0 right-0 w-24 h-24 bg-white/20 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
                         </div>
 
@@ -669,14 +640,12 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* RENDER CHAT WIDGET ONLY FOR NON-MASTER USERS */}
       {currentUser?.role !== 'master' && (
         <ChatWidget key={widgetRefreshKey} settings={settings} userId={currentUser!.id} />
       )}
 
       {showPasswordModal && (
         <div className="fixed inset-0 bg-slate-900/50 dark:bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-          {/* ... (Password Modal Content) ... */}
           <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 relative animate-in fade-in zoom-in duration-300 border-[6px] border-slate-100 dark:border-slate-700" onClick={e => e.stopPropagation()}>
             <button onClick={() => setShowPasswordModal(false)} className="absolute top-6 right-6 w-10 h-10 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-full flex items-center justify-center text-slate-500 dark:text-slate-400 transition-colors z-20"><i className="fa-solid fa-xmark text-lg"></i></button>
             <div className="text-center mb-6">
@@ -698,12 +667,10 @@ const App: React.FC = () => {
   );
 };
 
-// Specialized Standalone Widget Component for Embed Mode
 const StandaloneChatWidget: React.FC<{ settings: WidgetSettings, userId: string }> = ({ settings, userId }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [plugins, setPlugins] = useState<PluginConfig | null>(null);
     
-    // Check local storage for auto-open preference
     const [autoOpenBlocked, setAutoOpenBlocked] = useState(() => {
         return !!localStorage.getItem('bibichat_auto_open_blocked');
     });
@@ -718,15 +685,12 @@ const StandaloneChatWidget: React.FC<{ settings: WidgetSettings, userId: string 
         }
     };
     
-    // Fetch Plugins at the top level to control Auto Open from here
     useEffect(() => {
         const fetchPlugins = async () => {
             try {
                 const data = await apiService.getPlugins(userId);
                 setPlugins(data);
                 
-                // Handle Auto Open logic here in the container
-                // ONLY if not blocked by user preference
                 if (data.autoOpen?.enabled && !autoOpenBlocked) {
                     setTimeout(() => setIsOpen(true), data.autoOpen.delay * 1000);
                 }
@@ -738,29 +702,23 @@ const StandaloneChatWidget: React.FC<{ settings: WidgetSettings, userId: string 
     }, [userId]);
     
     useEffect(() => {
-        // Communicate state change to parent window (widget.js)
         window.parent.postMessage(isOpen ? 'bibichat-open' : 'bibichat-close', '*');
-        
-        // Always enforce position when state changes or loads
         setTimeout(() => {
              window.parent.postMessage({ type: 'bibichat-position', position: settings.position }, '*');
         }, 100);
         
     }, [isOpen, settings.position]);
 
-    // Update Flex Layout based on 8 positions
     let flexColClass = 'justify-end';
     let alignClass = 'items-end';
 
-    // Vertical alignment
     if (settings.position.includes('top')) flexColClass = 'justify-start';
     else if (settings.position.includes('bottom')) flexColClass = 'justify-end';
-    else flexColClass = 'justify-center'; // left-center, right-center
+    else flexColClass = 'justify-center';
 
-    // Horizontal alignment
     if (settings.position.includes('left')) alignClass = 'items-start';
     else if (settings.position.includes('right')) alignClass = 'items-end';
-    else alignClass = 'items-center'; // top-center, bottom-center
+    else alignClass = 'items-center'; 
 
     return (
         <div className={`h-full w-full flex flex-col ${flexColClass} ${alignClass} p-0 sm:p-4 bg-transparent pointer-events-auto`}>
@@ -772,9 +730,9 @@ const StandaloneChatWidget: React.FC<{ settings: WidgetSettings, userId: string 
                         forceOpen={true} 
                         onClose={() => setIsOpen(false)} 
                         isEmbed={true}
-                        initialPlugins={plugins} // Pass fetched plugins down to avoid refetch/delay
-                        onToggleAutoOpen={toggleAutoOpenBlock} // Pass toggle function
-                        isAutoOpenBlocked={autoOpenBlocked} // Pass state
+                        initialPlugins={plugins} 
+                        onToggleAutoOpen={toggleAutoOpenBlock} 
+                        isAutoOpenBlocked={autoOpenBlocked} 
                     />
                 </div>
             )}

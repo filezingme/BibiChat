@@ -13,19 +13,16 @@ interface Props {
 const WidgetConfig: React.FC<Props> = ({ settings, setSettings, user, onConfigSave }) => {
   const [activeTab, setActiveTab] = useState<'appearance' | 'plugins'>('appearance');
   
-  // Plugin State Management
   const [plugins, setPlugins] = useState<PluginConfig>({
       autoOpen: { enabled: false, delay: 5 },
       social: { enabled: false, zalo: '', phone: '' },
       leadForm: { enabled: false, title: 'Để lại thông tin để được tư vấn nhé!', trigger: 'manual' }
   });
   
-  // Auto-save State
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<number | null>(null);
   const isFirstLoad = useRef(true);
 
-  // Load Plugins on Mount
   useEffect(() => {
     const loadPlugins = async () => {
         const data = await apiService.getPlugins(user.id);
@@ -35,7 +32,6 @@ const WidgetConfig: React.FC<Props> = ({ settings, setSettings, user, onConfigSa
     loadPlugins();
   }, [user.id]);
 
-  // Auto-save logic for Plugins
   useEffect(() => {
       if (isFirstLoad.current) return;
 
@@ -45,14 +41,13 @@ const WidgetConfig: React.FC<Props> = ({ settings, setSettings, user, onConfigSa
           setIsSaving(false);
           setLastSaved(Date.now());
           if (onConfigSave) onConfigSave();
-      }, 200); // Reduced debounce to 200ms
+      }, 500); 
 
       return () => clearTimeout(timer);
   }, [plugins, user.id]);
 
   return (
     <div className="max-w-4xl mx-auto pb-12">
-      {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-8">
           <div className="flex-1">
               <h2 className="text-3xl font-black text-slate-800 dark:text-white mb-2 flex items-center gap-3">
@@ -76,7 +71,6 @@ const WidgetConfig: React.FC<Props> = ({ settings, setSettings, user, onConfigSa
           </div>
       </div>
 
-      {/* Tabs */}
       <div className="bg-white dark:bg-slate-800 p-2 rounded-2xl flex font-bold text-sm shadow-sm border border-slate-200 dark:border-slate-700 mb-8">
           <button 
               onClick={() => setActiveTab('appearance')}
@@ -92,10 +86,7 @@ const WidgetConfig: React.FC<Props> = ({ settings, setSettings, user, onConfigSa
           </button>
       </div>
       
-      {/* Content Area */}
       <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden relative">
-          
-          {/* Live Preview Hint */}
           <div className="absolute top-6 right-6 z-10 hidden lg:block animate-bounce-slow">
               <div className="bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2 opacity-80">
                   Nhìn xuống dưới kia kìa 
@@ -104,11 +95,8 @@ const WidgetConfig: React.FC<Props> = ({ settings, setSettings, user, onConfigSa
           </div>
 
           <div className="p-8">
-            {/* Tab Content: Appearance */}
             {activeTab === 'appearance' && (
                 <div className="space-y-10 animate-in fade-in slide-in-from-left-4 duration-300">
-                    
-                    {/* Color Picker */}
                     <div className="space-y-4">
                         <label className="block text-sm font-extrabold text-slate-500 dark:text-slate-400 uppercase ml-1">Màu sắc chủ đạo</label>
                         <div className="flex flex-wrap gap-4">
@@ -125,7 +113,6 @@ const WidgetConfig: React.FC<Props> = ({ settings, setSettings, user, onConfigSa
                         </div>
                     </div>
 
-                    {/* Bot Info */}
                     <div className="space-y-4">
                         <label className="block text-sm font-extrabold text-slate-500 dark:text-slate-400 uppercase ml-1">Thông tin Bot</label>
                         <div className="grid grid-cols-1 gap-6">
@@ -136,6 +123,8 @@ const WidgetConfig: React.FC<Props> = ({ settings, setSettings, user, onConfigSa
                                     placeholder="Tên Bot (VD: Trợ lý ảo)"
                                     value={settings.botName}
                                     onChange={(e) => setSettings({ ...settings, botName: e.target.value })}
+                                    onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Vui lòng nhập tên cho Bot nha!')}
+                                    onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
                                     className="w-full pl-12 pr-5 py-4 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-600 rounded-2xl focus:outline-none focus:border-indigo-500 font-bold text-slate-800 dark:text-white transition-all text-base"
                                 />
                             </div>
@@ -143,6 +132,8 @@ const WidgetConfig: React.FC<Props> = ({ settings, setSettings, user, onConfigSa
                                 <textarea 
                                     value={settings.welcomeMessage}
                                     onChange={(e) => setSettings({ ...settings, welcomeMessage: e.target.value })}
+                                    onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Đừng quên nhập lời chào mở đầu!')}
+                                    onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
                                     placeholder="Lời chào mặc định..."
                                     className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-600 rounded-3xl focus:outline-none focus:border-indigo-500 font-bold text-sm text-slate-700 dark:text-slate-200 resize-none min-h-[120px]"
                                 />
@@ -151,89 +142,46 @@ const WidgetConfig: React.FC<Props> = ({ settings, setSettings, user, onConfigSa
                         </div>
                     </div>
 
-                    {/* Position - 3x3 Grid Layout */}
                     <div className="space-y-4">
                         <label className="block text-sm font-extrabold text-slate-500 dark:text-slate-400 uppercase ml-1">Vị trí xuất hiện</label>
                         <div className="max-w-md mx-auto">
                             <div className="grid grid-cols-3 gap-3">
-                                {/* Top Row */}
-                                <button 
-                                    onClick={() => setSettings({ ...settings, position: 'top-left' })}
-                                    className={`aspect-square rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-1 ${settings.position === 'top-left' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
-                                >
-                                    <i className="fa-solid fa-arrow-up-long -rotate-45 text-lg"></i>
-                                    Trên Trái
-                                </button>
-                                <button 
-                                    onClick={() => setSettings({ ...settings, position: 'top-center' })}
-                                    className={`aspect-square rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-1 ${settings.position === 'top-center' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
-                                >
-                                    <i className="fa-solid fa-arrow-up-long text-lg"></i>
-                                    Trên Giữa
-                                </button>
-                                <button 
-                                    onClick={() => setSettings({ ...settings, position: 'top-right' })}
-                                    className={`aspect-square rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-1 ${settings.position === 'top-right' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
-                                >
-                                    <i className="fa-solid fa-arrow-up-long rotate-45 text-lg"></i>
-                                    Trên Phải
-                                </button>
-                                
-                                {/* Middle Row */}
-                                <button 
-                                    onClick={() => setSettings({ ...settings, position: 'left-center' })}
-                                    className={`aspect-square rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-1 ${settings.position === 'left-center' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
-                                >
-                                    <i className="fa-solid fa-arrow-left-long text-lg"></i>
-                                    Trái Giữa
-                                </button>
-                                
-                                {/* Screen Visual Placeholder */}
-                                <div className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center text-slate-300 dark:text-slate-600 bg-slate-50/50 dark:bg-slate-800/30">
-                                    <div className="w-8 h-6 border-2 border-current rounded-md mb-1 relative">
-                                        <div className="absolute top-1 left-1 right-1 h-0.5 bg-current rounded-full opacity-50"></div>
-                                        <div className="absolute top-2.5 left-1 right-3 h-0.5 bg-current rounded-full opacity-50"></div>
-                                    </div>
-                                    <span className="text-[10px] font-black uppercase tracking-wider">Màn hình</span>
-                                </div>
+                                {['top-left', 'top-center', 'top-right', 'left-center', 'screen', 'right-center', 'bottom-left', 'bottom-center', 'bottom-right'].map((pos, i) => {
+                                    if (pos === 'screen') return (
+                                        <div key={i} className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center text-slate-300 dark:text-slate-600 bg-slate-50/50 dark:bg-slate-800/30">
+                                            <div className="w-8 h-6 border-2 border-current rounded-md mb-1 relative">
+                                                <div className="absolute top-1 left-1 right-1 h-0.5 bg-current rounded-full opacity-50"></div>
+                                                <div className="absolute top-2.5 left-1 right-3 h-0.5 bg-current rounded-full opacity-50"></div>
+                                            </div>
+                                            <span className="text-[10px] font-black uppercase tracking-wider">Màn hình</span>
+                                        </div>
+                                    );
+                                    
+                                    const isActive = settings.position === pos || (pos === 'bottom-right' && settings.position === 'right' as any);
+                                    let icon = 'fa-arrow-up-long';
+                                    let rotate = '';
+                                    if(pos.includes('bottom')) { icon = 'fa-arrow-down-long'; }
+                                    if(pos.includes('left') && !pos.includes('center')) rotate = pos.includes('top') ? '-rotate-45' : 'rotate-45';
+                                    if(pos.includes('right') && !pos.includes('center')) rotate = pos.includes('top') ? 'rotate-45' : '-rotate-45';
+                                    if(pos === 'left-center') { icon = 'fa-arrow-left-long'; rotate=''; }
+                                    if(pos === 'right-center') { icon = 'fa-arrow-right-long'; rotate=''; }
 
-                                <button 
-                                    onClick={() => setSettings({ ...settings, position: 'right-center' })}
-                                    className={`aspect-square rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-1 ${settings.position === 'right-center' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
-                                >
-                                    <i className="fa-solid fa-arrow-right-long text-lg"></i>
-                                    Phải Giữa
-                                </button>
-
-                                {/* Bottom Row */}
-                                <button 
-                                    onClick={() => setSettings({ ...settings, position: 'bottom-left' })}
-                                    className={`aspect-square rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-1 ${settings.position === 'bottom-left' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
-                                >
-                                    <i className="fa-solid fa-arrow-down-long rotate-45 text-lg"></i>
-                                    Dưới Trái
-                                </button>
-                                <button 
-                                    onClick={() => setSettings({ ...settings, position: 'bottom-center' })}
-                                    className={`aspect-square rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-1 ${settings.position === 'bottom-center' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
-                                >
-                                    <i className="fa-solid fa-arrow-down-long text-lg"></i>
-                                    Dưới Giữa
-                                </button>
-                                <button 
-                                    onClick={() => setSettings({ ...settings, position: 'bottom-right' })}
-                                    className={`aspect-square rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-1 ${settings.position === 'bottom-right' || settings.position === 'right' as any ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
-                                >
-                                    <i className="fa-solid fa-arrow-down-long -rotate-45 text-lg"></i>
-                                    Dưới Phải
-                                </button>
+                                    return (
+                                        <button 
+                                            key={pos}
+                                            onClick={() => setSettings({ ...settings, position: pos as any })}
+                                            className={`aspect-square rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-1 ${isActive ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
+                                        >
+                                            <i className={`fa-solid ${icon} ${rotate} text-lg`}></i>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Tab Content: Plugins */}
             {activeTab === 'plugins' && (
                 <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
                     <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 p-4 rounded-2xl flex items-start gap-3">
@@ -241,7 +189,6 @@ const WidgetConfig: React.FC<Props> = ({ settings, setSettings, user, onConfigSa
                         <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">Mọi thay đổi sẽ được lưu tự động ngay lập tức.</p>
                     </div>
 
-                    {/* Auto Open */}
                     <div className="bg-slate-50 dark:bg-slate-700/30 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-700 hover:border-blue-200 transition-colors">
                         <div className="flex justify-between items-center mb-4">
                             <div className="flex items-center gap-3">
@@ -264,7 +211,6 @@ const WidgetConfig: React.FC<Props> = ({ settings, setSettings, user, onConfigSa
                         )}
                     </div>
 
-                    {/* Social */}
                     <div className="bg-slate-50 dark:bg-slate-700/30 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-700 hover:border-cyan-200 transition-colors">
                         <div className="flex justify-between items-center mb-4">
                             <div className="flex items-center gap-3">
@@ -281,13 +227,28 @@ const WidgetConfig: React.FC<Props> = ({ settings, setSettings, user, onConfigSa
                         </div>
                         {plugins.social.enabled && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in">
-                                <input type="text" placeholder="Số Zalo (VD: 097...)" value={plugins.social.zalo} onChange={e => setPlugins({...plugins, social: {...plugins.social, zalo: e.target.value}})} className="px-4 py-3 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-600 rounded-xl text-sm font-bold w-full outline-none focus:border-cyan-500" />
-                                <input type="text" placeholder="Hotline (VD: 1900...)" value={plugins.social.phone} onChange={e => setPlugins({...plugins, social: {...plugins.social, phone: e.target.value}})} className="px-4 py-3 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-600 rounded-xl text-sm font-bold w-full outline-none focus:border-cyan-500" />
+                                <input 
+                                    type="text" 
+                                    placeholder="Số Zalo (VD: 097...)" 
+                                    value={plugins.social.zalo} 
+                                    onChange={e => setPlugins({...plugins, social: {...plugins.social, zalo: e.target.value}})} 
+                                    className="px-4 py-3 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-600 rounded-xl text-sm font-bold w-full outline-none focus:border-cyan-500"
+                                    onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Nhập số Zalo để khách liên hệ nhé!')}
+                                    onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+                                />
+                                <input 
+                                    type="text" 
+                                    placeholder="Hotline (VD: 1900...)" 
+                                    value={plugins.social.phone} 
+                                    onChange={e => setPlugins({...plugins, social: {...plugins.social, phone: e.target.value}})} 
+                                    className="px-4 py-3 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-600 rounded-xl text-sm font-bold w-full outline-none focus:border-cyan-500"
+                                    onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Nhập số Hotline để hiển thị nha!')}
+                                    onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+                                />
                             </div>
                         )}
                     </div>
 
-                    {/* Lead Form */}
                     <div className="bg-slate-50 dark:bg-slate-700/30 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-700 hover:border-pink-200 transition-colors">
                         <div className="flex justify-between items-center mb-4">
                             <div className="flex items-center gap-3">
@@ -304,7 +265,15 @@ const WidgetConfig: React.FC<Props> = ({ settings, setSettings, user, onConfigSa
                         </div>
                         {plugins.leadForm.enabled && (
                             <div className="space-y-4 animate-in fade-in">
-                                <input type="text" value={plugins.leadForm.title} onChange={e => setPlugins({...plugins, leadForm: {...plugins.leadForm, title: e.target.value}})} className="w-full px-4 py-3 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-600 rounded-xl text-sm font-bold outline-none focus:border-pink-500" placeholder="Tiêu đề form" />
+                                <input 
+                                    type="text" 
+                                    value={plugins.leadForm.title} 
+                                    onChange={e => setPlugins({...plugins, leadForm: {...plugins.leadForm, title: e.target.value}})} 
+                                    className="w-full px-4 py-3 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-600 rounded-xl text-sm font-bold outline-none focus:border-pink-500" 
+                                    placeholder="Tiêu đề form"
+                                    onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Nhập tiêu đề để khách biết điền gì nha!')}
+                                    onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')} 
+                                />
                                 <div className="flex gap-4">
                                     <button onClick={() => setPlugins({...plugins, leadForm: {...plugins.leadForm, trigger: 'on_open'}})} className={`flex-1 py-3 rounded-xl text-sm font-bold border-2 transition-all ${plugins.leadForm.trigger === 'on_open' ? 'bg-pink-50 dark:bg-slate-800 border-pink-500 text-pink-600' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-600 text-slate-500'}`}>Tự động mở</button>
                                     <button onClick={() => setPlugins({...plugins, leadForm: {...plugins.leadForm, trigger: 'manual'}})} className={`flex-1 py-3 rounded-xl text-sm font-bold border-2 transition-all ${plugins.leadForm.trigger === 'manual' ? 'bg-pink-50 dark:bg-slate-800 border-pink-500 text-pink-600' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-600 text-slate-500'}`}>Hiện nút bấm</button>
