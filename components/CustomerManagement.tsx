@@ -25,10 +25,6 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
   const [newResetPassword, setNewResetPassword] = useState('');
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean, userId: string | null, email: string }>({ isOpen: false, userId: null, email: '' });
   
-  // New: Professional Password View Modal State
-  const [viewPassModal, setViewPassModal] = useState<{ isOpen: boolean, email: string, pass: string }>({ isOpen: false, email: '', pass: '' });
-  const [copySuccess, setCopySuccess] = useState(false);
-
   const [actionMsg, setActionMsg] = useState<{ type: string, text: string }>({ type: '', text: '' });
   
   // Loading state for modal actions
@@ -81,7 +77,7 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
       // Removed artificial delay
       const result = await apiService.resetUserPassword(resetModal.userId, newResetPassword);
       if (result.success) {
-        // Update local state immediately so "View Credentials" shows new password without reload
+        // Update local state immediately (although we don't show password anymore, it's good practice)
         setCustomers(prev => prev.map(c => 
             c.id === resetModal.userId ? { ...c, password: newResetPassword } : c
         ));
@@ -117,12 +113,6 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
     }
     setIsProcessing(false);
     setTimeout(() => setActionMsg({ type: '', text: '' }), 3000);
-  };
-
-  const handleCopyPassword = () => {
-      navigator.clipboard.writeText(viewPassModal.pass);
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
   };
 
   return (
@@ -237,24 +227,13 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
                     {/* Content still right-aligned to keep buttons tidy */}
                     <td className="px-6 py-4 rounded-r-2xl border-b border-slate-50 dark:border-slate-700/50 pr-8 text-right">
                       <div className="flex justify-end items-center gap-2">
-                        {/* New Chat Button */}
+                        {/* Chat Button */}
                         <button 
                           onClick={() => onStartChat(customer.id)}
                           className="w-10 h-10 flex items-center justify-center bg-teal-50 dark:bg-teal-900/20 text-teal-500 dark:text-teal-400 rounded-full hover:bg-teal-500 hover:text-white transition-all shadow-sm hover:scale-110 border border-teal-100 dark:border-transparent hover:border-teal-200"
                           title="Trò chuyện ngay"
                         >
                           <i className="fa-solid fa-comment-dots text-sm"></i>
-                        </button>
-
-                        <div className="w-[1px] h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
-
-                        {/* Improved Password View Button */}
-                        <button 
-                          onClick={() => setViewPassModal({ isOpen: true, email: customer.email, pass: customer.password || 'Trống' })}
-                          className="w-10 h-10 flex items-center justify-center bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 dark:text-indigo-400 rounded-full hover:bg-indigo-500 hover:text-white transition-all shadow-sm hover:scale-110 border border-indigo-100 dark:border-transparent hover:border-indigo-200"
-                          title="Xem thông tin đăng nhập"
-                        >
-                          <i className="fa-solid fa-id-card text-sm"></i>
                         </button>
 
                         <button 
@@ -355,59 +334,11 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
       </div>
     </div>
 
-      {/* Toast Notification & Modals... (Keep existing code) */}
+      {/* Toast Notification */}
       {actionMsg.text && createPortal(
         <div className={`fixed top-6 right-6 z-[9999] px-6 py-4 rounded-3xl shadow-xl border flex items-center animate-in slide-in-from-right duration-300 ${actionMsg.type === 'success' ? 'bg-white dark:bg-slate-800 border-emerald-100 dark:border-emerald-900 text-emerald-600 dark:text-emerald-400' : 'bg-white dark:bg-slate-800 border-rose-100 dark:border-rose-900 text-rose-600 dark:text-rose-400'}`}>
           <i className={`fa-solid ${actionMsg.type === 'success' ? 'fa-check-circle' : 'fa-heart-crack'} text-xl mr-3`}></i>
           <span className="font-bold text-sm">{actionMsg.text}</span>
-        </div>,
-        document.body
-      )}
-
-      {/* View Password Modal */}
-      {viewPassModal.isOpen && createPortal(
-        <div className="fixed inset-0 bg-slate-900/50 dark:bg-black/60 backdrop-blur-md z-[9999] flex items-center justify-center p-4" onClick={() => setViewPassModal({ ...viewPassModal, isOpen: false })}>
-          <div className="bg-white dark:bg-slate-800 w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 relative animate-in fade-in zoom-in duration-300 border border-white dark:border-slate-700" onClick={e => e.stopPropagation()}>
-             <button onClick={() => setViewPassModal({ ...viewPassModal, isOpen: false })} className="absolute top-6 right-6 w-10 h-10 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-full flex items-center justify-center text-slate-500 dark:text-slate-400 transition-colors z-20"><i className="fa-solid fa-xmark text-lg"></i></button>
-             
-             <div className="text-center mb-8">
-               <div className="w-20 h-20 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-3xl flex items-center justify-center mx-auto mb-5 text-3xl shadow-lg border-4 border-white dark:border-slate-600 transform -rotate-6">
-                 <i className="fa-solid fa-shield-cat"></i>
-               </div>
-               <h3 className="text-2xl font-black text-slate-800 dark:text-white">Thông tin bảo mật</h3>
-               <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mt-1">Thông tin đăng nhập của khách hàng.</p>
-             </div>
-
-             <div className="space-y-5">
-                <div>
-                    <label className="block text-xs font-extrabold text-slate-400 uppercase mb-2 ml-1">Email đăng nhập</label>
-                    <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border-2 border-slate-100 dark:border-slate-700 flex items-center gap-3">
-                        <i className="fa-solid fa-envelope text-slate-400"></i>
-                        <span className="font-bold text-slate-700 dark:text-slate-200 text-sm truncate">{viewPassModal.email}</span>
-                    </div>
-                </div>
-                <div>
-                    <label className="block text-xs font-extrabold text-slate-400 uppercase mb-2 ml-1">Mật khẩu hiện tại</label>
-                    <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border-2 border-indigo-100 dark:border-indigo-800 flex items-center justify-between group cursor-pointer relative overflow-hidden" onClick={handleCopyPassword}>
-                        <div className="flex items-center gap-3 relative z-10">
-                            <i className="fa-solid fa-key text-indigo-500"></i>
-                            <span className="font-mono font-bold text-indigo-700 dark:text-indigo-300 text-lg tracking-wider">{viewPassModal.pass}</span>
-                        </div>
-                        <button className="text-indigo-400 hover:text-indigo-600 transition-colors relative z-10">
-                            <i className={`fa-solid ${copySuccess ? 'fa-check' : 'fa-copy'} text-lg`}></i>
-                        </button>
-                        {copySuccess && <div className="absolute inset-0 bg-emerald-500 flex items-center justify-center text-white font-bold text-sm animate-in fade-in duration-200 z-20">Đã sao chép!</div>}
-                    </div>
-                </div>
-             </div>
-
-             <div className="mt-8 text-center">
-                <p className="text-xs text-slate-400 font-medium bg-slate-50 dark:bg-slate-900 py-2 px-4 rounded-xl inline-block border border-slate-100 dark:border-slate-700">
-                    <i className="fa-solid fa-lock mr-1.5"></i> 
-                    Chỉ xem khi thực sự cần thiết nhé!
-                </p>
-             </div>
-          </div>
         </div>,
         document.body
       )}

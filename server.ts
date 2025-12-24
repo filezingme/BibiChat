@@ -510,6 +510,7 @@ app.post('/api/notifications/create', async (req, res) => {
     res.json(newNotif);
 });
 
+// SECURITY FIX: Exclude password from user list
 app.get('/api/users', async (req, res) => {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10000;
@@ -525,7 +526,8 @@ app.get('/api/users', async (req, res) => {
     
     const [total, users] = await Promise.all([
         User.countDocuments(query),
-        User.find(query).skip((page - 1) * limit).limit(limit).lean()
+        // CRITICAL: Exclude password field
+        User.find(query).select('-password').skip((page - 1) * limit).limit(limit).lean()
     ]);
     
     res.json({ data: users, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } });
@@ -736,13 +738,20 @@ app.post('/api/register', async (req, res) => {
         id: randomUUID(),
         email, password, role: 'user', createdAt: Date.now()
     } as any);
-    res.json({ success: true, user: newUser });
+    
+    // SECURITY FIX: Remove password from response
+    const { password: _, ...userWithoutPass } = (newUser as any).toObject();
+    res.json({ success: true, user: userWithoutPass });
 });
 
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
     const user = await User.findOne({ email, password }).lean();
-    if (user) res.json({ success: true, user });
+    if (user) {
+        // SECURITY FIX: Remove password from response
+        const { password: _, ...userWithoutPass } = user;
+        res.json({ success: true, user: userWithoutPass });
+    }
     else res.status(401).json({ success: false, message: 'Sai thông tin đăng nhập' });
 });
 
