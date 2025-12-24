@@ -200,8 +200,26 @@ const ChatWidget: React.FC<Props> = ({ settings, userId, forceOpen, onClose, isE
                         <h4 className="font-bold text-slate-800 text-sm">{plugins.leadForm.title || "Vui lòng để lại thông tin"}</h4>
                      </div>
                      <form onSubmit={submitLead} className="space-y-3">
-                         <input required type="text" placeholder="Tên của bạn *" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-pink-400 font-bold" value={leadForm.name} onChange={e => setLeadForm({...leadForm, name: e.target.value})} />
-                         <input required type="tel" placeholder="Số điện thoại *" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-pink-400 font-bold" value={leadForm.phone} onChange={e => setLeadForm({...leadForm, phone: e.target.value})} />
+                         <input 
+                            required 
+                            type="text" 
+                            placeholder="Tên của bạn *" 
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-pink-400 font-bold" 
+                            value={leadForm.name} 
+                            onChange={e => setLeadForm({...leadForm, name: e.target.value})}
+                            onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Vui lòng cho mình biết tên bạn nhé!')}
+                            onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+                         />
+                         <input 
+                            required 
+                            type="tel" 
+                            placeholder="Số điện thoại *" 
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-pink-400 font-bold" 
+                            value={leadForm.phone} 
+                            onChange={e => setLeadForm({...leadForm, phone: e.target.value})}
+                            onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Nhập số điện thoại để mình gọi lại nha!')}
+                            onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+                         />
                          <input type="email" placeholder="Email (không bắt buộc)" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-pink-400 font-bold" value={leadForm.email} onChange={e => setLeadForm({...leadForm, email: e.target.value})} />
                          <button type="submit" className="w-full py-2.5 bg-pink-500 hover:bg-pink-600 text-white rounded-xl font-bold text-sm shadow-md transition-colors">Gửi thông tin</button>
                      </form>
@@ -364,8 +382,26 @@ const ChatWidget: React.FC<Props> = ({ settings, userId, forceOpen, onClose, isE
                         <h4 className="font-bold text-slate-800 text-sm">{plugins.leadForm.title || "Vui lòng để lại thông tin"}</h4>
                      </div>
                      <form onSubmit={submitLead} className="space-y-3">
-                         <input required type="text" placeholder="Tên của bạn *" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-pink-400 font-bold" value={leadForm.name} onChange={e => setLeadForm({...leadForm, name: e.target.value})} />
-                         <input required type="tel" placeholder="Số điện thoại *" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-pink-400 font-bold" value={leadForm.phone} onChange={e => setLeadForm({...leadForm, phone: e.target.value})} />
+                         <input 
+                            required 
+                            type="text" 
+                            placeholder="Tên của bạn *" 
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-pink-400 font-bold" 
+                            value={leadForm.name} 
+                            onChange={e => setLeadForm({...leadForm, name: e.target.value})}
+                            onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Vui lòng nhập tên của bạn nhé!')}
+                            onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+                         />
+                         <input 
+                            required 
+                            type="tel" 
+                            placeholder="Số điện thoại *" 
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-pink-400 font-bold" 
+                            value={leadForm.phone} 
+                            onChange={e => setLeadForm({...leadForm, phone: e.target.value})}
+                            onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Vui lòng nhập số điện thoại nhé!')}
+                            onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+                         />
                          <input type="email" placeholder="Email (không bắt buộc)" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-pink-400 font-bold" value={leadForm.email} onChange={e => setLeadForm({...leadForm, email: e.target.value})} />
                          <button type="submit" className="w-full py-2.5 bg-pink-500 hover:bg-pink-600 text-white rounded-xl font-bold text-sm shadow-md transition-colors">Gửi thông tin</button>
                      </form>

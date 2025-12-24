@@ -314,6 +314,9 @@ const App: React.FC = () => {
     setIsLoggedIn(true);
     setCurrentUser(user);
     setSettings(user.botSettings);
+    // CRITICAL FIX: Ensure profile dropdown is closed when logging in or auto-logging in
+    setIsProfileOpen(false); 
+    
     localStorage.setItem('omnichat_user_id', user.id);
     localStorage.setItem('omnichat_user_role', user.role);
     const docs = await apiService.getDocuments(user.id);
@@ -598,9 +601,13 @@ const App: React.FC = () => {
                    <div className={`w-8 h-8 lg:w-9 lg:h-9 rounded-full flex items-center justify-center text-white text-xs lg:text-sm font-bold shadow-md border-2 border-white dark:border-slate-600 ${currentUser?.role === 'master' ? 'bg-gradient-to-tr from-slate-700 to-slate-900' : 'bg-gradient-to-tr from-pink-400 to-orange-400'}`}>
                       {currentUser?.email.substring(0, 1).toUpperCase()}
                    </div>
-                   <div className="text-left hidden sm:block">
-                      <p className="text-xs font-bold text-slate-700 dark:text-slate-200 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transition-colors">
-                        {currentUser?.role === 'master' ? 'Admin' : 'Thông tin Bibi'}
+                   {/* UPDATED: Profile Info */}
+                   <div className="text-left hidden sm:block max-w-[150px]">
+                      <p className="text-xs font-black text-slate-700 dark:text-slate-200 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transition-colors truncate">
+                        {currentUser?.email}
+                      </p>
+                      <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 truncate">
+                        {currentUser?.role === 'master' ? 'System Admin' : currentUser?.botSettings.botName}
                       </p>
                    </div>
                    <i className={`fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform hidden sm:block ${isProfileOpen ? 'rotate-180' : ''}`}></i>
@@ -610,14 +617,30 @@ const App: React.FC = () => {
                   <>
                     <div className="fixed inset-0 z-[99999] bg-transparent" onClick={() => setIsProfileOpen(false)}></div>
                     <div 
-                        className="fixed w-64 bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden animate-in fade-in zoom-in duration-200 z-[100000]"
+                        className="fixed w-[280px] bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden animate-in fade-in zoom-in duration-200 z-[100000]"
                         style={getDropdownStyle()}
                         ref={profileRef}
                     >
-                        <div className="p-5 bg-gradient-to-r from-pink-50 to-indigo-50 dark:from-slate-700/50 dark:to-slate-700 border-b border-slate-100 dark:border-slate-600 relative overflow-hidden">
-                            <p className="text-base font-black text-slate-800 dark:text-white truncate relative z-10">{currentUser?.role === 'master' ? 'Bibi Admin' : `Bibi ${currentUser?.email.split('@')[0]}`}</p>
-                            <p className="text-sm font-bold text-slate-500 dark:text-slate-400 truncate relative z-10">{currentUser?.email}</p>
+                        {/* UPDATED: Profile Dropdown Design */}
+                        <div className="p-5 bg-gradient-to-r from-pink-50 to-indigo-50 dark:from-slate-700/50 dark:to-slate-700 border-b border-slate-100 dark:border-slate-600 relative overflow-hidden flex items-center gap-4">
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-md border-2 border-white dark:border-slate-600 shrink-0 ${currentUser?.role === 'master' ? 'bg-gradient-to-tr from-slate-700 to-slate-900' : 'bg-gradient-to-tr from-pink-400 to-orange-400'}`}>
+                                {currentUser?.email.substring(0, 1).toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0 z-10">
+                                <p className="text-sm font-black text-slate-800 dark:text-white truncate">
+                                    {currentUser?.role === 'master' ? 'Master Admin' : currentUser?.botSettings?.botName || 'Bibi Bot'}
+                                </p>
+                                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate mb-1">
+                                    {currentUser?.email}
+                                </p>
+                                <span className={`inline-block px-2 py-0.5 rounded-md text-[9px] font-bold border ${currentUser?.role === 'master' ? 'bg-slate-800 text-white border-slate-600' : 'bg-white/60 dark:bg-slate-800/60 text-indigo-500 border-indigo-100 dark:border-slate-600'}`}>
+                                    {currentUser?.role === 'master' ? 'System Access' : 'Business Account'}
+                                </span>
+                            </div>
+                            {/* Decorative Blur */}
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-white/20 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
                         </div>
+
                         <div className="p-2 space-y-1">
                             <button onClick={() => { setIsProfileOpen(false); setShowPasswordModal(true); }} className="w-full text-left px-4 py-3 rounded-2xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-slate-600 hover:text-indigo-600 dark:hover:text-white transition-colors flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500 flex items-center justify-center"><i className="fa-solid fa-key"></i></div>Đổi mật khẩu</button>
                             <button onClick={handleLogout} className="w-full text-left px-4 py-3 rounded-2xl text-sm font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:text-rose-600 transition-colors flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-rose-50 dark:bg-rose-900/30 text-rose-500 flex items-center justify-center"><i className="fa-solid fa-arrow-right-from-bracket"></i></div>Đăng xuất</button>

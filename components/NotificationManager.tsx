@@ -188,9 +188,12 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
                     <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 ml-2">Tiêu đề</label>
                     <div className="relative">
                         <input 
+                        required
                         type="text" 
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
+                        onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Vui lòng nhập tiêu đề thông báo!')}
+                        onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
                         placeholder="VD: Bảo trì hệ thống..." 
                         className="w-full pl-5 pr-12 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-600 rounded-2xl focus:border-indigo-500 font-bold text-sm text-slate-800 dark:text-white outline-none transition-all"
                         />
@@ -209,8 +212,11 @@ const NotificationManager: React.FC<Props> = ({ user }) => {
                 <div>
                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 ml-2">Nội dung</label>
                    <textarea 
+                      required
                       value={desc}
                       onChange={(e) => setDesc(e.target.value)}
+                      onInvalid={(e) => (e.target as HTMLTextAreaElement).setCustomValidity('Vui lòng nhập nội dung chi tiết!')}
+                      onInput={(e) => (e.target as HTMLTextAreaElement).setCustomValidity('')}
                       rows={5}
                       placeholder="Nhập nội dung chi tiết..." 
                       className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-600 rounded-2xl focus:border-indigo-500 font-medium text-sm text-slate-800 dark:text-white outline-none transition-all resize-none"

@@ -1,3 +1,4 @@
+
 import express, { RequestHandler, NextFunction } from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
@@ -60,11 +61,11 @@ const generateToken = (user: any) => {
 };
 
 // --- AUTH MIDDLEWARE (EXPRESS) ---
-interface AuthRequest extends express.Request {
-    user?: any;
-}
 
-const authenticateToken = (req: AuthRequest, res: express.Response, next: NextFunction) => {
+// Fix: Use 'any' for AuthRequest to avoid missing property errors (headers, body, etc.)
+type AuthRequest = any;
+
+const authenticateToken = (req: AuthRequest, res: any, next: NextFunction) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -317,7 +318,8 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-app.post('/api/user/change-password', authenticateToken as any, async (req: AuthRequest, res: express.Response) => {
+// Fix: Use AuthRequest (any) and res: any to prevent TS errors on body parsing and res.json
+app.post('/api/user/change-password', authenticateToken as any, async (req: AuthRequest, res: any) => {
     const { oldPassword, newPassword } = req.body;
     const userId = req.user.id; // From Token
     
@@ -334,7 +336,8 @@ app.post('/api/user/change-password', authenticateToken as any, async (req: Auth
 
 // --- PROTECTED ROUTES (Apply authenticateToken) ---
 
-app.get('/api/users', authenticateToken as any, async (req: AuthRequest, res: express.Response) => {
+// Fix: Use any for req/res to handle query params and response methods
+app.get('/api/users', authenticateToken as any, async (req: AuthRequest, res: any) => {
     // Only master can list users generally, or for search functionality
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10000;
@@ -359,7 +362,8 @@ app.get('/api/users', authenticateToken as any, async (req: AuthRequest, res: ex
 });
 
 // Direct Messaging (Protected)
-app.post('/api/dm/send', authenticateToken as any, async (req: AuthRequest, res: express.Response) => {
+// Fix: Use any for req/res
+app.post('/api/dm/send', authenticateToken as any, async (req: AuthRequest, res: any) => {
     const { receiverId, content, type, replyToId, groupId } = req.body;
     const senderId = req.user.id; // Enforce sender as authenticated user
 
@@ -378,7 +382,8 @@ app.post('/api/dm/send', authenticateToken as any, async (req: AuthRequest, res:
     res.json(newMessage);
 });
 
-app.get('/api/dm/history/:userId/:otherUserId', authenticateToken as any, async (req: AuthRequest, res: express.Response) => {
+// Fix: Use any for req/res
+app.get('/api/dm/history/:userId/:otherUserId', authenticateToken as any, async (req: AuthRequest, res: any) => {
     const { userId, otherUserId } = req.params;
     // Security check: Requesting user must be one of the participants
     if (req.user.id !== userId && req.user.id !== 'admin') {
@@ -400,7 +405,8 @@ app.get('/api/dm/history/:userId/:otherUserId', authenticateToken as any, async 
 });
 
 // Other routes (Settings, Plugins, Documents) - Protect specific routes
-app.post('/api/settings/:userId', authenticateToken as any, async (req: AuthRequest, res: express.Response) => {
+// Fix: Use any for req/res
+app.post('/api/settings/:userId', authenticateToken as any, async (req: AuthRequest, res: any) => {
     if(req.user.id !== req.params.userId && req.user.role !== 'master') return res.status(403).json({});
     await User.findOneAndUpdate({ id: req.params.userId }, { $set: { botSettings: req.body } }, { new: true, upsert: true });
     res.json({ success: true });
@@ -434,7 +440,8 @@ app.post('/api/chat', async (req, res) => {
 });
 
 // Admin routes protection
-app.delete('/api/admin/users/:id', authenticateToken as any, async (req: AuthRequest, res: express.Response) => {
+// Fix: Use any for req/res
+app.delete('/api/admin/users/:id', authenticateToken as any, async (req: AuthRequest, res: any) => {
     if (req.user.role !== 'master') return res.status(403).json({ error: "Admin only" });
     const userId = req.params.id;
     await User.findOneAndDelete({ id: userId });

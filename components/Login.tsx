@@ -84,6 +84,8 @@ const Login: React.FC<Props> = ({ onLogin }) => {
                   required 
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)} 
+                  onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Vui lòng nhập email hợp lệ nhé!')}
+                  onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
                   className="block w-full pl-14 pr-6 py-4 bg-white border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-pink-100 focus:border-pink-500 outline-none text-base font-bold text-slate-800 placeholder:text-slate-400 transition-all" 
                   placeholder="Nhập địa chỉ email" 
                 />
@@ -100,6 +102,8 @@ const Login: React.FC<Props> = ({ onLogin }) => {
                   required 
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)} 
+                  onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Đừng quên nhập mật khẩu nha!')}
+                  onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
                   className="block w-full pl-14 pr-6 py-4 bg-white border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-pink-100 focus:border-pink-500 outline-none text-base font-bold text-slate-800 placeholder:text-slate-400 transition-all" 
                   placeholder="••••••••" 
                 />
