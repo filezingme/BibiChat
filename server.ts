@@ -1,4 +1,4 @@
-import express, { RequestHandler, Request, Response, NextFunction } from 'express';
+import express, { RequestHandler, NextFunction } from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import multer from 'multer';
@@ -60,11 +60,11 @@ const generateToken = (user: any) => {
 };
 
 // --- AUTH MIDDLEWARE (EXPRESS) ---
-interface AuthRequest extends Request {
+interface AuthRequest extends express.Request {
     user?: any;
 }
 
-const authenticateToken = (req: AuthRequest, res: Response, next: NextFunction) => {
+const authenticateToken = (req: AuthRequest, res: express.Response, next: NextFunction) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -148,16 +148,12 @@ const Lead = mongoose.model('Lead', leadSchema);
 const Notification = mongoose.model('Notification', notificationSchema);
 const DirectMessage = mongoose.model('DirectMessage', directMessageSchema);
 
-// --- INIT ADMIN USER ---
+// --- INIT ADMIN USER (FORCED WIPE) ---
 const initDB = async () => {
-  // Check if the specific requested admin exists
-  const adminEmail = 'admin@bibichat.me';
-  const existingAdmin = await User.findOne({ email: adminEmail });
-
-  if (!existingAdmin) {
-    console.log("⚠️  Admin 'admin@bibichat.me' not found. INITIATING DATABASE RESET...");
-    
-    // Wipe everything to start fresh
+  console.log("🔥 FORCE WIPE INITIATED: Clearing all database collections...");
+  
+  try {
+    // 1. Delete ALL Data
     await Promise.all([
         User.deleteMany({}),
         Document.deleteMany({}),
@@ -166,27 +162,41 @@ const initDB = async () => {
         Notification.deleteMany({}),
         DirectMessage.deleteMany({})
     ]);
-    console.log("🧹 All existing data cleared.");
+    console.log("🧹 Database wiped successfully.");
 
-    console.log("✨ Creating new Master Admin: " + adminEmail);
-    const hashedPassword = await bcrypt.hash('123456', 10);
+    // 2. Create fresh Admin
+    const adminEmail = 'admin@bibichat.me';
+    const rawPassword = 'bangkieu';
+    
+    console.log(`✨ Creating Master Admin: ${adminEmail} / Password: ${rawPassword}`);
+    
+    const hashedPassword = await bcrypt.hash(rawPassword, 10);
+    
     await User.create({
       id: 'admin',
       email: adminEmail,
       password: hashedPassword,
       role: 'master',
-      botSettings: { botName: 'BibiBot', primaryColor: '#ec4899', welcomeMessage: 'Xin chào Admin!' },
+      createdAt: Date.now(),
+      botSettings: { 
+          botName: 'BibiBot', 
+          primaryColor: '#ec4899', 
+          welcomeMessage: 'Xin chào Admin! Hệ thống đã được làm mới.' 
+      },
       plugins: {
          autoOpen: { enabled: false, delay: 5 },
          social: { enabled: true, zalo: '0979116118', phone: '0979116118' },
          leadForm: { enabled: true, title: 'Để lại thông tin nhé!', trigger: 'manual' }
       }
     } as any);
-    console.log("✅ Database initialized successfully with new credentials!");
-  } else {
-      console.log("✅ Database already initialized.");
+    
+    console.log("✅ Database initialized! Ready to login.");
+  } catch (error) {
+    console.error("❌ Error initializing DB:", error);
   }
 };
+
+// Run Init
 initDB();
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -307,7 +317,7 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-app.post('/api/user/change-password', authenticateToken as any, async (req: AuthRequest, res: Response) => {
+app.post('/api/user/change-password', authenticateToken as any, async (req: AuthRequest, res: express.Response) => {
     const { oldPassword, newPassword } = req.body;
     const userId = req.user.id; // From Token
     
@@ -324,7 +334,7 @@ app.post('/api/user/change-password', authenticateToken as any, async (req: Auth
 
 // --- PROTECTED ROUTES (Apply authenticateToken) ---
 
-app.get('/api/users', authenticateToken as any, async (req: AuthRequest, res: Response) => {
+app.get('/api/users', authenticateToken as any, async (req: AuthRequest, res: express.Response) => {
     // Only master can list users generally, or for search functionality
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10000;
@@ -349,7 +359,7 @@ app.get('/api/users', authenticateToken as any, async (req: AuthRequest, res: Re
 });
 
 // Direct Messaging (Protected)
-app.post('/api/dm/send', authenticateToken as any, async (req: AuthRequest, res: Response) => {
+app.post('/api/dm/send', authenticateToken as any, async (req: AuthRequest, res: express.Response) => {
     const { receiverId, content, type, replyToId, groupId } = req.body;
     const senderId = req.user.id; // Enforce sender as authenticated user
 
@@ -368,7 +378,7 @@ app.post('/api/dm/send', authenticateToken as any, async (req: AuthRequest, res:
     res.json(newMessage);
 });
 
-app.get('/api/dm/history/:userId/:otherUserId', authenticateToken as any, async (req: AuthRequest, res: Response) => {
+app.get('/api/dm/history/:userId/:otherUserId', authenticateToken as any, async (req: AuthRequest, res: express.Response) => {
     const { userId, otherUserId } = req.params;
     // Security check: Requesting user must be one of the participants
     if (req.user.id !== userId && req.user.id !== 'admin') {
@@ -390,7 +400,7 @@ app.get('/api/dm/history/:userId/:otherUserId', authenticateToken as any, async 
 });
 
 // Other routes (Settings, Plugins, Documents) - Protect specific routes
-app.post('/api/settings/:userId', authenticateToken as any, async (req: AuthRequest, res: Response) => {
+app.post('/api/settings/:userId', authenticateToken as any, async (req: AuthRequest, res: express.Response) => {
     if(req.user.id !== req.params.userId && req.user.role !== 'master') return res.status(403).json({});
     await User.findOneAndUpdate({ id: req.params.userId }, { $set: { botSettings: req.body } }, { new: true, upsert: true });
     res.json({ success: true });
@@ -424,7 +434,7 @@ app.post('/api/chat', async (req, res) => {
 });
 
 // Admin routes protection
-app.delete('/api/admin/users/:id', authenticateToken as any, async (req: AuthRequest, res: Response) => {
+app.delete('/api/admin/users/:id', authenticateToken as any, async (req: AuthRequest, res: express.Response) => {
     if (req.user.role !== 'master') return res.status(403).json({ error: "Admin only" });
     const userId = req.params.id;
     await User.findOneAndDelete({ id: userId });

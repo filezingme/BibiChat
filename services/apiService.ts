@@ -10,8 +10,8 @@ const TOKEN_KEY = 'omnichat_jwt_token';
 // Offline fallback user
 const MASTER_USER: User = {
   id: 'admin',
-  email: 'admin@bibichat.me', // Updated to match server reset
-  password: '123456',
+  email: 'admin@bibichat.me', 
+  password: 'bangkieu', // Updated password
   role: 'master',
   createdAt: Date.now(),
   botSettings: { 
