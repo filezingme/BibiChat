@@ -9,7 +9,7 @@ interface Props {
 
 const LandingPage: React.FC<Props> = ({ onNavigate }) => {
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const SERVER_URL = process.env.SERVER_URL || "https://api.bibichat.me";
+  const SERVER_URL = process.env.SERVER_URL || "https://fuzzy-cosette-filezingme-org-64d51f5d.koyeb.app";
 
   useEffect(() => {
     const handleScroll = () => {

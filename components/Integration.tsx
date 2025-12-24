@@ -8,8 +8,8 @@ interface Props {
 const Integration: React.FC<Props> = ({ userId }) => {
   const [copied, setCopied] = useState(false);
   
-  // URL của Server Backend (Lấy từ biến môi trường hoặc fallback)
-  const SERVER_URL = process.env.SERVER_URL || "https://api.bibichat.me";
+  // URL của Server Backend (Lấy từ biến môi trường hoặc fallback về URL chính thức Koyeb)
+  const SERVER_URL = process.env.SERVER_URL || "https://fuzzy-cosette-filezingme-org-64d51f5d.koyeb.app";
   
   // Break script tag to prevent parsing issues
   const embedCode = `<!-- BibiChat Widget Embed Code -->
