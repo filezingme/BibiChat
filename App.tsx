@@ -137,11 +137,37 @@ const App: React.FC = () => {
     }
   }, [darkMode, isEmbedMode, embedUserId]);
 
+  // Public Page Navigation Handler
+  const handlePublicNavigate = (page: PublicViewType) => {
+      window.location.hash = page === 'landing' ? '' : page;
+  };
+
   // Handle Hash Routing & Query Params
   useEffect(() => {
       const handleRouting = () => {
           const hash = window.location.hash.replace('#', '');
           const params = new URLSearchParams(window.location.search);
+          
+          if (!isLoggedIn) {
+              const publicViews: PublicViewType[] = ['landing', 'login', 'terms', 'privacy', 'contact', 'demo'];
+              if (publicViews.includes(hash as PublicViewType)) {
+                  setPublicView(hash as PublicViewType);
+              } else if (hash === '' || hash === 'landing') {
+                  setPublicView('landing');
+              } else {
+                  // Default to landing for unknown routes in public mode
+                  setPublicView('landing');
+              }
+              return;
+          }
+
+          // If Logged In, redirect public routes to dashboard
+          const publicViews: string[] = ['landing', 'login', 'terms', 'privacy', 'contact', 'demo'];
+          if (publicViews.includes(hash) || hash === '') {
+               window.location.hash = View.DASHBOARD;
+               return;
+          }
+
           const chatUserParam = params.get('chatUser');
 
           // Check Query Param for Chat User first
@@ -154,19 +180,19 @@ const App: React.FC = () => {
               }
           } else if (Object.values(View).includes(hash as View)) {
               setCurrentView(hash as View);
-          } else if (hash === '') {
+          } else {
               setCurrentView(View.DASHBOARD);
           }
       };
 
       window.addEventListener('hashchange', handleRouting);
-      // Run once on load
+      // Run once on load/change of auth state
       handleRouting(); 
       
       return () => {
           window.removeEventListener('hashchange', handleRouting);
       };
-  }, []);
+  }, [isLoggedIn]);
 
   // --- RENDER FOR EMBED MODE ---
   if (isEmbedMode && embedUserId) {
@@ -286,13 +312,14 @@ const App: React.FC = () => {
 
   const handleLoginSuccess = async (user: User) => {
     setIsLoggedIn(true);
-    setPublicView('landing'); 
     setCurrentUser(user);
     setSettings(user.botSettings);
     localStorage.setItem('omnichat_user_id', user.id);
     localStorage.setItem('omnichat_user_role', user.role);
     const docs = await apiService.getDocuments(user.id);
     setDocuments(docs);
+    // Redirect to Dashboard on success
+    window.location.hash = View.DASHBOARD;
   };
 
   const handleLogout = () => {
@@ -303,7 +330,7 @@ const App: React.FC = () => {
     setPublicView('landing'); 
     setNotifications([]); 
     socketService.disconnect();
-    window.location.hash = '';
+    window.location.hash = ''; // Return to landing
     
     // Clear query params on logout
     const url = new URL(window.location.href);
@@ -410,15 +437,15 @@ const App: React.FC = () => {
   };
 
   if (!isLoggedIn) {
-    if (publicView === 'terms') return <TermsPage onNavigate={setPublicView} />;
-    if (publicView === 'privacy') return <PrivacyPage onNavigate={setPublicView} />;
-    if (publicView === 'contact') return <ContactPage onNavigate={setPublicView} />;
-    if (publicView === 'demo') return <DemoPage onNavigate={setPublicView} />;
-    if (publicView === 'landing') return <LandingPage onNavigate={setPublicView} />;
+    if (publicView === 'terms') return <TermsPage onNavigate={handlePublicNavigate} />;
+    if (publicView === 'privacy') return <PrivacyPage onNavigate={handlePublicNavigate} />;
+    if (publicView === 'contact') return <ContactPage onNavigate={handlePublicNavigate} />;
+    if (publicView === 'demo') return <DemoPage onNavigate={handlePublicNavigate} />;
+    if (publicView === 'landing') return <LandingPage onNavigate={handlePublicNavigate} />;
     return (
       <>
         <div className="absolute top-4 left-4 z-50">
-           <button onClick={() => setPublicView('landing')} className="px-4 py-2 bg-white/50 hover:bg-white rounded-xl text-sm font-bold text-slate-600 transition-all backdrop-blur-sm shadow-sm">
+           <button onClick={() => handlePublicNavigate('landing')} className="px-4 py-2 bg-white/50 hover:bg-white rounded-xl text-sm font-bold text-slate-600 transition-all backdrop-blur-sm shadow-sm">
              <i className="fa-solid fa-arrow-left mr-2"></i>Trang chủ
            </button>
         </div>
