@@ -206,7 +206,11 @@ const ChatWidget: React.FC<Props> = ({ settings, userId, forceOpen, onClose, isE
               <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleSend()} placeholder="Nhập tin nhắn..." className="flex-1 text-sm bg-transparent outline-none px-4 py-2 text-slate-700 placeholder:text-slate-400 font-medium" disabled={isLoading} />
               <button onClick={handleSend} className="w-10 h-10 rounded-full text-white flex items-center justify-center transition-transform active:scale-90 shadow-md" style={{ backgroundColor: settings.primaryColor }}><i className="fa-solid fa-paper-plane text-sm"></i></button>
             </div>
-             <div className="text-[10px] text-center text-slate-400 mt-2 font-bold flex items-center justify-center gap-1"><i className="fa-solid fa-bolt text-amber-400"></i> by BibiChat AI</div>
+             <div className="text-[10px] text-center text-slate-400 mt-2 font-bold flex items-center justify-center gap-1">
+                <a href="https://bibichat.me" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-amber-500 transition-colors">
+                    <i className="fa-solid fa-bolt text-amber-400"></i> by BibiChat AI
+                </a>
+             </div>
           </div>
         </div>
       );
@@ -349,7 +353,11 @@ const ChatWidget: React.FC<Props> = ({ settings, userId, forceOpen, onClose, isE
               <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleSend()} placeholder="Nhập tin nhắn..." className="flex-1 text-sm bg-transparent outline-none px-4 py-2 text-slate-700 placeholder:text-slate-400 font-medium" disabled={isLoading} />
               <button onClick={handleSend} className="w-10 h-10 rounded-full text-white flex items-center justify-center transition-transform active:scale-90 shadow-md" style={{ backgroundColor: settings.primaryColor }}><i className="fa-solid fa-paper-plane text-sm"></i></button>
             </div>
-            <div className="text-[10px] text-center text-slate-400 mt-2 font-bold flex items-center justify-center gap-1"><i className="fa-solid fa-bolt text-amber-400"></i> by BibiChat AI</div>
+            <div className="text-[10px] text-center text-slate-400 mt-2 font-bold flex items-center justify-center gap-1">
+                <a href="https://bibichat.me" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-amber-500 transition-colors">
+                    <i className="fa-solid fa-bolt text-amber-400"></i> by BibiChat AI
+                </a>
+            </div>
           </div>
         </div>
       )}

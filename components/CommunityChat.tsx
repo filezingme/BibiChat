@@ -76,17 +76,23 @@ const compressImage = async (file: File): Promise<File> => {
 
 // === COMPONENTS ===
 
-// Improved SafeImage
+// Improved SafeImage: Fix for Base64 not showing
 const SafeImage: React.FC<{ src: string; alt: string; className?: string; onClick?: () => void; onImageLoaded?: () => void }> = ({ src, alt, className, onClick, onImageLoaded }) => {
-    const [isLoaded, setIsLoaded] = useState(false);
+    // If it's a data URI (Base64), assume loaded immediately to prevent "opacity-0" getting stuck
+    const isDataUri = src?.startsWith('data:');
+    const [isLoaded, setIsLoaded] = useState(isDataUri);
     const [hasError, setHasError] = useState(false);
     const imgRef = useRef<HTMLImageElement>(null);
 
-    // Reset state when src changes
     useEffect(() => {
-        setIsLoaded(false);
+        // Reset state only if it's NOT a data URI (URLs need loading)
+        if (!isDataUri) {
+            setIsLoaded(false);
+        } else {
+            setIsLoaded(true);
+        }
         setHasError(false);
-    }, [src]);
+    }, [src, isDataUri]);
 
     return (
         <div className={`relative overflow-hidden bg-slate-200 dark:bg-slate-700 ${className}`} onClick={onClick}>
@@ -113,7 +119,7 @@ const SafeImage: React.FC<{ src: string; alt: string; className?: string; onClic
                     if(onImageLoaded) onImageLoaded();
                 }}
                 onError={() => {
-                    console.error("Image failed to load:", src.substring(0, 50) + "...");
+                    console.error("Image failed to load");
                     setHasError(true);
                 }}
                 draggable={false}
@@ -542,9 +548,11 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
     socketService.on('message_sent', (msg: DirectMessage) => {
          if (activeChatUser && msg.receiverId === activeChatUser.id) {
              setMessages(prev => {
+                 // Optimization: Don't compare 'content' for images (base64 is too long)
+                 // Use ID match or fuzzy match by timestamp/type/sender
                  const exists = prev.find(m => 
-                     (m.id === msg.id) || 
-                     (m.type === 'image' && m.content === msg.content && Math.abs(m.timestamp - msg.timestamp) < 5000)
+                     m.id === msg.id || 
+                     (m.type === 'image' && m.timestamp === msg.timestamp && m.senderId === msg.senderId)
                  );
                  if(exists) return prev; 
 

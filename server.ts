@@ -24,9 +24,9 @@ const io = new Server(httpServer, {
 
 const PORT = process.env.PORT || 3001;
 
-// CẤU HÌNH QUAN TRỌNG: URL của Frontend (Vercel)
-// Nếu không có biến môi trường, fallback về localhost để dev
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
+// CẤU HÌNH QUAN TRỌNG: URL của Frontend (Vercel/Custom Domain)
+// Nếu không có biến môi trường, fallback về localhost để dev hoặc domain production
+const CLIENT_URL = process.env.CLIENT_URL || 'https://bibichat.me';
 
 // Middleware
 app.use(cors({
@@ -178,8 +178,7 @@ initDB();
 const upload = multer({ storage: multer.memoryStorage() });
 
 // --- WIDGET SCRIPT ENDPOINT (QUAN TRỌNG) ---
-// ... (Keep existing widget code) ...
-// Endpoint này trả về mã JS để tạo iframe trỏ về CLIENT_URL (Vercel)
+// Endpoint này trả về mã JS để tạo iframe trỏ về CLIENT_URL (Vercel/Custom Domain)
 app.get('/widget.js', (req, res) => {
   const scriptContent = `
 (function() {
@@ -213,9 +212,11 @@ app.get('/widget.js', (req, res) => {
   container.style.background = 'transparent'; // Ensure container is transparent
   container.style.pointerEvents = 'none'; // Allow clicking through empty space initially
   
-  // IFRAME SOURCE TRỎ VỀ VERCEL
+  // IFRAME SOURCE TRỎ VỀ CLIENT_URL
+  // Xóa trailing slash nếu có để tránh lỗi 2 dấu //
+  var clientUrl = '${CLIENT_URL}'.replace(/\\/$/, '');
   var iframe = document.createElement('iframe');
-  iframe.src = '${CLIENT_URL}?mode=embed&userId=' + widgetId;
+  iframe.src = clientUrl + '?mode=embed&userId=' + widgetId;
   iframe.style.width = '100%';
   iframe.style.height = '100%';
   iframe.style.border = 'none';

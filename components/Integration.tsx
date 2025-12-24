@@ -9,7 +9,7 @@ const Integration: React.FC<Props> = ({ userId }) => {
   const [copied, setCopied] = useState(false);
   
   // URL của Server Backend (Lấy từ biến môi trường hoặc fallback)
-  const SERVER_URL = process.env.SERVER_URL || "https://fuzzy-cosette-filezingme-org-64d51f5d.koyeb.app";
+  const SERVER_URL = process.env.SERVER_URL || "https://api.bibichat.me";
   
   // Break script tag to prevent parsing issues
   const embedCode = `<!-- BibiChat Widget Embed Code -->

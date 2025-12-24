@@ -1,8 +1,9 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { User, Document, WidgetSettings, ChatLog, UserRole, Notification, Lead, PluginConfig, DirectMessage, ConversationUser, Reaction } from "../types";
 
-// URL Backend - Sử dụng biến môi trường hoặc fallback về Koyeb URL mặc định
-const API_URL = process.env.SERVER_URL || 'https://fuzzy-cosette-filezingme-org-64d51f5d.koyeb.app';
+// URL Backend - Sử dụng biến môi trường hoặc fallback về URL chính thức
+const API_URL = process.env.SERVER_URL || 'https://api.bibichat.me';
 const DB_KEY = 'omnichat_db_v1';
 
 const MASTER_USER: User = {

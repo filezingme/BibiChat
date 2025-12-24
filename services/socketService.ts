@@ -2,7 +2,7 @@
 import { io, Socket } from 'socket.io-client';
 
 // Use the same URL logic as apiService
-const SERVER_URL = process.env.SERVER_URL || 'https://fuzzy-cosette-filezingme-org-64d51f5d.koyeb.app';
+const SERVER_URL = process.env.SERVER_URL || 'https://api.bibichat.me';
 
 class SocketService {
   private socket: Socket | null = null;
