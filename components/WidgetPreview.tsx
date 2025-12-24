@@ -151,67 +151,83 @@ const WidgetConfig: React.FC<Props> = ({ settings, setSettings, user, onConfigSa
                         </div>
                     </div>
 
-                    {/* Position - Updated to 8 Positions */}
+                    {/* Position - 3x3 Grid Layout */}
                     <div className="space-y-4">
                         <label className="block text-sm font-extrabold text-slate-500 dark:text-slate-400 uppercase ml-1">Vị trí xuất hiện</label>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                            {/* Top Row */}
-                            <button 
-                                onClick={() => setSettings({ ...settings, position: 'top-left' })}
-                                className={`py-4 rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-2 ${settings.position === 'top-left' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
-                            >
-                                <i className="fa-solid fa-arrow-up-long -rotate-45 text-lg"></i> Trên Trái
-                            </button>
-                            <button 
-                                onClick={() => setSettings({ ...settings, position: 'top-center' })}
-                                className={`py-4 rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-2 ${settings.position === 'top-center' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
-                            >
-                                <i className="fa-solid fa-arrow-up-long text-lg"></i> Trên Giữa
-                            </button>
-                            <button 
-                                onClick={() => setSettings({ ...settings, position: 'top-right' })}
-                                className={`py-4 rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-2 ${settings.position === 'top-right' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
-                            >
-                                <i className="fa-solid fa-arrow-up-longQB rotate-45 text-lg"></i> Trên Phải
-                            </button>
-                            
-                            {/* Middle Row Placeholders or just layout mix */}
-                            <div className="hidden sm:block"></div> {/* Spacer to make grid nice if needed, but grid-cols-4 works */}
+                        <div className="max-w-md mx-auto">
+                            <div className="grid grid-cols-3 gap-3">
+                                {/* Top Row */}
+                                <button 
+                                    onClick={() => setSettings({ ...settings, position: 'top-left' })}
+                                    className={`aspect-square rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-1 ${settings.position === 'top-left' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
+                                >
+                                    <i className="fa-solid fa-arrow-up-long -rotate-45 text-lg"></i>
+                                    Trên Trái
+                                </button>
+                                <button 
+                                    onClick={() => setSettings({ ...settings, position: 'top-center' })}
+                                    className={`aspect-square rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-1 ${settings.position === 'top-center' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
+                                >
+                                    <i className="fa-solid fa-arrow-up-long text-lg"></i>
+                                    Trên Giữa
+                                </button>
+                                <button 
+                                    onClick={() => setSettings({ ...settings, position: 'top-right' })}
+                                    className={`aspect-square rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-1 ${settings.position === 'top-right' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
+                                >
+                                    <i className="fa-solid fa-arrow-up-long rotate-45 text-lg"></i>
+                                    Trên Phải
+                                </button>
+                                
+                                {/* Middle Row */}
+                                <button 
+                                    onClick={() => setSettings({ ...settings, position: 'left-center' })}
+                                    className={`aspect-square rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-1 ${settings.position === 'left-center' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
+                                >
+                                    <i className="fa-solid fa-arrow-left-long text-lg"></i>
+                                    Trái Giữa
+                                </button>
+                                
+                                {/* Screen Visual Placeholder */}
+                                <div className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center text-slate-300 dark:text-slate-600 bg-slate-50/50 dark:bg-slate-800/30">
+                                    <div className="w-8 h-6 border-2 border-current rounded-md mb-1 relative">
+                                        <div className="absolute top-1 left-1 right-1 h-0.5 bg-current rounded-full opacity-50"></div>
+                                        <div className="absolute top-2.5 left-1 right-3 h-0.5 bg-current rounded-full opacity-50"></div>
+                                    </div>
+                                    <span className="text-[10px] font-black uppercase tracking-wider">Màn hình</span>
+                                </div>
 
-                            {/* Left/Right Center */}
-                            <button 
-                                onClick={() => setSettings({ ...settings, position: 'left-center' })}
-                                className={`py-4 rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-2 ${settings.position === 'left-center' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
-                            >
-                                <i className="fa-solid fa-arrow-left-long text-lg"></i> Trái Giữa
-                            </button>
-                             <button 
-                                onClick={() => setSettings({ ...settings, position: 'right-center' })}
-                                className={`py-4 rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-2 ${settings.position === 'right-center' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
-                            >
-                                <i className="fa-solid fa-arrow-right-long text-lg"></i> Phải Giữa
-                            </button>
-                            <div className="hidden sm:block"></div> <div className="hidden sm:block"></div>
+                                <button 
+                                    onClick={() => setSettings({ ...settings, position: 'right-center' })}
+                                    className={`aspect-square rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-1 ${settings.position === 'right-center' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
+                                >
+                                    <i className="fa-solid fa-arrow-right-long text-lg"></i>
+                                    Phải Giữa
+                                </button>
 
-                            {/* Bottom Row */}
-                            <button 
-                                onClick={() => setSettings({ ...settings, position: 'bottom-left' })}
-                                className={`py-4 rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-2 ${settings.position === 'bottom-left' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
-                            >
-                                <i className="fa-solid fa-arrow-down-long rotate-45 text-lg"></i> Dưới Trái
-                            </button>
-                            <button 
-                                onClick={() => setSettings({ ...settings, position: 'bottom-center' })}
-                                className={`py-4 rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-2 ${settings.position === 'bottom-center' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
-                            >
-                                <i className="fa-solid fa-arrow-down-long text-lg"></i> Dưới Giữa
-                            </button>
-                            <button 
-                                onClick={() => setSettings({ ...settings, position: 'bottom-right' })}
-                                className={`py-4 rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-2 ${settings.position === 'bottom-right' || settings.position === 'right' as any ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
-                            >
-                                <i className="fa-solid fa-arrow-down-long -rotate-45 text-lg"></i> Dưới Phải
-                            </button>
+                                {/* Bottom Row */}
+                                <button 
+                                    onClick={() => setSettings({ ...settings, position: 'bottom-left' })}
+                                    className={`aspect-square rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-1 ${settings.position === 'bottom-left' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
+                                >
+                                    <i className="fa-solid fa-arrow-down-long rotate-45 text-lg"></i>
+                                    Dưới Trái
+                                </button>
+                                <button 
+                                    onClick={() => setSettings({ ...settings, position: 'bottom-center' })}
+                                    className={`aspect-square rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-1 ${settings.position === 'bottom-center' ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
+                                >
+                                    <i className="fa-solid fa-arrow-down-long text-lg"></i>
+                                    Dưới Giữa
+                                </button>
+                                <button 
+                                    onClick={() => setSettings({ ...settings, position: 'bottom-right' })}
+                                    className={`aspect-square rounded-2xl text-xs font-bold transition-all border-2 flex flex-col items-center justify-center gap-1 ${settings.position === 'bottom-right' || settings.position === 'right' as any ? 'bg-slate-800 dark:bg-indigo-600 border-slate-800 dark:border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'}`}
+                                >
+                                    <i className="fa-solid fa-arrow-down-long -rotate-45 text-lg"></i>
+                                    Dưới Phải
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
