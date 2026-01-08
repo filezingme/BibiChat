@@ -11,8 +11,13 @@ import { Buffer } from 'buffer';
 import { randomUUID } from 'crypto';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const httpServer = createServer(app); // Wrap express in HTTP server
@@ -25,7 +30,7 @@ const io = new Server(httpServer, {
   maxHttpBufferSize: 1e8 
 } as any);
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 const CLIENT_URL = process.env.CLIENT_URL || 'https://bibichat.me';
 const JWT_SECRET = process.env.JWT_SECRET || 'bibichat_super_secret_key_2025_change_me';
 
@@ -38,6 +43,13 @@ app.use(cors({
 
 app.use(express.json({ limit: '100mb' }) as any);
 app.use(express.urlencoded({ limit: '100mb', extended: true }) as any);
+
+// ===============================
+// SERVE FRONTEND (VITE BUILD)
+// ===============================
+const frontendDistPath = path.join(__dirname, '../dist');
+
+app.use(express.static(frontendDistPath));
 
 // --- MONGODB OPTIMIZATION ---
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/bibichat_local";
@@ -458,6 +470,16 @@ app.post('/api/upload/proxy', authenticateToken as any, upload.single('file') as
     if (!req.file) return res.status(400).json({ error: 'No file' });
     const b64 = Buffer.from(req.file.buffer).toString('base64');
     res.json({ url: `data:${req.file.mimetype};base64,${b64}` });
+});
+
+// ===============================
+// SPA FALLBACK (SERVE INDEX.HTML)
+// ===============================
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({ error: 'API not found' });
+  }
+  res.sendFile(path.join(frontendDistPath, 'index.html'));
 });
 
 httpServer.listen(PORT, () => {
