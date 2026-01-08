@@ -55,7 +55,7 @@ const frontendDistPath = path.join(__dirname, '../dist');
 app.use(express.static(frontendDistPath));
 
 // --- MONGODB OPTIMIZATION ---
-const MONGODB_URI = process.env.MONGODB_URI || "";
+const MONGODB_URI = process.env.MONGODB_URI || "hehe";
 
 mongoose.connect(MONGODB_URI, {
   maxPoolSize: 100,
