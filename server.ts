@@ -34,8 +34,8 @@ const io = new Server(httpServer, {
 } as any);
 
 const PORT = process.env.PORT || 3000;
-const CLIENT_URL = process.env.CLIENT_URL || 'https://bibichat.me';
-const JWT_SECRET = process.env.JWT_SECRET || 'bibichat_super_secret_key_2025_change_me';
+const CLIENT_URL = process.env.CLIENT_URL || '';
+const JWT_SECRET = process.env.JWT_SECRET || '';
 
 // Middleware
 app.use(cors({
@@ -55,7 +55,7 @@ const frontendDistPath = path.join(__dirname, '../dist');
 app.use(express.static(frontendDistPath));
 
 // --- MONGODB OPTIMIZATION ---
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/bibichat_local";
+const MONGODB_URI = process.env.MONGODB_URI || "";
 
 mongoose.connect(MONGODB_URI, {
   maxPoolSize: 100,
