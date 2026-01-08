@@ -16,6 +16,9 @@ import { fileURLToPath } from 'url';
 
 dotenv.config();
 
+// ===============================
+// ES MODULE PATH RESOLUTION
+// ===============================
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -476,9 +479,19 @@ app.post('/api/upload/proxy', authenticateToken as any, upload.single('file') as
 // SPA FALLBACK (SERVE INDEX.HTML)
 // ===============================
 app.get('*', (req, res) => {
+  const host = req.hostname;
+
+  // api subdomain → API only
+  if (host.startsWith('api.')) {
+    return res.status(404).json({ error: 'API endpoint not found' });
+  }
+
+  // /api nhưng route không tồn tại
   if (req.path.startsWith('/api')) {
     return res.status(404).json({ error: 'API not found' });
   }
+
+  // Frontend SPA
   res.sendFile(path.join(frontendDistPath, 'index.html'));
 });
 
