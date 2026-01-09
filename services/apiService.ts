@@ -3,15 +3,15 @@ import { GoogleGenAI } from "@google/genai";
 import { User, Document, WidgetSettings, ChatLog, UserRole, Notification, Lead, PluginConfig, DirectMessage, ConversationUser, Reaction } from "../types";
 
 // URL Backend
-const API_URL = process.env.SERVER_URL || 'https://fuzzy-cosette-filezingme-org-64d51f5d.koyeb.app';
-const DB_KEY = 'omnichat_db_v1';
-const TOKEN_KEY = 'omnichat_jwt_token';
+const API_URL = process.env.SERVER_URL || '';
+const DB_KEY = 'bibichat_db_v1';
+const TOKEN_KEY = 'bibichat_jwt_token';
 
 // Offline fallback user
 const MASTER_USER: User = {
   id: 'admin',
   email: 'admin@bibichat.me', 
-  password: 'bangkieu', // Updated password
+  password: 'bangkieu', 
   role: 'master',
   createdAt: Date.now(),
   botSettings: { 
@@ -104,6 +104,7 @@ export const apiService = {
               headers: getAuthHeaders(),
               body: JSON.stringify({ email })
           });
+          if (!res.ok) return { success: false, message: 'Not found' };
           return await res.json();
       } catch (e) {
           return { success: false, message: 'Lỗi kết nối.' };
@@ -113,7 +114,9 @@ export const apiService = {
   getConversations: async (userId: string): Promise<ConversationUser[]> => {
       try {
           const res = await fetch(`${API_URL}/api/dm/conversations/${userId}`, { headers: getAuthHeaders() });
-          return await res.json();
+          if (!res.ok) return [];
+          const data = await res.json();
+          return Array.isArray(data) ? data : [];
       } catch (e) {
           return [];
       }
@@ -122,11 +125,9 @@ export const apiService = {
   getDirectMessages: async (userId: string, otherUserId: string): Promise<DirectMessage[]> => {
       try {
           const res = await fetch(`${API_URL}/api/dm/history/${userId}/${otherUserId}`, { headers: getAuthHeaders() });
-          if (res.status === 403) {
-              console.error("Unauthorized access to chat history");
-              return [];
-          }
-          return await res.json();
+          if (res.status === 403) return [];
+          const data = await res.json();
+          return Array.isArray(data) ? data : [];
       } catch (e) {
           return [];
       }
@@ -134,7 +135,6 @@ export const apiService = {
 
   sendDirectMessage: async (senderId: string, receiverId: string, content: string, type: 'text' | 'sticker' | 'image' = 'text', replyToId?: string, groupId?: string): Promise<DirectMessage> => {
       try {
-          // senderId is ignored by server in favor of token ID, but keeping signature for compat
           const res = await fetch(`${API_URL}/api/dm/send`, {
               method: 'POST',
               headers: getAuthHeaders(),
@@ -331,8 +331,6 @@ export const apiService = {
     }
   },
 
-  // ... (Chat logs, leads, notifications also need getAuthHeaders added similarly) ...
-  // Keeping brevity for existing public/protected mixed methods
   getChatSessionsPaginated: async (userId: string | 'all', page: number, limit: number, filterUserId: string = 'all'): Promise<{ data: any[], pagination: any }> => {
       try {
           const res = await fetch(`${API_URL}/api/chat-sessions/${userId}?page=${page}&limit=${limit}&filterUserId=${filterUserId}`, { headers: getAuthHeaders() });
@@ -346,13 +344,13 @@ export const apiService = {
   getChatMessages: async (userId: string | 'all', sessionId: string): Promise<ChatLog[]> => {
       try {
           const res = await fetch(`${API_URL}/api/chat-messages/${userId}/${sessionId}`, { headers: getAuthHeaders() });
-          return await res.json();
+          const data = await res.json();
+          return Array.isArray(data) ? data : [];
       } catch (e) {
           return [];
       }
   },
   
-  // Chat Widget Public
   chat: async (userId: string, message: string, botName: string, sessionId: string): Promise<string> => {
       try {
           const res = await fetch(`${API_URL}/api/chat`, {
@@ -367,11 +365,11 @@ export const apiService = {
       }
   },
 
-  // Notifications
   getNotifications: async (userId: string): Promise<Notification[]> => {
       try {
           const res = await fetch(`${API_URL}/api/notifications/${userId}`, { headers: getAuthHeaders() });
-          return await res.json();
+          const data = await res.json();
+          return Array.isArray(data) ? data : [];
       } catch (e) {
           return [];
       }
@@ -408,18 +406,17 @@ export const apiService = {
       } catch (e) {}
   },
   
-  // Leads
   getLeadsPaginated: async (userId: string, page: number, limit: number, search: string = ''): Promise<{ data: Lead[], pagination: any }> => {
     try {
         const res = await fetch(`${API_URL}/api/leads/${userId}?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`, { headers: getAuthHeaders() });
-        return await res.json();
+        const data = await res.json();
+        return { data: Array.isArray(data.data) ? data.data : [], pagination: data.pagination || {} };
     } catch (e) {
         return { data: [], pagination: {} };
     }
   },
   
   submitLead: async (userId: string, name: string, phone: string, email: string, isTest: boolean = false): Promise<Lead> => {
-    // Public endpoint for widget
     try {
         const res = await fetch(`${API_URL}/api/leads`, {
             method: 'POST',
@@ -449,11 +446,11 @@ export const apiService = {
     } catch (e) {}
   },
 
-  // Documents
   getDocuments: async (userId: string): Promise<Document[]> => {
     try {
       const res = await fetch(`${API_URL}/api/documents/${userId}`, { headers: getAuthHeaders() });
-      return await res.json();
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     } catch (e) {
       return [];
     }
@@ -477,10 +474,9 @@ export const apiService = {
   },
   
   getLeadsCount: async (userId: string, period: string): Promise<number> => {
-      // Basic implementation for stats
       try {
         const res = await apiService.getLeadsPaginated(userId, 1, 2000, ''); 
-        return res.data.length; // Simplified
+        return res.data.length; 
       } catch (e) { return 0; }
   },
   
@@ -488,8 +484,8 @@ export const apiService = {
       try {
           const res = await fetch(`${API_URL}/api/chat-logs/${userId}`, { headers: getAuthHeaders() });
           if (!res.ok) return [];
-          const logs: ChatLog[] = await res.json();
-          // ... (simple stats logic same as before, simplified here)
+          const logs = await res.json();
+          if(!Array.isArray(logs)) return [];
           return [{ label: 'Total', queries: logs.length, solved: logs.length, timestamp: Date.now() }];
       } catch (e) {
           return [];

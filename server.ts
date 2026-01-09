@@ -35,7 +35,7 @@ const io = new Server(httpServer, {
 
 const PORT = process.env.PORT || 3000;
 const CLIENT_URL = process.env.CLIENT_URL || '';
-const JWT_SECRET = process.env.JWT_SECRET || '';
+const JWT_SECRET = process.env.JWT_SECRET || 'bibichat_secret';
 
 // Middleware
 app.use(cors({
@@ -55,7 +55,7 @@ const frontendDistPath = path.join(__dirname, '../dist');
 app.use(express.static(frontendDistPath));
 
 // --- MONGODB OPTIMIZATION ---
-const MONGODB_URI = process.env.MONGODB_URI || "hehe";
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/bibichat_local";
 
 mongoose.connect(MONGODB_URI, {
   maxPoolSize: 100,
@@ -77,7 +77,7 @@ const generateToken = (user: any) => {
 // --- AUTH MIDDLEWARE (EXPRESS) ---
 type AuthRequest = any;
 
-const authenticateToken = (req: AuthRequest, res: any, next: NextFunction) => {
+const authenticateToken = (req: AuthRequest, res: any, next: any) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -475,23 +475,118 @@ app.post('/api/upload/proxy', authenticateToken as any, upload.single('file') as
     res.json({ url: `data:${req.file.mimetype};base64,${b64}` });
 });
 
+// --- NEW DM ROUTES TO PREVENT CRASH ---
+
+// Find User for DM
+app.post('/api/dm/find', authenticateToken as any, async (req: AuthRequest, res: any) => {
+    const { email } = req.body;
+    const user = await User.findOne({ email }).select('id email role');
+    if (!user) return res.json({ success: false, message: 'User not found' });
+    res.json({ success: true, user });
+});
+
+// Get Conversations (Last message per user)
+app.get('/api/dm/conversations/:userId', authenticateToken as any, async (req: AuthRequest, res: any) => {
+    const { userId } = req.params;
+    
+    const conversations = await DirectMessage.aggregate([
+        { $match: { $or: [{ senderId: userId }, { receiverId: userId }] } },
+        { $sort: { timestamp: -1 } },
+        {
+            $group: {
+                _id: { $cond: { if: { $eq: ["$senderId", userId] }, then: "$receiverId", else: "$senderId" } },
+                lastMessage: { $first: "$content" },
+                lastMessageTime: { $first: "$timestamp" },
+                type: { $first: "$type" },
+                isRead: { $first: "$isRead" },
+                senderId: { $first: "$senderId" }
+            }
+        }
+    ]);
+
+    const results = await Promise.all(conversations.map(async (conv) => {
+        const user = await User.findOne({ id: conv._id }).select('id email role');
+        if (!user) return null;
+        const unreadCount = await DirectMessage.countDocuments({ senderId: conv._id, receiverId: userId, isRead: false });
+        return {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+            lastMessage: conv.type === 'image' ? '[Hình ảnh]' : (conv.type === 'sticker' ? '[Sticker]' : conv.lastMessage),
+            lastMessageTime: conv.lastMessageTime,
+            unreadCount
+        };
+    }));
+
+    res.json(results.filter(r => r !== null).sort((a: any, b: any) => b.lastMessageTime - a.lastMessageTime));
+});
+
+// Get Messages History
+app.get('/api/dm/history/:userId/:otherUserId', authenticateToken as any, async (req: AuthRequest, res: any) => {
+    const { userId, otherUserId } = req.params;
+    if (req.user.id !== userId && req.user.id !== 'admin' && req.user.role !== 'master') return res.status(403).json({ error: "Unauthorized" });
+
+    await DirectMessage.updateMany({ senderId: otherUserId, receiverId: userId, isRead: false }, { isRead: true });
+    
+    const messages = await DirectMessage.find({
+        $or: [
+            { senderId: userId, receiverId: otherUserId },
+            { senderId: otherUserId, receiverId: userId }
+        ]
+    }).sort({ timestamp: 1 }).limit(200).lean(); // Limit history
+    res.json(messages);
+});
+
+// Send Message
+app.post('/api/dm/send', authenticateToken as any, async (req: AuthRequest, res: any) => {
+    const { receiverId, content, type, replyToId, groupId } = req.body;
+    const senderId = req.user.id; 
+
+    const newMessage = await DirectMessage.create({
+        id: randomUUID(),
+        senderId, receiverId, content, timestamp: Date.now(), isRead: false,
+        type: type || 'text', replyToId: replyToId || null, reactions: [], groupId: groupId || null
+    } as any);
+
+    const payload = { ... (newMessage as any).toObject(), replyToContent: null };
+    io.to(receiverId).emit('direct_message', payload);
+    io.to(senderId).emit('message_sent', payload); // For multi-tab sync
+
+    res.json(newMessage);
+});
+
+// Unread Count
+app.get('/api/dm/unread/:userId', authenticateToken as any, async (req: AuthRequest, res: any) => {
+    const count = await DirectMessage.countDocuments({ receiverId: req.params.userId, isRead: false });
+    res.json({ count });
+});
+
+// React
+app.post('/api/dm/react', authenticateToken as any, async (req: AuthRequest, res: any) => {
+    const { messageId, userId, emoji } = req.body;
+    const msg = await DirectMessage.findOne({ id: messageId });
+    if (!msg) return res.status(404).json({ success: false });
+
+    const existingIdx = msg.reactions.findIndex((r: any) => r.userId === userId);
+    if (existingIdx > -1) {
+        if (msg.reactions[existingIdx].emoji === emoji) msg.reactions.splice(existingIdx, 1);
+        else msg.reactions[existingIdx].emoji = emoji;
+    } else {
+        msg.reactions.push({ userId, emoji });
+    }
+    msg.markModified('reactions');
+    await msg.save();
+    io.emit('message_reaction', { messageId, reactions: msg.reactions });
+    res.json({ success: true });
+});
+
 // ===============================
 // SPA FALLBACK (SERVE INDEX.HTML)
 // ===============================
 app.get('*', (req, res) => {
   const host = req.hostname;
-
-  // api subdomain → API only
-  if (host.startsWith('api.')) {
-    return res.status(404).json({ error: 'API endpoint not found' });
-  }
-
-  // /api nhưng route không tồn tại
-  if (req.path.startsWith('/api')) {
-    return res.status(404).json({ error: 'API not found' });
-  }
-
-  // Frontend SPA
+  if (host.startsWith('api.')) return res.status(404).json({ error: 'API endpoint not found' });
+  if (req.path.startsWith('/api')) return res.status(404).json({ error: 'API not found' });
   res.sendFile(path.join(frontendDistPath, 'index.html'));
 });
 
