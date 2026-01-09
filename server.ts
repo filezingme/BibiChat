@@ -52,7 +52,7 @@ app.use(express.urlencoded({ limit: '100mb', extended: true }) as any);
 // ===============================
 const frontendDistPath = path.join(__dirname, '../dist');
 
-app.use(express.static(frontendDistPath));
+app.use(express.static(frontendDistPath) as any);
 
 // --- MONGODB OPTIMIZATION ---
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/bibichat_local";

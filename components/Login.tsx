@@ -29,7 +29,8 @@ const Login: React.FC<Props> = ({ onLogin }) => {
       if (result.success) {
         if (isRegister) {
           setIsRegister(false);
-          setError('Đăng ký thành công! Đăng nhập đi nè.');
+          // Hiển thị message từ server (để biết là Offline hay Online)
+          setError(result.message || 'Đăng ký thành công! Đăng nhập đi nè.');
         } else {
           onLogin(result.user);
         }
@@ -64,8 +65,8 @@ const Login: React.FC<Props> = ({ onLogin }) => {
 
         <form className="space-y-6" onSubmit={handleSubmit}>
           {error && (
-            <div className={`p-4 rounded-2xl text-sm font-bold flex items-center ${error.includes('thành công') ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-rose-50 text-rose-600 border border-rose-200'}`}>
-              <i className={`fa-solid ${error.includes('thành công') ? 'fa-check-circle' : 'fa-circle-exclamation'} mr-3 text-lg`}></i>
+            <div className={`p-4 rounded-2xl text-sm font-bold flex items-center ${error.toLowerCase().includes('thành công') ? (error.includes('Offline') ? 'bg-amber-50 text-amber-600 border border-amber-200' : 'bg-emerald-50 text-emerald-600 border border-emerald-200') : 'bg-rose-50 text-rose-600 border border-rose-200'}`}>
+              <i className={`fa-solid ${error.toLowerCase().includes('thành công') ? (error.includes('Offline') ? 'fa-triangle-exclamation' : 'fa-check-circle') : 'fa-circle-exclamation'} mr-3 text-lg`}></i>
               {error}
             </div>
           )}
