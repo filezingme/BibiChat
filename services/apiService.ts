@@ -7,7 +7,7 @@ const API_URL = process.env.SERVER_URL || '';
 const DB_KEY = 'bibichat_db_v1';
 const TOKEN_KEY = 'bibichat_jwt_token';
 
-// Offline fallback user
+// Offline fallback user (Chỉ dùng cho hàm getAllUsers khi mất kết nối để không crash UI admin)
 const MASTER_USER: User = {
   id: 'admin',
   email: 'admin@bibichat.me', 
@@ -36,20 +36,6 @@ const getLocalDB = () => {
     if (!db.chatLogs) db.chatLogs = [];
   }
   return db;
-};
-
-const saveLocalDB = (db: any) => {
-  localStorage.setItem(DB_KEY, JSON.stringify(db));
-};
-
-const generateUUID = () => {
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-        return crypto.randomUUID();
-    }
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
 };
 
 // --- AUTH HELPER ---
@@ -172,51 +158,47 @@ export const apiService = {
   // --- AUTH ---
   register: async (email: string, password: string): Promise<{success: boolean, message: string, user?: User, token?: string}> => {
     try {
+      console.log(`📡 Connecting to API: ${API_URL}/api/register`);
       const res = await fetch(`${API_URL}/api/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
+      
       const serverRes = await res.json();
+      
       if (res.ok && serverRes.success) {
           if (serverRes.token) localStorage.setItem(TOKEN_KEY, serverRes.token);
           return serverRes;
+      } else {
+          return { success: false, message: serverRes.message || 'Lỗi đăng ký từ Server' };
       }
-      else return { success: false, message: serverRes.message || 'Lỗi đăng ký' };
     } catch (e) {
-      // Offline fallback
-      const db = getLocalDB();
-      if (db.users.find((u: any) => u.email === email)) return { success: false, message: 'Email đã tồn tại (Offline)' };
-      const newUser: User = {
-        id: generateUUID(), email, password, role: 'user', createdAt: Date.now(),
-        botSettings: { botName: 'Trợ lý AI', primaryColor: '#8b5cf6', welcomeMessage: 'Xin chào!', position: 'bottom-right', avatarUrl: '' }
-      };
-      db.users.push(newUser);
-      saveLocalDB(db);
-      return { success: true, message: 'Đăng ký thành công (Offline)', user: newUser };
+      console.error("❌ Register Error:", e);
+      return { success: false, message: 'Không thể kết nối đến Server (Kiểm tra xem Server đã chạy chưa?)' };
     }
   },
 
   login: async (email: string, password: string): Promise<{success: boolean, message: string, user?: User, token?: string}> => {
     try {
+      console.log(`📡 Connecting to API: ${API_URL}/api/login`);
       const res = await fetch(`${API_URL}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
+      
       if (!res.ok) {
-         const errData = await res.json();
-         return { success: false, message: errData.message || 'Lỗi đăng nhập' };
+         const errData = await res.json().catch(() => ({}));
+         return { success: false, message: errData.message || 'Lỗi đăng nhập từ Server' };
       }
+      
       const data = await res.json();
       if (data.token) localStorage.setItem(TOKEN_KEY, data.token);
       return data;
     } catch (e) {
-      const db = getLocalDB();
-      let user = db.users.find((u: any) => u.email === email && u.password === password);
-      if (!user && email === MASTER_USER.email && password === MASTER_USER.password) user = MASTER_USER;
-      if (user) return { success: true, message: 'Đăng nhập thành công (Offline)', user };
-      return { success: false, message: 'Không thể kết nối máy chủ.' };
+      console.error("❌ Login Error:", e);
+      return { success: false, message: 'Không thể kết nối đến Server. Vui lòng kiểm tra lại.' };
     }
   },
 
@@ -230,7 +212,7 @@ export const apiService = {
       if (!res.ok) throw new Error("Lỗi máy chủ");
       return await res.json();
     } catch (e) {
-      return { success: false, message: "Lỗi kết nối (Offline không hỗ trợ đổi pass hash)" };
+      return { success: false, message: "Lỗi kết nối Server" };
     }
   },
 
@@ -242,6 +224,7 @@ export const apiService = {
       const data = await res.json();
       return Array.isArray(data) ? data : data.data || [];
     } catch (e) {
+      // Keep fallback strictly for viewing purposes if offline
       const localDB = getLocalDB();
       return localDB.users;
     }

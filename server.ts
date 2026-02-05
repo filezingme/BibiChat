@@ -1,3 +1,4 @@
+
 import express, { RequestHandler, NextFunction } from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
@@ -229,23 +230,36 @@ app.get('/api/health', (req, res) => {
 
 app.post('/api/register', async (req, res) => {
     const { email, password } = req.body;
+    console.log(`📝 Register Request: ${email}`);
     try {
         if (await User.findOne({ email })) return res.status(400).json({ success: false, message: 'Email đã tồn tại' });
         const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = await User.create({ id: randomUUID(), email, password: hashedPassword, role: 'user', createdAt: Date.now() } as any) as any;
         const token = generateToken(newUser);
+        console.log(`✅ User Registered: ${email}`);
         res.json({ success: true, user: { id: newUser.id, email: newUser.email, role: newUser.role }, token });
-    } catch (e) { res.status(500).json({ success: false, message: 'Server error' }); }
+    } catch (e) { 
+        console.error("❌ Register Failed:", e);
+        res.status(500).json({ success: false, message: 'Server error' }); 
+    }
 });
 
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
+    console.log(`🔑 Login Request: ${email}`);
     try {
         const user = await User.findOne({ email });
-        if (!user || !(await bcrypt.compare(password, user.password))) return res.status(401).json({ success: false, message: 'Sai thông tin đăng nhập' });
+        if (!user || !(await bcrypt.compare(password, user.password))) {
+            console.log(`❌ Invalid credentials for: ${email}`);
+            return res.status(401).json({ success: false, message: 'Sai thông tin đăng nhập' });
+        }
         const token = generateToken(user);
+        console.log(`✅ User Logged In: ${email}`);
         res.json({ success: true, user: { id: user.id, email: user.email, role: user.role, botSettings: user.botSettings, plugins: user.plugins }, token });
-    } catch (e) { res.status(500).json({ success: false, message: 'Server error' }); }
+    } catch (e) { 
+        console.error("❌ Login Failed:", e);
+        res.status(500).json({ success: false, message: 'Server error' }); 
+    }
 });
 
 // Public read for Widget
