@@ -4,39 +4,7 @@ import { User, Document, WidgetSettings, ChatLog, UserRole, Notification, Lead, 
 
 // URL Backend
 const API_URL = process.env.SERVER_URL || '';
-const DB_KEY = 'bibichat_db_v1';
 const TOKEN_KEY = 'bibichat_jwt_token';
-
-// Offline fallback user (Chỉ dùng cho hàm getAllUsers khi mất kết nối để không crash UI admin)
-const MASTER_USER: User = {
-  id: 'admin',
-  email: 'admin@bibichat.me', 
-  password: 'bangkieu', 
-  role: 'master',
-  createdAt: Date.now(),
-  botSettings: { 
-    botName: 'BibiBot', 
-    primaryColor: '#ec4899', 
-    welcomeMessage: 'Xin chào! Hệ thống quản trị Master (Chế độ Offline).', 
-    position: 'bottom-right', 
-    avatarUrl: '' 
-  }
-};
-
-const getLocalDB = () => {
-  const data = localStorage.getItem(DB_KEY);
-  let db;
-  if (!data) {
-    db = { users: [MASTER_USER], documents: [], chatLogs: [], notifications: [], leads: [] };
-    localStorage.setItem(DB_KEY, JSON.stringify(db));
-  } else {
-    db = JSON.parse(data);
-    if (!db.notifications) db.notifications = [];
-    if (!db.leads) db.leads = [];
-    if (!db.chatLogs) db.chatLogs = [];
-  }
-  return db;
-};
 
 // --- AUTH HELPER ---
 const getAuthHeaders = () => {
@@ -104,6 +72,7 @@ export const apiService = {
           const data = await res.json();
           return Array.isArray(data) ? data : [];
       } catch (e) {
+          console.error("API Error (getConversations):", e);
           return [];
       }
   },
@@ -115,6 +84,7 @@ export const apiService = {
           const data = await res.json();
           return Array.isArray(data) ? data : [];
       } catch (e) {
+          console.error("API Error (getDirectMessages):", e);
           return [];
       }
   },
@@ -224,9 +194,8 @@ export const apiService = {
       const data = await res.json();
       return Array.isArray(data) ? data : data.data || [];
     } catch (e) {
-      // Keep fallback strictly for viewing purposes if offline
-      const localDB = getLocalDB();
-      return localDB.users;
+      console.error("API Error (getAllUsers):", e);
+      return []; // Return empty if failed (No more fake data)
     }
   },
 
@@ -236,18 +205,8 @@ export const apiService = {
           if (!res.ok) throw new Error("Lỗi máy chủ");
           return await res.json();
       } catch (e) {
-          const localDB = getLocalDB();
-          let filtered = localDB.users.filter((u: any) => u.role !== 'master');
-          if(search) {
-             filtered = filtered.filter((u: any) => u.email.toLowerCase().includes(search.toLowerCase()));
-          }
-          const total = filtered.length;
-          const start = (page - 1) * limit;
-          return {
-              data: filtered.slice(start, start + limit),
-              total,
-              totalPages: Math.ceil(total / limit)
-          };
+          console.error("API Error (getUsersPaginated):", e);
+          return { data: [], total: 0, totalPages: 0 }; // Return empty if failed
       }
   },
 
@@ -287,7 +246,7 @@ export const apiService = {
         body: JSON.stringify(settings)
       });
     } catch (e) {
-        // Offline logic
+        console.error("API Error (updateSettings):", e);
     }
   },
   
@@ -310,7 +269,7 @@ export const apiService = {
             body: JSON.stringify(plugins)
         });
     } catch (e) {
-       // Offline logic
+       console.error("API Error (updatePlugins):", e);
     }
   },
 
@@ -320,6 +279,7 @@ export const apiService = {
           if(!res.ok) throw new Error("Err");
           return await res.json();
       } catch (e) {
+          console.error("API Error (getChatSessionsPaginated):", e);
           return { data: [], pagination: { total: 0, page: 1, limit, totalPages: 1 } };
       }
   },

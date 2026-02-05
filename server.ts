@@ -63,7 +63,7 @@ mongoose.connect(MONGODB_URI, {
   serverSelectionTimeoutMS: 5000,
   socketTimeoutMS: 45000,
 } as any)
-  .then(() => console.log('✅ Đã kết nối cơ sở dữ liệu thành công!'))
+  .then(() => console.log(`✅ Đã kết nối cơ sở dữ liệu thành công! (URI: ${MONGODB_URI})`))
   .catch(err => console.error('❌ Lỗi kết nối MongoDB:', err));
 
 // --- JWT HELPER FUNCTIONS ---
@@ -236,7 +236,10 @@ app.post('/api/register', async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = await User.create({ id: randomUUID(), email, password: hashedPassword, role: 'user', createdAt: Date.now() } as any) as any;
         const token = generateToken(newUser);
-        console.log(`✅ User Registered: ${email}`);
+        
+        // Log to console to confirm MongoDB usage
+        console.log(`✅ User Registered & Saved to MongoDB: ${email} (ID: ${newUser.id})`);
+        
         res.json({ success: true, user: { id: newUser.id, email: newUser.email, role: newUser.role }, token });
     } catch (e) { 
         console.error("❌ Register Failed:", e);
