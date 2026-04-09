@@ -6,8 +6,6 @@ const API_URL = process.env.SERVER_URL || '';
 const TOKEN_KEY = 'bibichat_jwt_token';
 const DB_KEY = 'bibichat_db_v1';
 
-let isOfflineMode = false;
-
 const MASTER_USER: User = {
   id: 'admin',
   email: 'admin@bibichat.me', 
@@ -56,8 +54,6 @@ const getAuthHeaders = () => {
 
 export const apiService = {
   getToken: () => localStorage.getItem(TOKEN_KEY),
-  
-  isOffline: () => isOfflineMode,
 
   // --- SYSTEM CHECK ---
   checkHealth: async (): Promise<{ online: boolean, message: string }> => {
@@ -65,21 +61,19 @@ export const apiService = {
       const res = await fetch(`${API_URL}/api/health`);
       if (res.ok) {
         const data = await res.json();
-        const online = data.status === 'ok';
-        isOfflineMode = !online;
-        return { online, message: data.message };
+        return { 
+          online: data.status === 'ok',
+          message: data.message 
+        };
       }
-      isOfflineMode = true;
       return { online: false, message: 'Không thể kết nối máy chủ' };
     } catch (e) {
-      isOfflineMode = true;
       return { online: false, message: 'Lỗi kết nối mạng' };
     }
   },
 
   // --- UPLOAD (Authenticated) ---
   uploadFile: async (file: File): Promise<{ url: string }> => {
-      if (isOfflineMode) throw new Error('Offline');
       const formData = new FormData();
       formData.append('file', file);
       const token = localStorage.getItem(TOKEN_KEY);
@@ -107,7 +101,6 @@ export const apiService = {
   // --- DIRECT MESSAGING ---
   findUserByEmail: async (email: string): Promise<{ success: boolean, user?: {id: string, email: string, role: string}, message?: string }> => {
       try {
-          if (isOfflineMode) throw new Error('Offline');
           const res = await fetch(`${API_URL}/api/dm/find`, {
               method: 'POST',
               headers: getAuthHeaders(),
@@ -125,7 +118,6 @@ export const apiService = {
 
   getConversations: async (userId: string): Promise<ConversationUser[]> => {
       try {
-          if (isOfflineMode) throw new Error('Offline');
           const res = await fetch(`${API_URL}/api/dm/conversations/${userId}`, { headers: getAuthHeaders() });
           if (!res.ok) throw new Error('Failed');
           const data = await res.json();
@@ -166,7 +158,6 @@ export const apiService = {
 
   getDirectMessages: async (userId: string, otherUserId: string): Promise<DirectMessage[]> => {
       try {
-          if (isOfflineMode) throw new Error('Offline');
           const res = await fetch(`${API_URL}/api/dm/history/${userId}/${otherUserId}`, { headers: getAuthHeaders() });
           if (!res.ok) throw new Error('Failed');
           const data = await res.json();
@@ -188,7 +179,6 @@ export const apiService = {
 
   sendDirectMessage: async (senderId: string, receiverId: string, content: string, type: 'text' | 'sticker' | 'image' = 'text', replyToId?: string, groupId?: string): Promise<DirectMessage> => {
       try {
-          if (isOfflineMode) throw new Error('Offline');
           const res = await fetch(`${API_URL}/api/dm/send`, {
               method: 'POST',
               headers: getAuthHeaders(),
@@ -211,7 +201,6 @@ export const apiService = {
 
   reactToMessage: async (messageId: string, userId: string, emoji: string): Promise<{ success: boolean, reactions?: Reaction[] }> => {
       try {
-          if (isOfflineMode) throw new Error('Offline');
           const res = await fetch(`${API_URL}/api/dm/react`, {
               method: 'POST',
               headers: getAuthHeaders(),
@@ -239,7 +228,6 @@ export const apiService = {
 
   getUnreadMessagesCount: async (userId: string): Promise<number> => {
       try {
-          if (isOfflineMode) throw new Error('Offline');
           const res = await fetch(`${API_URL}/api/dm/unread/${userId}`, { headers: getAuthHeaders() });
           if (!res.ok) throw new Error('Failed');
           const data = await res.json();
@@ -253,7 +241,6 @@ export const apiService = {
   // --- AUTH ---
   register: async (email: string, password: string): Promise<{success: boolean, message: string, user?: User, token?: string}> => {
     try {
-      if (isOfflineMode) throw new Error('Offline');
       const res = await fetch(`${API_URL}/api/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -291,7 +278,6 @@ export const apiService = {
 
   login: async (email: string, password: string): Promise<{success: boolean, message: string, user?: User, token?: string}> => {
     try {
-      if (isOfflineMode) throw new Error('Offline');
       const res = await fetch(`${API_URL}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -320,7 +306,6 @@ export const apiService = {
 
   changePassword: async (userId: string, oldPassword: string, newPassword: string): Promise<{success: boolean, message: string}> => {
     try {
-      if (isOfflineMode) throw new Error('Offline');
       const res = await fetch(`${API_URL}/api/user/change-password`, {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -343,7 +328,6 @@ export const apiService = {
   // --- ADMIN TOOLS ---
   getAllUsers: async (): Promise<User[]> => {
     try {
-      if (isOfflineMode) throw new Error('Offline');
       const res = await fetch(`${API_URL}/api/users`, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error("Lỗi máy chủ");
       const data = await res.json();
@@ -356,7 +340,6 @@ export const apiService = {
 
   getUsersPaginated: async (page: number, limit: number, search: string): Promise<{ data: User[], total: number, totalPages: number }> => {
       try {
-          if (isOfflineMode) throw new Error('Offline');
           const res = await fetch(`${API_URL}/api/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`, { headers: getAuthHeaders() });
           if (!res.ok) throw new Error("Lỗi máy chủ");
           return await res.json();
@@ -378,7 +361,6 @@ export const apiService = {
 
   resetUserPassword: async (targetUserId: string, newPassword: string): Promise<{success: boolean, message: string}> => {
     try {
-      if (isOfflineMode) throw new Error('Offline');
       const res = await fetch(`${API_URL}/api/admin/reset-password`, {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -400,7 +382,6 @@ export const apiService = {
 
   deleteUser: async (targetUserId: string): Promise<{success: boolean, message: string}> => {
     try {
-      if (isOfflineMode) throw new Error('Offline');
       const res = await fetch(`${API_URL}/api/admin/users/${targetUserId}`, { 
           method: 'DELETE',
           headers: getAuthHeaders()
@@ -418,7 +399,6 @@ export const apiService = {
   // --- SETTINGS (Protected update, Public read) ---
   updateSettings: async (userId: string, settings: WidgetSettings) => {
     try {
-      if (isOfflineMode) throw new Error('Offline');
       const res = await fetch(`${API_URL}/api/settings/${userId}`, {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -438,7 +418,6 @@ export const apiService = {
   // Public Read
   getPlugins: async (userId: string): Promise<PluginConfig> => {
     try {
-        if (isOfflineMode) throw new Error('Offline');
         const res = await fetch(`${API_URL}/api/plugins/${userId}`);
         if (!res.ok) throw new Error("Err");
         return await res.json();
@@ -452,7 +431,6 @@ export const apiService = {
 
   updatePlugins: async (userId: string, plugins: PluginConfig) => {
     try {
-        if (isOfflineMode) throw new Error('Offline');
         const res = await fetch(`${API_URL}/api/plugins/${userId}`, {
             method: 'POST',
             headers: getAuthHeaders(),
@@ -471,7 +449,6 @@ export const apiService = {
 
   getChatSessionsPaginated: async (userId: string | 'all', page: number, limit: number, filterUserId: string = 'all'): Promise<{ data: any[], pagination: any }> => {
       try {
-          if (isOfflineMode) throw new Error('Offline');
           const res = await fetch(`${API_URL}/api/chat-sessions/${userId}?page=${page}&limit=${limit}&filterUserId=${filterUserId}`, { headers: getAuthHeaders() });
           if(!res.ok) throw new Error("Err");
           return await res.json();
@@ -504,7 +481,6 @@ export const apiService = {
 
   getChatMessages: async (userId: string | 'all', sessionId: string): Promise<ChatLog[]> => {
       try {
-          if (isOfflineMode) throw new Error('Offline');
           const res = await fetch(`${API_URL}/api/chat-messages/${userId}/${sessionId}`, { headers: getAuthHeaders() });
           if (!res.ok) throw new Error('Failed');
           const data = await res.json();
@@ -517,7 +493,6 @@ export const apiService = {
   
   chat: async (userId: string, message: string, botName: string, sessionId: string): Promise<string> => {
       try {
-          if (isOfflineMode) throw new Error('Offline');
           const res = await fetch(`${API_URL}/api/chat`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -540,7 +515,6 @@ export const apiService = {
 
   getNotifications: async (userId: string): Promise<Notification[]> => {
       try {
-          if (isOfflineMode) throw new Error('Offline');
           const res = await fetch(`${API_URL}/api/notifications/${userId}`, { headers: getAuthHeaders() });
           if (!res.ok) throw new Error('Failed');
           const data = await res.json();
@@ -555,7 +529,6 @@ export const apiService = {
   
   markNotificationRead: async (notifId: string, userId: string) => {
       try {
-          if (isOfflineMode) throw new Error('Offline');
           await fetch(`${API_URL}/api/notifications/${notifId}/read`, {
               method: 'POST',
               headers: getAuthHeaders(),
@@ -574,7 +547,6 @@ export const apiService = {
 
   markAllNotificationsRead: async (userId: string) => {
       try {
-          if (isOfflineMode) throw new Error('Offline');
           await fetch(`${API_URL}/api/notifications/read-all`, {
               method: 'POST',
               headers: getAuthHeaders(),
@@ -594,7 +566,6 @@ export const apiService = {
 
   createSystemNotification: async (notif: Partial<Notification>) => {
       try {
-          if (isOfflineMode) throw new Error('Offline');
           const res = await fetch(`${API_URL}/api/notifications/create`, {
               method: 'POST',
               headers: getAuthHeaders(),
@@ -615,7 +586,6 @@ export const apiService = {
   
   getLeadsPaginated: async (userId: string, page: number, limit: number, search: string = ''): Promise<{ data: Lead[], pagination: any }> => {
     try {
-        if (isOfflineMode) throw new Error('Offline');
         const res = await fetch(`${API_URL}/api/leads/${userId}?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`, { headers: getAuthHeaders() });
         if (!res.ok) throw new Error('Failed');
         const data = await res.json();
@@ -632,7 +602,6 @@ export const apiService = {
   
   submitLead: async (userId: string, name: string, phone: string, email: string, isTest: boolean = false): Promise<Lead> => {
     try {
-        if (isOfflineMode) throw new Error('Offline');
         const res = await fetch(`${API_URL}/api/leads`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -651,7 +620,6 @@ export const apiService = {
 
   updateLeadStatus: async (leadId: string, status: string) => {
     try {
-        if (isOfflineMode) throw new Error('Offline');
         const res = await fetch(`${API_URL}/api/leads/${leadId}/status`, {
             method: 'POST',
             headers: getAuthHeaders(),
@@ -670,7 +638,6 @@ export const apiService = {
 
   deleteLead: async (leadId: string) => {
     try {
-      if (isOfflineMode) throw new Error('Offline');
       const res = await fetch(`${API_URL}/api/leads/${leadId}`, { 
           method: 'DELETE',
           headers: getAuthHeaders()
@@ -685,7 +652,6 @@ export const apiService = {
 
   getDocuments: async (userId: string): Promise<Document[]> => {
     try {
-      if (isOfflineMode) throw new Error('Offline');
       const res = await fetch(`${API_URL}/api/documents/${userId}`, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed');
       const data = await res.json();
@@ -698,7 +664,6 @@ export const apiService = {
 
   addDocument: async (userId: string, name: string, content: string, type: 'text' | 'file'): Promise<Document> => {
     try {
-      if (isOfflineMode) throw new Error('Offline');
       const res = await fetch(`${API_URL}/api/documents/text`, {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -717,7 +682,6 @@ export const apiService = {
 
   deleteDocument: async (id: string) => {
     try {
-      if (isOfflineMode) throw new Error('Offline');
       const res = await fetch(`${API_URL}/api/documents/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed');
     } catch (e) {
@@ -736,7 +700,6 @@ export const apiService = {
   
   getStats: async (userId: string | 'all', period: string): Promise<any[]> => {
       try {
-          if (isOfflineMode) throw new Error('Offline');
           const res = await fetch(`${API_URL}/api/chat-logs/${userId}`, { headers: getAuthHeaders() });
           if (!res.ok) throw new Error('Failed');
           const logs = await res.json();
