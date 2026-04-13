@@ -14,9 +14,6 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { MongoMemoryServer } from 'mongodb-memory-server';
-
-import { createServer as createViteServer } from 'vite';
 
 dotenv.config();
 
@@ -51,37 +48,23 @@ app.use(cors({
 app.use(express.json({ limit: '100mb' }) as any);
 app.use(express.urlencoded({ limit: '100mb', extended: true }) as any);
 
+// ===============================
+// SERVE FRONTEND (VITE BUILD)
+// ===============================
+const frontendDistPath = path.join(__dirname, '../dist');
+
+app.use(express.static(frontendDistPath) as any);
+
 // --- MONGODB OPTIMIZATION ---
-let mongoServer: MongoMemoryServer | null = null;
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/bibichat_local";
 
-async function connectDB() {
-  let MONGODB_URI = process.env.MONGODB_URI;
-
-  if (MONGODB_URI && (MONGODB_URI.includes('127.0.0.1') || MONGODB_URI.includes('localhost'))) {
-    console.warn("⚠️ CẢNH BÁO: MONGODB_URI đang trỏ về localhost (127.0.0.1). Trong môi trường này, bạn cần dùng chuỗi kết nối MongoDB Atlas (mongodb+srv://...).");
-    console.warn("⚠️ Hệ thống sẽ tạm thời chuyển sang dùng in-memory database để tránh lỗi.");
-    MONGODB_URI = undefined;
-  }
-
-  if (!MONGODB_URI) {
-    console.log("No valid MONGODB_URI found. Starting in-memory MongoDB server...");
-    mongoServer = await MongoMemoryServer.create();
-    MONGODB_URI = mongoServer.getUri();
-  }
-
-  mongoose.connect(MONGODB_URI, {
-    maxPoolSize: 100,
-    serverSelectionTimeoutMS: 5000,
-    socketTimeoutMS: 45000,
-  } as any)
-    .then(() => {
-      console.log(`✅ Đã kết nối cơ sở dữ liệu thành công! (URI: ${MONGODB_URI})`);
-      initDB();
-    })
-    .catch(err => console.error('❌ Lỗi kết nối MongoDB:', err));
-}
-
-connectDB();
+mongoose.connect(MONGODB_URI, {
+  maxPoolSize: 100,
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+} as any)
+  .then(() => console.log(`✅ Đã kết nối cơ sở dữ liệu thành công! (URI: ${MONGODB_URI})`))
+  .catch(err => console.error('❌ Lỗi kết nối MongoDB:', err));
 
 // --- JWT HELPER FUNCTIONS ---
 const generateToken = (user: any) => {
@@ -190,6 +173,7 @@ const initDB = async () => {
     console.log("✅ Admin Created: admin@bibichat.me / bangkieu");
   }
 };
+initDB();
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -212,13 +196,7 @@ app.get('/widget.js', (req, res) => {
   container.style.height = '100px';
   container.style.border = 'none';
   container.style.pointerEvents = 'none';
-  
-  // Dynamically determine the client URL based on where this script was loaded from
-  var scriptTags = document.getElementsByTagName('script');
-  var currentScript = scriptTags[scriptTags.length - 1];
-  var scriptOrigin = currentScript && currentScript.src ? new URL(currentScript.src).origin : '';
-  var clientUrl = '${CLIENT_URL}' ? '${CLIENT_URL}'.replace(/\\/$/, '') : scriptOrigin;
-  
+  var clientUrl = '${CLIENT_URL}'.replace(/\\/$/, '');
   var iframe = document.createElement('iframe');
   iframe.src = clientUrl + '?mode=embed&userId=' + widgetId;
   iframe.style.width = '100%';
@@ -620,21 +598,6 @@ app.post('/api/dm/react', authenticateToken as any, async (req: AuthRequest, res
 });
 
 // ===============================
-// SERVE FRONTEND (VITE MIDDLEWARE OR DIST)
-// ===============================
-const frontendDistPath = path.join(__dirname, '../dist');
-
-if (process.env.NODE_ENV !== 'production') {
-  const vite = await createViteServer({
-    server: { middlewareMode: true },
-    appType: 'spa',
-  });
-  app.use(vite.middlewares);
-} else {
-  app.use(express.static(frontendDistPath) as any);
-}
-
-// ===============================
 // SPA FALLBACK (SERVE INDEX.HTML)
 // ===============================
 app.get('*', (req, res) => {
@@ -644,6 +607,6 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(frontendDistPath, 'index.html'));
 });
 
-httpServer.listen(PORT, "0.0.0.0", () => {
+httpServer.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT} with Full Features Enabled`);
 });

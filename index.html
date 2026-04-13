@@ -38,15 +38,6 @@
       }
     })();
 
-    // Suppress MetaMask connection errors in the console
-    const originalConsoleError = console.error;
-    console.error = function(...args) {
-      if (args[0] && typeof args[0] === 'string' && args[0].includes('Failed to connect to MetaMask')) {
-        return; // Suppress this specific error
-      }
-      originalConsoleError.apply(console, args);
-    };
-
     tailwind.config = {
       darkMode: 'class',
       theme: {

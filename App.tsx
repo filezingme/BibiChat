@@ -416,22 +416,13 @@ const App: React.FC = () => {
   };
 
   if (!isLoggedIn) {
-    const offlineBanner = isOffline ? createPortal(
-      <div className="fixed top-0 left-0 right-0 z-[9999] bg-amber-500 text-white text-center py-1 text-xs font-bold shadow-md animate-in slide-in-from-top duration-300">
-          <i className="fa-solid fa-wifi-slash mr-2"></i>
-          Mất kết nối Database - Hệ thống đang sử dụng dữ liệu Offline trên trình duyệt.
-      </div>,
-      document.body
-    ) : null;
-
-    if (publicView === 'terms') return <>{offlineBanner}<TermsPage onNavigate={handlePublicNavigate} /></>;
-    if (publicView === 'privacy') return <>{offlineBanner}<PrivacyPage onNavigate={handlePublicNavigate} /></>;
-    if (publicView === 'contact') return <>{offlineBanner}<ContactPage onNavigate={handlePublicNavigate} /></>;
-    if (publicView === 'demo') return <>{offlineBanner}<DemoPage onNavigate={handlePublicNavigate} /></>;
-    if (publicView === 'landing') return <>{offlineBanner}<LandingPage onNavigate={handlePublicNavigate} /></>;
+    if (publicView === 'terms') return <TermsPage onNavigate={handlePublicNavigate} />;
+    if (publicView === 'privacy') return <PrivacyPage onNavigate={handlePublicNavigate} />;
+    if (publicView === 'contact') return <ContactPage onNavigate={handlePublicNavigate} />;
+    if (publicView === 'demo') return <DemoPage onNavigate={handlePublicNavigate} />;
+    if (publicView === 'landing') return <LandingPage onNavigate={handlePublicNavigate} />;
     return (
       <>
-        {offlineBanner}
         <div className="absolute top-4 left-4 z-50">
            <button onClick={() => handlePublicNavigate('landing')} className="px-4 py-2 bg-white/50 hover:bg-white rounded-xl text-sm font-bold text-slate-600 transition-all backdrop-blur-sm shadow-sm">
              <i className="fa-solid fa-arrow-left mr-2"></i>Trang chủ
@@ -446,12 +437,11 @@ const App: React.FC = () => {
     <div className={`flex h-screen w-full overflow-hidden relative font-sans antialiased transition-colors duration-500
       ${darkMode ? 'bg-slate-900 text-slate-100 selection:bg-purple-500 selection:text-white' : 'bg-[#f0f2f5] text-slate-700 selection:bg-pink-100 selection:text-pink-900'}
     `}>
-        {isOffline && createPortal(
-          <div className="fixed top-0 left-0 right-0 z-[9999] bg-amber-500 text-white text-center py-1 text-xs font-bold shadow-md animate-in slide-in-from-top duration-300">
+        {isOffline && (
+          <div className="absolute top-0 left-0 right-0 z-[100] bg-amber-500 text-white text-center py-1 text-xs font-bold shadow-md animate-in slide-in-from-top duration-300">
               <i className="fa-solid fa-wifi-slash mr-2"></i>
               Mất kết nối Database - Hệ thống đang sử dụng dữ liệu Offline trên trình duyệt.
-          </div>,
-          document.body
+          </div>
         )}
         
         {!darkMode && (
