@@ -15,6 +15,8 @@ import bcrypt from 'bcryptjs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+import { createServer as createViteServer } from 'vite';
+
 dotenv.config();
 
 // ===============================
@@ -56,15 +58,31 @@ const frontendDistPath = path.join(__dirname, '../dist');
 app.use(express.static(frontendDistPath) as any);
 
 // --- MONGODB OPTIMIZATION ---
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/bibichat_local";
+async function connectDB() {
+  const MONGODB_URI = process.env.MONGODB_URI;
 
-mongoose.connect(MONGODB_URI, {
-  maxPoolSize: 100,
-  serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 45000,
-} as any)
-  .then(() => console.log(`✅ Đã kết nối cơ sở dữ liệu thành công! (URI: ${MONGODB_URI})`))
-  .catch(err => console.error('❌ Lỗi kết nối MongoDB:', err));
+  if (!MONGODB_URI) {
+    console.log("⚠️ Không tìm thấy MONGODB_URI trong file .env. Hệ thống sẽ chạy ở chế độ Offline (LocalStorage).");
+    return;
+  }
+
+  mongoose.set('bufferCommands', false);
+
+  mongoose.connect(MONGODB_URI, {
+    maxPoolSize: 100,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000,
+  } as any)
+    .then(() => {
+      console.log(`✅ Đã kết nối cơ sở dữ liệu thành công!`);
+      initDB();
+    })
+    .catch(err => {
+      console.error('❌ Lỗi kết nối MongoDB. Hệ thống sẽ chuyển sang chế độ Offline (LocalStorage). Lỗi:', err.message);
+    });
+}
+
+connectDB();
 
 // --- JWT HELPER FUNCTIONS ---
 const generateToken = (user: any) => {
@@ -153,24 +171,28 @@ const DirectMessage = mongoose.model('DirectMessage', directMessageSchema);
 
 // --- INIT ADMIN USER ---
 const initDB = async () => {
-  const count = await User.countDocuments();
-  if (count === 0) {
-    console.log("🔥 Initializing Database...");
-    const hashedPassword = await bcrypt.hash('bangkieu', 10);
-    await User.create({
-      id: 'admin',
-      email: 'admin@bibichat.me',
-      password: hashedPassword,
-      role: 'master',
-      createdAt: Date.now(),
-      botSettings: { botName: 'BibiBot', primaryColor: '#ec4899', welcomeMessage: 'Xin chào Admin!' },
-      plugins: {
-         autoOpen: { enabled: false, delay: 5 },
-         social: { enabled: true, zalo: '0979116118', phone: '0979116118' },
-         leadForm: { enabled: true, title: 'Để lại thông tin nhé!', trigger: 'manual' }
-      }
-    } as any);
-    console.log("✅ Admin Created: admin@bibichat.me / bangkieu");
+  try {
+    const count = await User.countDocuments();
+    if (count === 0) {
+      console.log("🔥 Initializing Database...");
+      const hashedPassword = await bcrypt.hash('bangkieu', 10);
+      await User.create({
+        id: 'admin',
+        email: 'admin@bibichat.me',
+        password: hashedPassword,
+        role: 'master',
+        createdAt: Date.now(),
+        botSettings: { botName: 'BibiBot', primaryColor: '#ec4899', welcomeMessage: 'Xin chào Admin!' },
+        plugins: {
+           autoOpen: { enabled: false, delay: 5 },
+           social: { enabled: true, zalo: '0979116118', phone: '0979116118' },
+           leadForm: { enabled: true, title: 'Để lại thông tin nhé!', trigger: 'manual' }
+        }
+      } as any);
+      console.log("✅ Admin Created: admin@bibichat.me / bangkieu");
+    }
+  } catch (err) {
+    console.error("❌ Lỗi khi khởi tạo Database (initDB):", err);
   }
 };
 initDB();
@@ -226,6 +248,14 @@ app.get('/widget.js', (req, res) => {
 app.get('/api/health', (req, res) => {
   const dbState = mongoose.connection.readyState;
   res.json({ status: dbState === 1 ? 'ok' : 'error', message: dbState === 1 ? 'DB Connected' : 'DB Error' });
+});
+
+// Middleware to check DB connection for all other API routes
+app.use('/api', (req, res, next) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({ success: false, message: 'Database disconnected. Running in offline mode.' });
+  }
+  next();
 });
 
 app.post('/api/register', async (req, res) => {
