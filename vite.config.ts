@@ -6,9 +6,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, (process as any).cwd(), '');
   
   // Logic ưu tiên: Biến môi trường -> Nếu đang Dev thì dùng Localhost -> Mặc định Production
-  const defaultServerUrl = mode === 'development' 
-    ? 'http://localhost:3000' 
-    : 'https://fuzzy-cosette-filezingme-org-64d51f5d.koyeb.app';
+  const defaultServerUrl = '';
 
   return {
     plugins: [react()],

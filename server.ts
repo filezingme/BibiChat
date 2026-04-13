@@ -50,13 +50,6 @@ app.use(cors({
 app.use(express.json({ limit: '100mb' }) as any);
 app.use(express.urlencoded({ limit: '100mb', extended: true }) as any);
 
-// ===============================
-// SERVE FRONTEND (VITE BUILD)
-// ===============================
-const frontendDistPath = path.join(__dirname, '../dist');
-
-app.use(express.static(frontendDistPath) as any);
-
 // --- MONGODB OPTIMIZATION ---
 async function connectDB() {
   const MONGODB_URI = process.env.MONGODB_URI;
@@ -195,7 +188,6 @@ const initDB = async () => {
     console.error("❌ Lỗi khi khởi tạo Database (initDB):", err);
   }
 };
-initDB();
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -218,7 +210,13 @@ app.get('/widget.js', (req, res) => {
   container.style.height = '100px';
   container.style.border = 'none';
   container.style.pointerEvents = 'none';
-  var clientUrl = '${CLIENT_URL}'.replace(/\\/$/, '');
+  
+  // Dynamically determine the client URL based on where this script was loaded from
+  var scriptTags = document.getElementsByTagName('script');
+  var currentScript = scriptTags[scriptTags.length - 1];
+  var scriptOrigin = currentScript && currentScript.src ? new URL(currentScript.src).origin : '';
+  var clientUrl = '${CLIENT_URL}' ? '${CLIENT_URL}'.replace(/\\/$/, '') : scriptOrigin;
+  
   var iframe = document.createElement('iframe');
   iframe.src = clientUrl + '?mode=embed&userId=' + widgetId;
   iframe.style.width = '100%';
@@ -628,6 +626,21 @@ app.post('/api/dm/react', authenticateToken as any, async (req: AuthRequest, res
 });
 
 // ===============================
+// SERVE FRONTEND (VITE MIDDLEWARE OR DIST)
+// ===============================
+const frontendDistPath = path.join(__dirname, '../dist');
+
+if (process.env.NODE_ENV !== 'production') {
+  const vite = await createViteServer({
+    server: { middlewareMode: true },
+    appType: 'spa',
+  });
+  app.use(vite.middlewares);
+} else {
+  app.use(express.static(frontendDistPath) as any);
+}
+
+// ===============================
 // SPA FALLBACK (SERVE INDEX.HTML)
 // ===============================
 app.get('*', (req, res) => {
@@ -637,6 +650,6 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(frontendDistPath, 'index.html'));
 });
 
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT} with Full Features Enabled`);
 });
