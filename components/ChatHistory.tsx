@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { apiService } from '../services/apiService';
 import { ChatLog, User } from '../types';
 
@@ -375,8 +376,8 @@ const ChatHistory: React.FC<Props> = ({ user }) => {
                                         <i className={`fa-solid fa-robot animate-pulse ${theme.botAvatarText}`}></i>
                                         </div>
                                         <div>
-                                            <div className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-700 px-5 py-4 rounded-[1.5rem] rounded-tl-none shadow-md text-sm font-medium leading-relaxed whitespace-pre-wrap relative">
-                                            {log.answer}
+                                            <div className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-700 px-5 py-4 rounded-[1.5rem] rounded-tl-none shadow-md text-sm font-medium leading-relaxed relative markdown-body">
+                                            <ReactMarkdown>{log.answer}</ReactMarkdown>
                                             </div>
                                             <div className="flex items-center gap-2 mt-2 ml-2">
                                             {!log.isSolved && (

@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { WidgetSettings, Message, User, PluginConfig } from '../types';
 import { apiService } from '../services/apiService';
 
@@ -185,7 +186,9 @@ const ChatWidget: React.FC<Props> = ({ settings, userId, forceOpen, onClose, isE
                   ? 'bg-blue-600 text-white rounded-2xl rounded-tr-none' 
                   : 'bg-white text-slate-800 border border-slate-100 rounded-2xl rounded-tl-none'
                 }`} style={msg.role === 'user' ? { backgroundColor: settings.primaryColor } : {}}>
-                  <p className="whitespace-pre-wrap">{msg.text}</p>
+                  <div className="markdown-body">
+                    <ReactMarkdown>{msg.text}</ReactMarkdown>
+                  </div>
                 </div>
               </div>
             ))}
@@ -367,7 +370,9 @@ const ChatWidget: React.FC<Props> = ({ settings, userId, forceOpen, onClose, isE
                   ? 'bg-blue-600 text-white rounded-2xl rounded-tr-none' 
                   : 'bg-white text-slate-800 border border-slate-100 rounded-2xl rounded-tl-none'
                 }`} style={msg.role === 'user' ? { backgroundColor: settings.primaryColor } : {}}>
-                  <p className="whitespace-pre-wrap">{msg.text}</p>
+                  <div className="markdown-body">
+                    <ReactMarkdown>{msg.text}</ReactMarkdown>
+                  </div>
                 </div>
               </div>
             ))}
