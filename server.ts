@@ -61,13 +61,25 @@ async function connectDB() {
 
   mongoose.set('bufferCommands', false);
 
+  let extractedDbName = 'bibichat';
+  try {
+      // Example: mongodb://127.0.0.1:27017/bibichat?directConnection=true -> pathname is "/bibichat"
+      const url = new URL(MONGODB_URI);
+      if (url.pathname && url.pathname.length > 1) {
+          extractedDbName = url.pathname.substring(1);
+      }
+  } catch (e) {
+      // Ignore URL parsing errors, fallback to default
+  }
+
   mongoose.connect(MONGODB_URI, {
     maxPoolSize: 100,
     serverSelectionTimeoutMS: 5000,
     socketTimeoutMS: 45000,
+    dbName: extractedDbName,
   } as any)
     .then(() => {
-      console.log(`✅ Đã kết nối cơ sở dữ liệu thành công!`);
+      console.log(`✅ Đã kết nối cơ sở dữ liệu thành công! (Database: ${extractedDbName})`);
       initDB();
     })
     .catch(err => {

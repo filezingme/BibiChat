@@ -250,6 +250,19 @@ export const apiService = {
       }
   },
 
+  checkHealth: async (): Promise<boolean> => {
+      try {
+          const res = await fetch(`${API_URL}/api/health`);
+          const data = await res.json();
+          const isHealthy = data.status === 'ok';
+          isOfflineMode = !isHealthy;
+          return isHealthy;
+      } catch (e) {
+          isOfflineMode = true;
+          return false;
+      }
+  },
+
   // --- AUTH ---
   register: async (email: string, password: string): Promise<{success: boolean, message: string, user?: User, token?: string}> => {
     try {
@@ -262,7 +275,8 @@ export const apiService = {
       
       if (!res.ok) {
          const errData = await res.json().catch(() => ({}));
-         throw new Error(errData.message || 'Server error');
+         if (res.status === 503) throw new Error('Offline');
+         return { success: false, message: errData.message || 'Server error' };
       }
       const serverRes = await res.json();
       
@@ -271,6 +285,10 @@ export const apiService = {
       }
       return serverRes;
     } catch (e: any) {
+      if (e.message !== 'Offline' && !e.message.includes('fetch')) {
+          return { success: false, message: e.message || 'Lỗi kết nối' };
+      }
+
       const db = getLocalDB();
       if (db.users.find((u: any) => u.email === email)) {
         return { success: false, message: 'Email đã tồn tại (Offline)' };
@@ -303,13 +321,18 @@ export const apiService = {
       
       if (!res.ok) {
          const errData = await res.json().catch(() => ({}));
-         throw new Error(errData.message || 'Lỗi đăng nhập từ Server');
+         if (res.status === 503) throw new Error('Offline');
+         return { success: false, message: errData.message || 'Lỗi đăng nhập từ Server' };
       }
       
       const data = await res.json();
       if (data.token) localStorage.setItem(TOKEN_KEY, data.token);
       return data;
-    } catch (e) {
+    } catch (e: any) {
+      if (e.message !== 'Offline' && !e.message.includes('fetch')) {
+          return { success: false, message: e.message || 'Lỗi kết nối' };
+      }
+
       const db = getLocalDB();
       const user = db.users.find((u: any) => u.email === email && u.password === password);
       if (user) {

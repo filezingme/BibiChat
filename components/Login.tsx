@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/apiService';
 
 interface Props {
@@ -12,6 +12,14 @@ const Login: React.FC<Props> = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+
+  useEffect(() => {
+    // Check health to see if we are running in offline mode
+    apiService.checkHealth().then(isHealthy => {
+      setIsOffline(!isHealthy);
+    });
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,6 +61,13 @@ const Login: React.FC<Props> = ({ onLogin }) => {
       </div>
 
       <div className="max-w-[420px] w-full bg-white p-10 rounded-[3rem] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.15)] border-2 border-white/50 relative z-10 transition-all hover:scale-[1.01]">
+        {isOffline && (
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-amber-500 text-white px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shadow-lg flex items-center gap-2 animate-bounce">
+            <i className="fa-solid fa-triangle-exclamation"></i>
+            Mất kết nối MongoDB - Đang dùng LocalStorage
+          </div>
+        )}
+
         <div className="text-center mb-10">
           <div className="mx-auto w-24 h-24 bg-gradient-to-tr from-pink-400 to-violet-500 rounded-[2rem] flex items-center justify-center text-white text-4xl shadow-2xl shadow-pink-400/50 mb-6 transform -rotate-6 hover:rotate-6 transition-transform cursor-pointer border-[6px] border-white">
             <i className="fa-solid fa-comment-dots"></i>
