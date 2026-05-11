@@ -255,14 +255,29 @@ app.get('/widget.js', (req, res) => {
 });
 
 // --- PUBLIC ROUTES ---
-app.get('/api/health', (req, res) => {
-  const dbState = mongoose.connection.readyState;
-  res.json({ status: dbState === 1 ? 'ok' : 'error', message: dbState === 1 ? 'DB Connected' : 'DB Error' });
+app.get('/api/health', async (req, res) => {
+  let dbState = mongoose.connection.readyState;
+  let retries = 0;
+  // If still connecting (state 2), wait up to 3 seconds
+  while (dbState === 2 && retries < 15) {
+      await new Promise(r => setTimeout(r, 200));
+      dbState = mongoose.connection.readyState;
+      retries++;
+  }
+  res.json({ status: dbState === 1 ? 'ok' : 'error', message: dbState === 1 ? 'DB Connected' : 'DB Error', dbState });
 });
 
 // Middleware to check DB connection for all other API routes
-app.use('/api', (req, res, next) => {
-  if (mongoose.connection.readyState !== 1) {
+app.use('/api', async (req, res, next) => {
+  let dbState = mongoose.connection.readyState;
+  let retries = 0;
+  while (dbState === 2 && retries < 15) {
+      await new Promise(r => setTimeout(r, 200));
+      dbState = mongoose.connection.readyState;
+      retries++;
+  }
+
+  if (dbState !== 1) {
     return res.status(503).json({ success: false, message: 'Database disconnected. Running in offline mode.' });
   }
   next();
