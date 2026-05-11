@@ -61,20 +61,26 @@ export const apiService = {
 
   // --- SYSTEM CHECK ---
   checkHealth: async (): Promise<{ online: boolean, message: string }> => {
-    try {
-      const res = await fetch(`${API_URL}/api/health`);
-      if (res.ok) {
-        const data = await res.json();
-        const online = data.status === 'ok';
-        isOfflineMode = !online;
-        return { online, message: data.message };
-      }
-      isOfflineMode = true;
-      return { online: false, message: 'Không thể kết nối máy chủ' };
-    } catch (e) {
-      isOfflineMode = true;
-      return { online: false, message: 'Lỗi kết nối mạng' };
+    let retries = 3;
+    while(retries > 0) {
+        try {
+          const res = await fetch(`${API_URL}/api/health?t=\${Date.now()}`);
+          if (res.ok) {
+            const data = await res.json();
+            const online = data.status === 'ok';
+            if (online) {
+               isOfflineMode = false;
+               return { online, message: data.message };
+            }
+          }
+        } catch (e) {
+          // ignore error to retry
+        }
+        retries--;
+        await new Promise(resolve => setTimeout(resolve, 1000));
     }
+    isOfflineMode = true;
+    return { online: false, message: 'Không thể kết nối máy chủ' };
   },
 
   // --- UPLOAD (Authenticated) ---
