@@ -79,7 +79,7 @@ async function connectDB() {
     dbName: extractedDbName,
   } as any)
     .then(() => {
-      console.log(`✅ Đã kết nối cơ sở dữ liệu thành công! (Database: ${extractedDbName})`);
+      console.log(`✅ Kết nối CSDL thành công! (URI: ${MONGODB_URI}, Database: ${extractedDbName})`);
       initDB();
     })
     .catch(err => {
