@@ -250,19 +250,6 @@ export const apiService = {
       }
   },
 
-  checkHealth: async (): Promise<boolean> => {
-      try {
-          const res = await fetch(`${API_URL}/api/health`);
-          const data = await res.json();
-          const isHealthy = data.status === 'ok';
-          isOfflineMode = !isHealthy;
-          return isHealthy;
-      } catch (e) {
-          isOfflineMode = true;
-          return false;
-      }
-  },
-
   // --- AUTH ---
   register: async (email: string, password: string): Promise<{success: boolean, message: string, user?: User, token?: string}> => {
     try {

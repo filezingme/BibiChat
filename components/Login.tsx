@@ -16,8 +16,8 @@ const Login: React.FC<Props> = ({ onLogin }) => {
 
   useEffect(() => {
     // Check health to see if we are running in offline mode
-    apiService.checkHealth().then(isHealthy => {
-      setIsOffline(!isHealthy);
+    apiService.checkHealth().then(status => {
+      setIsOffline(!status.online);
     });
   }, []);
 
