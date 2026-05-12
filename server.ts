@@ -268,6 +268,12 @@ app.get('/widget.js', (req, res) => {
   res.send(scriptContent);
 });
 
+app.get('/api/debug-dm', async (req, res) => {
+    const allUsers = await User.find().lean();
+    const allMsgs = await DirectMessage.find().lean();
+    res.json({ users: allUsers.map(u => u.id), messages: allMsgs });
+});
+
 // --- PUBLIC ROUTES ---
 app.get('/api/health', async (req, res) => {
   let dbState = mongoose.connection.readyState;
@@ -580,37 +586,42 @@ app.post('/api/dm/find', authenticateToken as any, async (req: AuthRequest, res:
 // Get Conversations (Last message per user)
 app.get('/api/dm/conversations/:userId', authenticateToken as any, async (req: AuthRequest, res: any) => {
     const { userId } = req.params;
-    
-    const conversations = await DirectMessage.aggregate([
-        { $match: { $or: [{ senderId: userId }, { receiverId: userId }] } },
-        { $sort: { timestamp: -1 } },
-        {
-            $group: {
-                _id: { $cond: { if: { $eq: ["$senderId", userId] }, then: "$receiverId", else: "$senderId" } },
-                lastMessage: { $first: "$content" },
-                lastMessageTime: { $first: "$timestamp" },
-                type: { $first: "$type" },
-                isRead: { $first: "$isRead" },
-                senderId: { $first: "$senderId" }
+    try {
+        const conversations = await DirectMessage.aggregate([
+            { $match: { $or: [{ senderId: userId }, { receiverId: userId }] } },
+            { $sort: { timestamp: -1 } },
+            {
+                $group: {
+                    _id: { $cond: { if: { $eq: ["$senderId", userId] }, then: "$receiverId", else: "$senderId" } },
+                    lastMessage: { $first: "$content" },
+                    lastMessageTime: { $first: "$timestamp" },
+                    type: { $first: "$type" },
+                    isRead: { $first: "$isRead" },
+                    senderId: { $first: "$senderId" }
+                }
             }
-        }
-    ]);
+        ]);
+        
+        console.log(`Found ${conversations.length} convers for ${userId}`);
 
-    const results = await Promise.all(conversations.map(async (conv) => {
-        const user = await User.findOne({ id: conv._id }).select('id email role');
-        if (!user) return null;
-        const unreadCount = await DirectMessage.countDocuments({ senderId: conv._id, receiverId: userId, isRead: false });
-        return {
-            id: user.id,
-            email: user.email,
-            role: user.role,
-            lastMessage: conv.type === 'image' ? '[Hình ảnh]' : (conv.type === 'sticker' ? '[Sticker]' : conv.lastMessage),
-            lastMessageTime: conv.lastMessageTime,
-            unreadCount
-        };
-    }));
+        const results = await Promise.all(conversations.map(async (conv) => {
+            let user = await User.findOne({ id: conv._id }).select('id email role');
+            const unreadCount = await DirectMessage.countDocuments({ senderId: conv._id, receiverId: userId, isRead: false });
+            return {
+                id: conv._id, // Use conv._id even if user is missing
+                email: user ? user.email : `Unknown User (${conv._id})`,
+                role: user ? user.role : 'user',
+                lastMessage: conv.type === 'image' ? '[Hình ảnh]' : (conv.type === 'sticker' ? '[Sticker]' : conv.lastMessage),
+                lastMessageTime: conv.lastMessageTime,
+                unreadCount
+            };
+        }));
 
-    res.json(results.filter(r => r !== null).sort((a: any, b: any) => b.lastMessageTime - a.lastMessageTime));
+        res.json(results.filter(r => r !== null).sort((a: any, b: any) => b.lastMessageTime - a.lastMessageTime));
+    } catch(e) {
+        console.error("error getting DM conversations", e);
+        res.status(500).json([]);
+    }
 });
 
 // Get Messages History
