@@ -196,6 +196,20 @@ const initDB = async () => {
       } as any);
       console.log("✅ Admin Created: admin@bibichat.me / bangkieu");
     }
+
+    // Cleanup ghost messages logic
+    const allUsers = await User.find({}, 'id').lean();
+    const validUserIds = allUsers.map(u => u.id);
+    const deletedMsgs = await DirectMessage.deleteMany({
+      $or: [
+        { senderId: { $nin: validUserIds } },
+        { receiverId: { $nin: validUserIds } }
+      ]
+    });
+    if (deletedMsgs.deletedCount > 0) {
+      console.log(`🧹 Cleaned up ${deletedMsgs.deletedCount} ghost direct messages.`);
+    }
+
   } catch (err) {
     console.error("❌ Lỗi khi khởi tạo Database (initDB):", err);
   }
@@ -520,7 +534,13 @@ app.get('/api/users', authenticateToken as any, async (req: AuthRequest, res: an
 app.delete('/api/admin/users/:id', authenticateToken as any, async (req: AuthRequest, res: any) => {
     if (req.user.role !== 'master') return res.status(403).json({ error: 'Admin only' });
     const uid = req.params.id;
-    await Promise.all([User.findOneAndDelete({ id: uid }), Document.deleteMany({ userId: uid }), ChatLog.deleteMany({ userId: uid }), Lead.deleteMany({ userId: uid })]);
+    await Promise.all([
+        User.findOneAndDelete({ id: uid }), 
+        Document.deleteMany({ userId: uid }), 
+        ChatLog.deleteMany({ userId: uid }), 
+        Lead.deleteMany({ userId: uid }),
+        DirectMessage.deleteMany({ $or: [{ senderId: uid }, { receiverId: uid }] })
+    ]);
     res.json({ success: true });
 });
 
