@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import ReactMarkdown from 'react-markdown';
 import { apiService } from '../services/apiService';
 import { ChatLog, User } from '../types';
 
@@ -377,9 +376,7 @@ const ChatHistory: React.FC<Props> = ({ user }) => {
                                         </div>
                                         <div>
                                             <div className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-700 px-5 py-4 rounded-[1.5rem] rounded-tl-none shadow-md text-sm font-medium leading-relaxed relative">
-                                                <div className="markdown-body">
-                                                    <ReactMarkdown>{log.answer}</ReactMarkdown>
-                                                </div>
+                                                <div className="markdown-body" dangerouslySetInnerHTML={{ __html: (log.answer || "").replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\\\*/g, '*').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>').replace(/\n/g, '<br />') }} />
                                             </div>
                                             <div className="flex items-center gap-2 mt-2 ml-2">
                                             {!log.isSolved && (

@@ -119,13 +119,14 @@ export const apiService = {
               headers: getAuthHeaders(),
               body: JSON.stringify({ email })
           });
-          if (!res.ok) throw new Error('Not found');
+          if (!res.ok) throw new Error(`Fetch failed with status ${res.status}`);
           return await res.json();
       } catch (e) {
+          console.error("findUserByEmail Error:", e);
           const db = getLocalDB();
           const user = db.users.find((u: any) => u.email === email);
           if (user) return { success: true, user: { id: user.id, email: user.email, role: user.role } };
-          return { success: false, message: 'Không tìm thấy người dùng (Offline)' };
+          return { success: false, message: 'Không tìm thấy người dùng (Offline/Lỗi Mạng)' };
       }
   },
 
@@ -133,10 +134,11 @@ export const apiService = {
       try {
           if (isOfflineMode) throw new Error('Offline');
           const res = await fetch(`${API_URL}/api/dm/conversations/${userId}`, { headers: getAuthHeaders() });
-          if (!res.ok) throw new Error('Failed');
+          if (!res.ok) throw new Error(`Fetch failed with status ${res.status}`);
           const data = await res.json();
           return Array.isArray(data) ? data : [];
       } catch (e) {
+          console.error("getConversations Error:", e);
           const db = getLocalDB();
           const msgs = db.directMessages.filter((m: any) => m.senderId === userId || m.receiverId === userId);
           const convMap = new Map<string, any>();
@@ -155,12 +157,11 @@ export const apiService = {
 
           const results = Array.from(convMap.entries()).map(([otherId, conv]) => {
             const user = db.users.find((u: any) => u.id === otherId);
-            if (!user) return null;
             const unreadCount = db.directMessages.filter((m: any) => m.senderId === otherId && m.receiverId === userId && !m.isRead).length;
             return {
-              id: user.id,
-              email: user.email,
-              role: user.role,
+              id: otherId,
+              email: user ? user.email : `Unknown User (${otherId.substring(0, 4)})`,
+              role: user ? user.role : 'user',
               lastMessage: conv.lastMessage,
               lastMessageTime: conv.lastMessageTime,
               unreadCount

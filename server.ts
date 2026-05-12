@@ -587,20 +587,24 @@ app.post('/api/dm/find', authenticateToken as any, async (req: AuthRequest, res:
 app.get('/api/dm/conversations/:userId', authenticateToken as any, async (req: AuthRequest, res: any) => {
     const { userId } = req.params;
     try {
-        const conversations = await DirectMessage.aggregate([
-            { $match: { $or: [{ senderId: userId }, { receiverId: userId }] } },
-            { $sort: { timestamp: -1 } },
-            {
-                $group: {
-                    _id: { $cond: { if: { $eq: ["$senderId", userId] }, then: "$receiverId", else: "$senderId" } },
-                    lastMessage: { $first: "$content" },
-                    lastMessageTime: { $first: "$timestamp" },
-                    type: { $first: "$type" },
-                    isRead: { $first: "$isRead" },
-                    senderId: { $first: "$senderId" }
-                }
+        const allMsgs = await DirectMessage.find({ $or: [{ senderId: userId }, { receiverId: userId }] }).sort({ timestamp: -1 }).lean();
+        
+        const convMap = new Map();
+        for (const msg of allMsgs) {
+            const otherId = msg.senderId === userId ? msg.receiverId : msg.senderId;
+            if (!convMap.has(otherId)) {
+                convMap.set(otherId, {
+                    _id: otherId,
+                    lastMessage: msg.content,
+                    lastMessageTime: msg.timestamp,
+                    type: msg.type,
+                    isRead: msg.isRead,
+                    senderId: msg.senderId
+                });
             }
-        ]);
+        }
+        
+        const conversations = Array.from(convMap.values());
         
         console.log(`Found ${conversations.length} convers for ${userId}`);
 
@@ -608,7 +612,7 @@ app.get('/api/dm/conversations/:userId', authenticateToken as any, async (req: A
             let user = await User.findOne({ id: conv._id }).select('id email role');
             const unreadCount = await DirectMessage.countDocuments({ senderId: conv._id, receiverId: userId, isRead: false });
             return {
-                id: conv._id, // Use conv._id even if user is missing
+                id: conv._id,
                 email: user ? user.email : `Unknown User (${conv._id})`,
                 role: user ? user.role : 'user',
                 lastMessage: conv.type === 'image' ? '[Hình ảnh]' : (conv.type === 'sticker' ? '[Sticker]' : conv.lastMessage),
@@ -617,7 +621,7 @@ app.get('/api/dm/conversations/:userId', authenticateToken as any, async (req: A
             };
         }));
 
-        res.json(results.filter(r => r !== null).sort((a: any, b: any) => b.lastMessageTime - a.lastMessageTime));
+        res.json(results.sort((a: any, b: any) => b.lastMessageTime - a.lastMessageTime));
     } catch(e) {
         console.error("error getting DM conversations", e);
         res.status(500).json([]);
