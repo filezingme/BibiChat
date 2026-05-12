@@ -622,6 +622,7 @@ app.get('/api/dm/conversations/:userId', authenticateToken as any, async (req: A
 
         const results = await Promise.all(conversations.map(async (conv) => {
             let user = await User.findOne({ id: conv._id }).select('id email role');
+            if (!user) console.log("User not found for ID in DB:", conv._id);
             const unreadCount = await DirectMessage.countDocuments({ senderId: conv._id, receiverId: userId, isRead: false });
             return {
                 id: conv._id,

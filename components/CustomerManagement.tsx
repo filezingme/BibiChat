@@ -6,7 +6,7 @@ import { User } from '../types';
 
 interface Props {
   onViewStats: (userId: string) => void;
-  onStartChat: (userId: string) => void; 
+  onStartChat: (userObj: {id: string, email: string}) => void; 
 }
 
 const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
@@ -229,7 +229,7 @@ const CustomerManagement: React.FC<Props> = ({ onViewStats, onStartChat }) => {
                       <div className="flex justify-end items-center gap-2">
                         {/* Chat Button */}
                         <button 
-                          onClick={() => onStartChat(customer.id)}
+                          onClick={() => onStartChat({id: customer.id, email: customer.email})}
                           className="w-10 h-10 flex items-center justify-center bg-teal-50 dark:bg-teal-900/20 text-teal-500 dark:text-teal-400 rounded-full hover:bg-teal-500 hover:text-white transition-all shadow-sm hover:scale-110 border border-teal-100 dark:border-transparent hover:border-teal-200"
                           title="Trò chuyện ngay"
                         >

@@ -8,6 +8,7 @@ import { User, ConversationUser, DirectMessage, Reaction } from '../types';
 interface Props {
   user: User;
   initialChatUserId?: string | null;
+  initialChatUserEmail?: string | null;
   onClearTargetUser?: () => void;
 }
 
@@ -222,7 +223,7 @@ type PendingImage = {
     file: File;
 };
 
-const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTargetUser }) => {
+const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, initialChatUserEmail, onClearTargetUser }) => {
   const [conversations, setConversations] = useState<ConversationUser[]>([]);
   const [activeChatUser, setActiveChatUser] = useState<ConversationUser | null>(null);
   const [messages, setMessages] = useState<DirectMessage[]>([]);
@@ -268,10 +269,15 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
           setConversations(prev => {
               const merged = [...fetchedConvs];
               
-              // Keep local unstarted conversations (those that we manually added but have no history yet)
+              // Merge with correctly known emails and unstarted conversations
               prev.forEach(p => {
-                  if (!merged.find(m => m.id === p.id) && !p.lastMessage) {
+                  const existingMsg = merged.find(m => m.id === p.id);
+                  if (!existingMsg && !p.lastMessage) {
                       merged.unshift(p);
+                  } else if (existingMsg && (existingMsg.email.includes('UNKNOWN') || existingMsg.email.includes('Unknown'))) {
+                      // Override the bad label with the explicitly known user object
+                      existingMsg.email = p.email;
+                      existingMsg.role = p.role;
                   }
               });
               
@@ -602,6 +608,12 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
               const res = await apiService.findUserById(initialChatUserId);
               if (res.success && res.user) {
                   target = { id: res.user.id, email: res.user.email, role: res.user.role, lastMessage: '', lastMessageTime: Date.now(), unreadCount: 0 };
+              } else if (initialChatUserEmail) {
+                  // Fallback if offline mode failed to find user but we got the email from props
+                  target = { id: initialChatUserId, email: initialChatUserEmail, role: 'user', lastMessage: '', lastMessageTime: Date.now(), unreadCount: 0 };
+              }
+              
+              if (target) {
                   setConversations(prev => {
                       if (!prev.find(p => p.id === target!.id)) {
                           return [target!, ...prev];

@@ -50,6 +50,7 @@ const App: React.FC = () => {
   
   // State for direct chat targeting
   const [chatTargetId, setChatTargetId] = useState<string | null>(null);
+  const [chatTargetEmail, setChatTargetEmail] = useState<string | null>(null);
 
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -385,10 +386,11 @@ const App: React.FC = () => {
     handleViewChange(View.DASHBOARD);
   };
 
-  const handleStartChat = (userId: string) => {
-      setChatTargetId(userId);
+  const handleStartChat = (userObj: {id: string, email: string}) => {
+      setChatTargetId(userObj.id);
+      setChatTargetEmail(userObj.email);
       const url = new URL(window.location.href);
-      url.searchParams.set('chatUser', userId);
+      url.searchParams.set('chatUser', userObj.id);
       window.history.pushState({}, '', url.toString());
       handleViewChange(View.DIRECT_MESSAGES);
   };
@@ -645,7 +647,7 @@ const App: React.FC = () => {
             {currentView === View.DEPLOYMENT_GUIDE && <DeploymentGuide />}
             {currentView === View.CUSTOMER_MANAGEMENT && currentUser?.role === 'master' && <CustomerManagement onViewStats={handleViewCustomerStats} onStartChat={handleStartChat} />}
              {currentView === View.NOTIFICATION_MANAGER && currentUser?.role === 'master' && <NotificationManager user={currentUser} />}
-             {currentView === View.DIRECT_MESSAGES && <CommunityChat user={currentUser!} initialChatUserId={chatTargetId} onClearTargetUser={() => setChatTargetId(null)} />}
+             {currentView === View.DIRECT_MESSAGES && <CommunityChat user={currentUser!} initialChatUserId={chatTargetId} initialChatUserEmail={chatTargetEmail} onClearTargetUser={() => { setChatTargetId(null); setChatTargetEmail(null); }} />}
           </div>
         </div>
       </main>

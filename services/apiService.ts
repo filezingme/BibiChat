@@ -176,7 +176,7 @@ export const apiService = {
             const unreadCount = db.directMessages.filter((m: any) => m.senderId === otherId && m.receiverId === userId && !m.isRead).length;
             return {
               id: otherId,
-              email: user ? user.email : `Unknown User (${otherId.substring(0, 4)})`,
+              email: user ? user.email : `CLIENT_OFFLINE_UNKNOWN (${otherId})`,
               role: user ? user.role : 'user',
               lastMessage: conv.lastMessage,
               lastMessageTime: conv.lastMessageTime,
