@@ -111,20 +111,36 @@ export const apiService = {
   },
 
   // --- DIRECT MESSAGING ---
+  findUserById: async (id: string): Promise<{ success: boolean, user?: {id: string, email: string, role: string}, message?: string }> => {
+      try {
+          if (isOfflineMode) throw new Error('Offline');
+          const res = await fetch(`${API_URL}/api/dm/user/${id}`, { headers: getAuthHeaders() });
+          if (!res.ok) throw new Error(`Fetch failed with status ${res.status}`);
+          return await res.json();
+      } catch (e) {
+          console.error("findUserById Error:", e);
+          const db = getLocalDB();
+          const user = db.users.find((u: any) => u.id === id);
+          if (user) return { success: true, user: { id: user.id, email: user.email, role: user.role } };
+          return { success: false, message: 'Không tìm thấy người dùng (Offline/Lỗi Mạng)' };
+      }
+  },
+
   findUserByEmail: async (email: string): Promise<{ success: boolean, user?: {id: string, email: string, role: string}, message?: string }> => {
       try {
           if (isOfflineMode) throw new Error('Offline');
           const res = await fetch(`${API_URL}/api/dm/find`, {
               method: 'POST',
               headers: getAuthHeaders(),
-              body: JSON.stringify({ email })
+              body: JSON.stringify({ email: email.trim().toLowerCase() })
           });
           if (!res.ok) throw new Error(`Fetch failed with status ${res.status}`);
           return await res.json();
       } catch (e) {
           console.error("findUserByEmail Error:", e);
           const db = getLocalDB();
-          const user = db.users.find((u: any) => u.email === email);
+          const cleanEmail = email.trim().toLowerCase();
+          const user = db.users.find((u: any) => u.email.trim().toLowerCase() === cleanEmail);
           if (user) return { success: true, user: { id: user.id, email: user.email, role: user.role } };
           return { success: false, message: 'Không tìm thấy người dùng (Offline/Lỗi Mạng)' };
       }

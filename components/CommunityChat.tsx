@@ -264,9 +264,20 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
 
   const loadConversations = async () => {
       try {
-          const convs = await apiService.getConversations(user.id);
-          setConversations(convs);
-          return convs;
+          const fetchedConvs = await apiService.getConversations(user.id);
+          setConversations(prev => {
+              const merged = [...fetchedConvs];
+              
+              // Keep local unstarted conversations (those that we manually added but have no history yet)
+              prev.forEach(p => {
+                  if (!merged.find(m => m.id === p.id) && !p.lastMessage) {
+                      merged.unshift(p);
+                  }
+              });
+              
+              return merged;
+          });
+          return fetchedConvs;
       } catch (error) {
           console.error("Failed to load conversations", error);
           return [];
@@ -582,13 +593,33 @@ const CommunityChat: React.FC<Props> = ({ user, initialChatUserId, onClearTarget
   }, [activeChatUser?.id]);
 
   useEffect(() => {
-      if (initialChatUserId && conversations.length > 0) {
-          const target = conversations.find(c => c.id === initialChatUserId);
+      const loadInitialUser = async () => {
+          if (!initialChatUserId) return;
+          
+          let target = conversations.find(c => c.id === initialChatUserId);
+          
+          if (!target) {
+              const res = await apiService.findUserById(initialChatUserId);
+              if (res.success && res.user) {
+                  target = { id: res.user.id, email: res.user.email, role: res.user.role, lastMessage: '', lastMessageTime: Date.now(), unreadCount: 0 };
+                  setConversations(prev => {
+                      if (!prev.find(p => p.id === target!.id)) {
+                          return [target!, ...prev];
+                      }
+                      return prev;
+                  });
+              }
+          }
+          
           if (target) {
               setActiveChatUser(target);
               updateChatUrl(target.id);
               if (onClearTargetUser) onClearTargetUser(); 
           }
+      };
+      
+      if (initialChatUserId) {
+          loadInitialUser();
       }
   }, [initialChatUserId, conversations]);
 

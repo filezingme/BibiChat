@@ -575,10 +575,22 @@ app.post('/api/upload/proxy', authenticateToken as any, upload.single('file') as
 
 // --- NEW DM ROUTES TO PREVENT CRASH ---
 
+// Find User for DM by ID
+app.get('/api/dm/user/:id', authenticateToken as any, async (req: AuthRequest, res: any) => {
+    const user = await User.findOne({ id: req.params.id }).select('id email role');
+    if (!user) return res.json({ success: false, message: 'User not found' });
+    res.json({ success: true, user });
+});
+
 // Find User for DM
 app.post('/api/dm/find', authenticateToken as any, async (req: AuthRequest, res: any) => {
-    const { email } = req.body;
-    const user = await User.findOne({ email }).select('id email role');
+    let { email } = req.body;
+    if (!email) return res.json({ success: false, message: 'Email required' });
+    email = email.trim().toLowerCase();
+    
+    // We want to do a case-insensitive exact match
+    const user = await User.findOne({ email: new RegExp('^' + email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') }).select('id email role');
+    
     if (!user) return res.json({ success: false, message: 'User not found' });
     res.json({ success: true, user });
 });
